@@ -67,7 +67,7 @@ From this directory, on your server:
 docker compose up -d --build
 ```
 
-Then visit `http://<your-server-ip>:8080`.
+Then visit `http://<your-server-ip>:9090`.
 
 To rebuild after copying in an updated `src/App.jsx` (e.g. a newer version
 from Claude):
@@ -86,7 +86,7 @@ docker compose down
 
 ```bash
 docker build -t ffb-draft-prep .
-docker run -d --name ffb-draft-prep -p 8080:3000 \
+docker run -d --name ffb-draft-prep -p 9090:3000 \
   -v ffb-data:/app/data --restart unless-stopped ffb-draft-prep
 ```
 

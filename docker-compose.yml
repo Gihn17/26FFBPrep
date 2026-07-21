@@ -3,7 +3,7 @@ services:
     build: .
     container_name: ffb-draft-prep
     ports:
-      - "8080:3000"
+      - "9090:3000"
     volumes:
       - ffb-data:/app/data
     restart: unless-stopped
