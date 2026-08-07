@@ -18,7 +18,12 @@ const userNameById = new Map(
   db.prepare("SELECT id, name FROM users").all().map((u) => [u.id, u.name])
 );
 
-const dump = { exported_at: new Date().toISOString(), tables: {} };
+// No top-level "exported at" timestamp here on purpose — it would change
+// on every run regardless of whether the data did, defeating
+// backup-and-push.sh's "only commit if something actually changed" check.
+// Git's own commit timestamp already answers "when"; per-row updated_at
+// columns below are real data (only change when that row does).
+const dump = { tables: {} };
 
 for (const t of tables) {
   const rows = db.prepare(`SELECT * FROM ${t}`).all();

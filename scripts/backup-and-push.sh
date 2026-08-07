@@ -9,12 +9,15 @@ cd "$(dirname "$0")/.."
 mkdir -p backups
 docker exec ffb-draft-prep node server/backup.js > backups/latest.json
 
-if git diff --quiet -- backups/latest.json; then
+# `git diff` alone misses a brand-new untracked file (first run ever) — add
+# first, then check the staged diff, so both "never committed" and "no
+# changes since last commit" are detected correctly.
+git add backups/latest.json
+if git diff --cached --quiet -- backups/latest.json; then
   echo "No data changes since last backup — nothing to commit."
   exit 0
 fi
 
-git add backups/latest.json
 git commit -m "Automated data backup $(date -u +%Y-%m-%dT%H:%M:%SZ)
 
 Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>"
