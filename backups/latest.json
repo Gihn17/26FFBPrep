@@ -1,0 +1,256 @@
+{
+  "exported_at": "2026-08-07T05:51:30.653Z",
+  "tables": {
+    "users": [
+      {
+        "id": 1,
+        "name": "Will",
+        "created_at": "2026-08-07 04:43:20"
+      }
+    ],
+    "leagues": [
+      {
+        "id": "koi",
+        "display_name": "Koi",
+        "draft_type": "auction",
+        "source_platform": "espn",
+        "source_league_id": "722037",
+        "source_team_id": "11",
+        "teams": 12,
+        "roster_spots": 15,
+        "auction_budget": 200,
+        "keeper_enabled": 1,
+        "keeper_max": 3,
+        "keeper_rule": "espn_dollar",
+        "replacement_qb": 15,
+        "replacement_rb": 60,
+        "replacement_wr": 66,
+        "replacement_te": 15,
+        "replacement_k": 12,
+        "replacement_def": 12,
+        "updated_at": "2026-08-07 05:49:54"
+      },
+      {
+        "id": "final",
+        "display_name": "Final Fantasy",
+        "draft_type": "snake",
+        "source_platform": "sleeper",
+        "source_league_id": "1380768612914073600",
+        "source_team_id": "5",
+        "teams": 12,
+        "roster_spots": 15,
+        "auction_budget": null,
+        "keeper_enabled": 1,
+        "keeper_max": 3,
+        "keeper_rule": "sleeper_round",
+        "replacement_qb": 15,
+        "replacement_rb": 47,
+        "replacement_wr": 55,
+        "replacement_te": 15,
+        "replacement_k": 12,
+        "replacement_def": 12,
+        "updated_at": "2026-08-07 05:49:54"
+      },
+      {
+        "id": "jordan",
+        "display_name": "Jordan's",
+        "draft_type": "snake",
+        "source_platform": "espn",
+        "source_league_id": null,
+        "source_team_id": null,
+        "teams": 10,
+        "roster_spots": null,
+        "auction_budget": null,
+        "keeper_enabled": 0,
+        "keeper_max": null,
+        "keeper_rule": null,
+        "replacement_qb": 13,
+        "replacement_rb": 47,
+        "replacement_wr": 49,
+        "replacement_te": 13,
+        "replacement_k": 10,
+        "replacement_def": 10,
+        "updated_at": "2026-08-07 05:49:54"
+      }
+    ],
+    "players": [],
+    "projections": [],
+    "keepers": [],
+    "draft_events": [],
+    "user_kv": [
+      {
+        "user_id": 1,
+        "key": "ffb-draft-state",
+        "value": {
+          "draftByLeague": {
+            "koi": {},
+            "final": {},
+            "jordan": {}
+          },
+          "notesOverride": {},
+          "managersByLeague": {
+            "koi": [
+              "Will"
+            ],
+            "final": [
+              "Will"
+            ],
+            "jordan": [
+              "Will"
+            ]
+          },
+          "teamsByLeague": {
+            "koi": 12,
+            "final": 12,
+            "jordan": 10
+          },
+          "rosterSpotsByLeague": {
+            "koi": 15,
+            "final": 15,
+            "jordan": 16
+          },
+          "curves": {
+            "RB": {
+              "rushAttTop": 290,
+              "rushAttSlope": 3,
+              "rushAttFloor": 35,
+              "rushYdsTop": 1350,
+              "rushYdsSlope": 15.2,
+              "rushYdsFloor": 140,
+              "rushTDTop": 11,
+              "rushTDSlope": 0.135,
+              "rushTDFloor": 0.5,
+              "recTop": 55,
+              "recSlope": 0.55,
+              "recFloor": 6,
+              "ydsPerRec": 7.6,
+              "recTDTop": 3,
+              "recTDSlope": 0.03,
+              "recTDFloor": 0,
+              "passCatchMult": 1.55,
+              "grinderRecMult": 0.55,
+              "grinderYdsMult": 0.6,
+              "grinderRushAttMult": 1.12,
+              "grinderRushYdsMult": 1.08
+            },
+            "WR": {
+              "targetsTop": 165,
+              "targetsSlope": 1.55,
+              "targetsFloor": 30,
+              "catchRate": 0.66,
+              "recYdsTop": 1450,
+              "recYdsSlope": 15.1,
+              "recYdsFloor": 230,
+              "recTDTop": 9,
+              "recTDSlope": 0.105,
+              "recTDFloor": 0.5
+            },
+            "TE": {
+              "targetsTop": 105,
+              "targetsSlope": 3,
+              "targetsFloor": 30,
+              "catchRate": 0.68,
+              "recYdsTop": 900,
+              "recYdsSlope": 30,
+              "recYdsFloor": 180,
+              "recTDTop": 6,
+              "recTDSlope": 0.18,
+              "recTDFloor": 0.5
+            },
+            "QBFallback": {
+              "passYdsTop": 3400,
+              "passYdsSlope": 15,
+              "passYdsFloor": 2800,
+              "passTDTop": 22,
+              "passTDSlope": 0.3,
+              "passTDFloor": 14,
+              "intTop": 10,
+              "intSlope": 0.1,
+              "intCeil": 16,
+              "rushYds": 150,
+              "rushTD": 1
+            },
+            "K": {
+              "top": 150,
+              "slope": 2.7,
+              "floor": 90
+            },
+            "DEF": {
+              "top": 145,
+              "slope": 3.4,
+              "floor": 70
+            }
+          },
+          "weights": {
+            "koi": {
+              "passYdsPerPt": 25,
+              "passTD": 4,
+              "intPenalty": 2,
+              "rushYdsPerPt": 10,
+              "rushTD": 6,
+              "rec": 0.5,
+              "recYdsPerPt": 10,
+              "recTD": 6,
+              "fumblePenalty": 2
+            },
+            "final": {
+              "passYdsPerPt": 25,
+              "passTD": 6,
+              "intPenalty": 4,
+              "rushYdsPerPt": 10,
+              "rushTD": 6,
+              "rec": 1,
+              "recYdsPerPt": 10,
+              "recTD": 6,
+              "fumblePenalty": 2
+            },
+            "jordan": {
+              "passYdsPerPt": 25,
+              "passTD": 6,
+              "intPenalty": 4,
+              "rushYdsPerPt": 10,
+              "rushTD": 6,
+              "rec": 1,
+              "recYdsPerPt": 10,
+              "recTD": 6,
+              "fumblePenalty": 2
+            }
+          },
+          "replacement": {
+            "koi": {
+              "QB": 15,
+              "RB": 60,
+              "WR": 66,
+              "TE": 15,
+              "K": 12,
+              "DEF": 12
+            },
+            "final": {
+              "QB": 15,
+              "RB": 47,
+              "WR": 55,
+              "TE": 15,
+              "K": 12,
+              "DEF": 12
+            },
+            "jordan": {
+              "QB": 13,
+              "RB": 47,
+              "WR": 49,
+              "TE": 13,
+              "K": 10,
+              "DEF": 10
+            }
+          },
+          "tierParams": {
+            "minGap": 4,
+            "pctGap": 0.14
+          },
+          "playerImports": {}
+        },
+        "updated_at": "2026-08-07 05:49:54",
+        "user": "Will"
+      }
+    ]
+  }
+}
