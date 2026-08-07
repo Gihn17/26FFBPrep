@@ -2,6 +2,8 @@ import express from "express";
 import path from "path";
 import fs from "fs";
 import { fileURLToPath } from "url";
+import { seedLeagues, getAllLeagues } from "./leagues.js";
+import { db, getOrCreateUser, listUsers } from "./db.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -10,75 +12,106 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, "..", "data");
 const DATA_FILE = path.join(DATA_DIR, "storage.json");
 
+// Only used for the one-time legacy migration below — the live storage
+// routes read/write the user_kv table instead (see server/db.js).
 function loadStore() {
   try {
     if (!fs.existsSync(DATA_FILE)) return {};
     return JSON.parse(fs.readFileSync(DATA_FILE, "utf8"));
   } catch (e) {
-    console.error("Could not read", DATA_FILE, "- starting with an empty store:", e.message);
+    console.error("Could not read", DATA_FILE, "- nothing to migrate:", e.message);
     return {};
   }
 }
 
-function saveStore(store) {
-  fs.mkdirSync(DATA_DIR, { recursive: true });
-  // write to a temp file then rename, so a crash mid-write can't corrupt the real file
-  const tmp = DATA_FILE + ".tmp";
-  fs.writeFileSync(tmp, JSON.stringify(store, null, 2));
-  fs.renameSync(tmp, DATA_FILE);
-}
+// Seeds/refreshes the leagues table from LEAGUE_DEFAULTS. Idempotent
+// upsert by id, safe to run on every boot.
+seedLeagues();
 
-let store = loadStore();
+// One-time migration: whatever used to live in the shared storage.json
+// (from before per-user KV) becomes Will's data — the default user this
+// app has always run as solo. Only fills gaps (never overwrites), so
+// it's safe to run on every boot even after the first migration.
+// storage.json itself is left on disk afterward, untouched — dead
+// legacy file, harmless.
+(function migrateLegacyStore() {
+  const legacy = loadStore();
+  const keys = Object.keys(legacy);
+  if (keys.length === 0) return;
+  const will = getOrCreateUser("Will");
+  const has = db.prepare("SELECT 1 FROM user_kv WHERE user_id = ? AND key = ?");
+  const insert = db.prepare("INSERT INTO user_kv (user_id, key, value) VALUES (?, ?, ?)");
+  for (const key of keys) {
+    if (has.get(will.id, key)) continue;
+    insert.run(will.id, key, legacy[key]);
+  }
+})();
 
 const app = express();
 app.use(express.json({ limit: "15mb" })); // draft boards + CSV imports can add up
 
-// --- Storage API (mirrors the shape App.jsx already expects from window.storage) ---
+// --- Users (no real auth — a name is enough, see server/db.js) ---
+app.get("/api/users", (req, res) => res.json(listUsers()));
+
+app.post("/api/users", (req, res) => {
+  try {
+    res.json(getOrCreateUser(req.body && req.body.name));
+  } catch (e) {
+    res.status(400).json({ error: e.message });
+  }
+});
+
+// --- Storage API (mirrors the shape App.jsx already expects from
+// window.storage), namespaced per user via ?user=<name> (default "Will"
+// so zero-setup solo use behaves exactly as before) ---
 const router = express.Router();
+
+router.use((req, res, next) => {
+  try {
+    req.user = getOrCreateUser(req.query.user || "Will");
+    next();
+  } catch (e) {
+    res.status(400).json({ error: e.message });
+  }
+});
 
 router.get("/", (req, res) => {
   const prefix = req.query.prefix || "";
-  const keys = Object.keys(store).filter((k) => k.startsWith(prefix));
-  res.json({ keys, prefix: req.query.prefix || null });
+  const rows = db.prepare("SELECT key FROM user_kv WHERE user_id = ? AND key LIKE ?")
+    .all(req.user.id, prefix + "%");
+  res.json({ keys: rows.map((r) => r.key), prefix: req.query.prefix || null });
 });
 
 router.get("/:key", (req, res) => {
-  const key = req.params.key;
-  if (!(key in store)) return res.status(404).json({ error: "not found" });
-  res.json({ key, value: store[key] });
+  const row = db.prepare("SELECT value FROM user_kv WHERE user_id = ? AND key = ?")
+    .get(req.user.id, req.params.key);
+  if (!row) return res.status(404).json({ error: "not found" });
+  res.json({ key: req.params.key, value: row.value });
 });
 
 router.put("/:key", (req, res) => {
-  const key = req.params.key;
   const value = req.body && req.body.value;
   if (typeof value !== "string") {
     return res.status(400).json({ error: "body must be JSON with a string 'value' field" });
   }
-  store[key] = value;
-  try {
-    saveStore(store);
-  } catch (e) {
-    console.error("Failed to persist storage file:", e.message);
-    return res.status(500).json({ error: "failed to save" });
-  }
-  res.json({ key, value });
+  db.prepare(`
+    INSERT INTO user_kv (user_id, key, value) VALUES (?, ?, ?)
+    ON CONFLICT(user_id, key) DO UPDATE SET value = excluded.value, updated_at = datetime('now')
+  `).run(req.user.id, req.params.key, value);
+  res.json({ key: req.params.key, value });
 });
 
 router.delete("/:key", (req, res) => {
-  const key = req.params.key;
-  delete store[key];
-  try {
-    saveStore(store);
-  } catch (e) {
-    console.error("Failed to persist storage file:", e.message);
-    return res.status(500).json({ error: "failed to save" });
-  }
-  res.json({ key, deleted: true });
+  db.prepare("DELETE FROM user_kv WHERE user_id = ? AND key = ?").run(req.user.id, req.params.key);
+  res.json({ key: req.params.key, deleted: true });
 });
 
 app.use("/api/storage", router);
 
 app.get("/api/health", (req, res) => res.json({ ok: true, dataFile: DATA_FILE }));
+
+// --- League config (teams/roster spots/replacement levels, per league) ---
+app.get("/api/leagues", (req, res) => res.json(getAllLeagues()));
 
 // --- Serve the built frontend ---
 const distDir = path.join(__dirname, "..", "dist");

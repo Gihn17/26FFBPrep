@@ -159,11 +159,37 @@ const DEFAULT_WEIGHTS = {
   final: { passYdsPerPt:25, passTD:6, intPenalty:4, rushYdsPerPt:10, rushTD:6, rec:1,   recYdsPerPt:10, recTD:6, fumblePenalty:2 },
   jordan:{ passYdsPerPt:25, passTD:6, intPenalty:4, rushYdsPerPt:10, rushTD:6, rec:1,   recYdsPerPt:10, recTD:6, fumblePenalty:2 },
 };
+// Fallback only — used before /api/leagues resolves (or if it fails).
+// The real source of truth is server/leagues.js; keep these in sync with
+// it so the fallback doesn't lie in the meantime.
 const DEFAULT_REPLACEMENT = {
   koi:   { QB:15, RB:60, WR:66, TE:15, K:12, DEF:12 },
   final: { QB:15, RB:47, WR:55, TE:15, K:12, DEF:12 },
-  jordan:{ QB:15, RB:47, WR:55, TE:15, K:12, DEF:12 },
+  jordan:{ QB:13, RB:47, WR:49, TE:13, K:10, DEF:10 },
 };
+const DEFAULT_TEAMS = { koi:12, final:12, jordan:10 };
+const DEFAULT_ROSTER_SPOTS = { koi:15, final:15, jordan:16 };
+
+/** /api/leagues rows use lowercase stat keys (qb/rb/wr/te/k/def, matching
+ *  the db schema); App.jsx's replacement state uses uppercase (QB/RB/...). */
+function replacementFromRow(row) {
+  if (!row || !row.replacement) return null;
+  const r = row.replacement;
+  return { QB:r.qb, RB:r.rb, WR:r.wr, TE:r.te, K:r.k, DEF:r.def };
+}
+/** Per-league teams/rosterSpots/replacement, preferring the fetched
+ *  /api/leagues config and falling back to the DEFAULT_* constants above
+ *  for any league not yet loaded (or if the fetch failed). */
+function baseLeagueParams(configs) {
+  const teams = {}, rosterSpots = {}, replacement = {};
+  for (const id of ["koi", "final", "jordan"]) {
+    const row = configs[id];
+    teams[id] = row?.teams ?? DEFAULT_TEAMS[id];
+    rosterSpots[id] = row?.roster_spots ?? DEFAULT_ROSTER_SPOTS[id];
+    replacement[id] = replacementFromRow(row) || DEFAULT_REPLACEMENT[id];
+  }
+  return { teams, rosterSpots, replacement };
+}
 const DEFAULT_TIER_PARAMS = { minGap:4, pctGap:0.14 };
 
 function genQBStats(rank, name, qbf) {
@@ -451,6 +477,59 @@ function normName(s) {
     .trim();
 }
 
+/* ============================================================
+   SLEEPER LIVE-DRAFT SYNC (Final Fantasy only) — read-only,
+   advisory sync against the manually-entered draft board.
+   There's no player-ID crosswalk yet (blocked on Will's UDK
+   export, see PROJECT_CONTEXT.md), so matching is by normalized
+   name + position — the same normName() already used for CSV-
+   import matching. DEF picks match by team abbreviation instead
+   (Sleeper's DEF pick metadata.team is already the same code the
+   pool uses, e.g. "BAL" — verified against real Sleeper data).
+   ============================================================ */
+function buildPoolMatchIndex(pool) {
+  const byNamePos = new Map();
+  const byDefTeam = new Map();
+  for (const p of pool) {
+    if (p.pos === "DEF") byDefTeam.set(p.team, p.id);
+    else byNamePos.set(normName(p.name) + "|" + p.pos, p.id);
+  }
+  return { byNamePos, byDefTeam };
+}
+function matchSleeperPick(pick, index) {
+  const meta = pick.metadata || {};
+  if (meta.position === "DEF") return index.byDefTeam.get(meta.team) ?? null;
+  const name = `${meta.first_name || ""} ${meta.last_name || ""}`.trim();
+  return index.byNamePos.get(normName(name) + "|" + meta.position) ?? null;
+}
+/** Compares fetched Sleeper picks against the current Final Fantasy draft
+ *  board. Never mutates anything — returns what the caller should do with
+ *  it, so this is testable independent of the polling/UI component. */
+function reconcileSleeperPicks(picks, index, currentDraft, managerNameFor, nameById) {
+  const patchMap = {};
+  const unmatched = [];
+  const conflicts = [];
+  for (const pick of picks) {
+    const id = matchSleeperPick(pick, index);
+    const managerName = managerNameFor(pick.roster_id) || `Sleeper roster ${pick.roster_id}`;
+    if (id == null) {
+      const meta = pick.metadata || {};
+      unmatched.push({ name: `${meta.first_name || ""} ${meta.last_name || ""}`.trim(), pos: meta.position, pickNo: pick.pick_no });
+      continue;
+    }
+    const existing = currentDraft[id];
+    if (!existing || !existing.drafted) {
+      patchMap[id] = { drafted:true, manager:managerName, paid:"", sleeperPickNo:pick.pick_no, sleeperRound:pick.round, syncedFromSleeper:true };
+    } else if (existing.syncedFromSleeper || existing.manager === managerName) {
+      if (existing.sleeperPickNo !== pick.pick_no || existing.manager !== managerName) {
+        patchMap[id] = { manager:managerName, sleeperPickNo:pick.pick_no, sleeperRound:pick.round, syncedFromSleeper:true };
+      }
+    } else {
+      conflicts.push({ id, name: (nameById && nameById[id]) || id, localManager: existing.manager, sleeperManager: managerName });
+    }
+  }
+  return { patchMap, unmatched, conflicts };
+}
 
 
 const OUTLOOK_STYLE = {
@@ -489,6 +568,7 @@ function CurveCard({ title, desc, fields, values, onSet }) {
 }
 
 export default function DraftPrepApp() {
+  const [users, setUsers] = useState([{ name: "Will" }]); // [{id,name}] — who can be picked in the header
   const [view, setView] = useState("koi"); // "koi" | "final" | "jordan" | "how"
   const [posFilter, setPosFilter] = useState("ALL");
   const [search, setSearch] = useState("");
@@ -498,8 +578,9 @@ export default function DraftPrepApp() {
   const [notesOverride, setNotesOverride] = useState({});
   const [managersByLeague, setManagersByLeague] = useState({ koi:["Will"], final:["Will"], jordan:["Will"] });
   const [managersTextByLeague, setManagersTextByLeague] = useState({ koi:"Will", final:"Will", jordan:"Will" });
-  const [teams, setTeams] = useState(10);
-  const [rosterSpots, setRosterSpots] = useState(16);
+  const [leagueConfigs, setLeagueConfigs] = useState({}); // id -> row from /api/leagues
+  const [teamsByLeague, setTeamsByLeague] = useState(DEFAULT_TEAMS);
+  const [rosterSpotsByLeague, setRosterSpotsByLeague] = useState(DEFAULT_ROSTER_SPOTS);
   const [curves, setCurves] = useState(DEFAULT_CURVES);
   const [weights, setWeights] = useState(DEFAULT_WEIGHTS);
   const [replacement, setReplacement] = useState(DEFAULT_REPLACEMENT);
@@ -510,9 +591,25 @@ export default function DraftPrepApp() {
   const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
+    fetch("/api/users").then(res => (res.ok ? res.json() : null)).then(list => {
+      if (list && list.length) setUsers(list);
+    }).catch(() => {}); // never blocks the app — solo/"Will" use works with no server round-trip
+  }, []);
+
+  useEffect(() => {
     (async () => {
+      const [d, leagueRows] = await Promise.all([
+        window.storage.get("ffb-draft-state").catch(() => null),
+        fetch("/api/leagues").then(res => (res.ok ? res.json() : [])).catch(() => []),
+      ]);
+
+      const configs = {};
+      for (const row of leagueRows || []) configs[row.id] = row;
+      setLeagueConfigs(configs);
+      const base = baseLeagueParams(configs);
+
+      let teamsOverride = null, rosterSpotsOverride = null, replacementOverride = null;
       try {
-        const d = await window.storage.get("ffb-draft-state");
         if (d && d.value) {
           const parsed = JSON.parse(d.value);
           let dbl = parsed.draftByLeague;
@@ -529,18 +626,19 @@ export default function DraftPrepApp() {
             final:(mbl.final||["Will"]).join(", "),
             jordan:(mbl.jordan||["Will"]).join(", "),
           });
-          setTeams(parsed.teams || 10);
-          setRosterSpots(parsed.rosterSpots || 16);
+          teamsOverride = parsed.teamsByLeague
+            // migrate from the old global teams/rosterSpots format — only Koi's
+            // settings panel ever exposed editing these, so a saved flat value
+            // becomes a Koi-specific override.
+            || (parsed.teams != null ? { koi: parsed.teams } : null);
+          rosterSpotsOverride = parsed.rosterSpotsByLeague
+            || (parsed.rosterSpots != null ? { koi: parsed.rosterSpots } : null);
+          replacementOverride = parsed.replacement || null;
           setCurves(parsed.curves || DEFAULT_CURVES);
           setWeights({
             koi: { ...DEFAULT_WEIGHTS.koi, ...((parsed.weights||{}).koi||{}) },
             final: { ...DEFAULT_WEIGHTS.final, ...((parsed.weights||{}).final||{}) },
             jordan: { ...DEFAULT_WEIGHTS.jordan, ...((parsed.weights||{}).jordan||{}) },
-          });
-          setReplacement({
-            koi: { ...DEFAULT_REPLACEMENT.koi, ...((parsed.replacement||{}).koi||{}) },
-            final: { ...DEFAULT_REPLACEMENT.final, ...((parsed.replacement||{}).final||{}) },
-            jordan: { ...DEFAULT_REPLACEMENT.jordan, ...((parsed.replacement||{}).jordan||{}) },
           });
           setTierParams(parsed.tierParams || DEFAULT_TIER_PARAMS);
           let pImp = parsed.playerImports;
@@ -559,6 +657,14 @@ export default function DraftPrepApp() {
           setPlayerImports(pImp || {});
         }
       } catch (e) { /* first run, no saved state */ }
+
+      setTeamsByLeague({ ...base.teams, ...(teamsOverride || {}) });
+      setRosterSpotsByLeague({ ...base.rosterSpots, ...(rosterSpotsOverride || {}) });
+      setReplacement({
+        koi: { ...base.replacement.koi, ...((replacementOverride||{}).koi||{}) },
+        final: { ...base.replacement.final, ...((replacementOverride||{}).final||{}) },
+        jordan: { ...base.replacement.jordan, ...((replacementOverride||{}).jordan||{}) },
+      });
       setLoaded(true);
     })();
   }, []);
@@ -566,11 +672,11 @@ export default function DraftPrepApp() {
   useEffect(() => {
     if (!loaded) return;
     const payload = JSON.stringify({
-      draftByLeague, notesOverride, managersByLeague, teams, rosterSpots,
+      draftByLeague, notesOverride, managersByLeague, teamsByLeague, rosterSpotsByLeague,
       curves, weights, replacement, tierParams, playerImports,
     });
     window.storage.set("ffb-draft-state", payload).catch(() => {});
-  }, [draftByLeague, notesOverride, managersByLeague, teams, rosterSpots, curves, weights, replacement, tierParams, playerImports, loaded]);
+  }, [draftByLeague, notesOverride, managersByLeague, teamsByLeague, rosterSpotsByLeague, curves, weights, replacement, tierParams, playerImports, loaded]);
 
   const pool = useMemo(() => buildPool(curves), [curves]);
   const poolFinal = useMemo(() => pool.map(p => {
@@ -615,9 +721,13 @@ export default function DraftPrepApp() {
     for (const id in playerImports) { if (playerImports[id].auction != null) o[id] = playerImports[id].auction; }
     return o;
   }, [playerImports]);
-  const auctionValues = useMemo(() => computeAuctionValues(poolFinal, koiFields, teams, rosterSpots, koiAuctionOverrides), [poolFinal, koiFields, teams, rosterSpots, koiAuctionOverrides]);
+  // Koi's is the only board with an auction, so its teams/rosterSpots are
+  // always what drive the $200/team pool math, regardless of which tab is active.
+  const auctionValues = useMemo(() => computeAuctionValues(poolFinal, koiFields, teamsByLeague.koi, rosterSpotsByLeague.koi, koiAuctionOverrides), [poolFinal, koiFields, teamsByLeague.koi, rosterSpotsByLeague.koi, koiAuctionOverrides]);
 
   const league = view === "how" ? "koi" : view;
+  const teams = teamsByLeague[league];
+  const rosterSpots = rosterSpotsByLeague[league];
   const fields = league === "koi" ? koiFields : league === "jordan" ? jordanFields : finalFields;
   const tiers = league === "koi" ? koiTiers : league === "jordan" ? jordanTiers : finalTiers;
   const draft = draftByLeague[league] || {};
@@ -692,6 +802,31 @@ export default function DraftPrepApp() {
     setManagersTextByLeague(all => ({ ...all, [league]: text }));
     setManagersByLeague(all => ({ ...all, [league]: text.split(",").map(s=>s.trim()).filter(Boolean) }));
   }, [league]);
+  // Sleeper sync always targets Final Fantasy specifically, regardless of
+  // which tab is currently active — unlike setDraftField/setManagersForLeague
+  // above, which close over whichever league the user is currently viewing.
+  const mergeSyncedFinalPicks = useCallback((patchMap) => {
+    setDraftByLeague(all => {
+      const cur = all.final || {};
+      const merged = { ...cur };
+      for (const id in patchMap) {
+        merged[id] = { ...(merged[id] || {drafted:false,manager:"",paid:""}), ...patchMap[id] };
+      }
+      return { ...all, final: merged };
+    });
+  }, []);
+  const addManagersForFinal = useCallback((names) => {
+    if (!names.length) return;
+    setManagersByLeague(all => {
+      const merged = [...new Set([...(all.final || []), ...names])];
+      return { ...all, final: merged };
+    });
+    setManagersTextByLeague(all => {
+      const curList = (all.final || "").split(",").map(s=>s.trim()).filter(Boolean);
+      const merged = [...new Set([...curList, ...names])];
+      return { ...all, final: merged.join(", ") };
+    });
+  }, []);
   const setNote = useCallback((id, patch, base) => {
     setNotesOverride(n => ({ ...n, [id]: { ...(n[id]||base), ...patch } }));
   }, []);
@@ -703,6 +838,12 @@ export default function DraftPrepApp() {
   }, []);
   const setRep = useCallback((lg, key, value) => {
     setReplacement(r => ({ ...r, [lg]: { ...r[lg], [key]: value } }));
+  }, []);
+  const setTeamsFor = useCallback((lg, value) => {
+    setTeamsByLeague(t => ({ ...t, [lg]: value }));
+  }, []);
+  const setRosterSpotsFor = useCallback((lg, value) => {
+    setRosterSpotsByLeague(r => ({ ...r, [lg]: value }));
   }, []);
   const applyImport = useCallback((overridesById) => {
     setPlayerImports(all => {
@@ -725,9 +866,11 @@ export default function DraftPrepApp() {
     setPlayerImports({});
   }, []);
   const resetAllCalcParams = () => {
-    if (confirm("Reset all projection curves, scoring weights, replacement levels, and tier settings back to defaults? This won't clear imported data.")) {
+    if (confirm("Reset all projection curves, scoring weights, replacement levels, and team/roster settings back to defaults? This won't clear imported data.")) {
+      const base = baseLeagueParams(leagueConfigs);
       setCurves(DEFAULT_CURVES); setWeights(DEFAULT_WEIGHTS);
-      setReplacement(DEFAULT_REPLACEMENT); setTierParams(DEFAULT_TIER_PARAMS);
+      setReplacement(base.replacement); setTierParams(DEFAULT_TIER_PARAMS);
+      setTeamsByLeague(base.teams); setRosterSpotsByLeague(base.rosterSpots);
     }
   };
 
@@ -783,14 +926,53 @@ export default function DraftPrepApp() {
           <div style={{ fontSize:11, letterSpacing:3, color:"#c9a227", fontWeight:700 }}>WILL'S FANTASY FOOTBALL</div>
           <h1 style={{ margin:"2px 0 0", fontSize:32, fontWeight:800, letterSpacing:0.5 }}>Draft Prep Board — 2026</h1>
         </div>
-        {view !== "how" && (
-          <div style={{ display:"flex", gap:8 }}>
-            <button onClick={()=>setShowSettings(s=>!s)} style={btnStyle()}>Settings</button>
-            <button onClick={exportCSV} style={btnStyle()}>Export CSV</button>
-            <button onClick={resetDraft} style={btnStyle("#3a1f1f","#c0453f")}>Reset Draft</button>
-          </div>
-        )}
+        <div style={{ display:"flex", gap:8, alignItems:"flex-end" }}>
+          <label style={{...lbl(), flexDirection:"row", alignItems:"center", gap:6}}>
+            <span style={{opacity:0.65}}>Viewing as</span>
+            <select
+              value={(typeof localStorage !== "undefined" && localStorage.getItem("ffb-user")) || "Will"}
+              onChange={async e => {
+                const val = e.target.value;
+                let name = val;
+                if (val === "__new__") {
+                  name = (prompt("New user's name?") || "").trim();
+                  if (!name) return;
+                  try {
+                    await fetch("/api/users", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ name }),
+                    });
+                  } catch (err) { /* server get-or-creates it on the next request anyway */ }
+                }
+                localStorage.setItem("ffb-user", name);
+                window.location.reload(); // simplest correct way to re-run every load effect against the new user
+              }}
+              style={inp(140)}
+            >
+              {users.map(u => <option key={u.id ?? u.name} value={u.name}>{u.name}</option>)}
+              <option value="__new__">+ New user…</option>
+            </select>
+          </label>
+          {view !== "how" && (
+            <div style={{ display:"flex", gap:8 }}>
+              <button onClick={()=>setShowSettings(s=>!s)} style={btnStyle()}>Settings</button>
+              <button onClick={exportCSV} style={btnStyle()}>Export CSV</button>
+              <button onClick={resetDraft} style={btnStyle("#3a1f1f","#c0453f")}>Reset Draft</button>
+            </div>
+          )}
+        </div>
       </div>
+
+      {league === "final" && view !== "how" && (
+        <SleeperSyncPanel
+          sourceLeagueId={leagueConfigs.final && leagueConfigs.final.source_league_id}
+          pool={poolFinal}
+          draft={draftByLeague.final || {}}
+          onMergePicks={mergeSyncedFinalPicks}
+          onAddManagers={addManagersForFinal}
+        />
+      )}
 
       {view !== "how" && showSettings && (
         <div style={panelStyle()}>
@@ -802,11 +984,11 @@ export default function DraftPrepApp() {
               <>
                 <label style={lbl()}>Koi teams
                   <input type="number" min="4" max="20" value={teams}
-                    onChange={e=>setTeams(Math.max(4,Number(e.target.value)||10))} style={inp(60)} />
+                    onChange={e=>setTeamsFor("koi", Math.max(4,Number(e.target.value)||DEFAULT_TEAMS.koi))} style={inp(60)} />
                 </label>
                 <label style={lbl()}>Roster spots/team
                   <input type="number" min="10" max="30" value={rosterSpots}
-                    onChange={e=>setRosterSpots(Math.max(10,Number(e.target.value)||16))} style={inp(60)} />
+                    onChange={e=>setRosterSpotsFor("koi", Math.max(10,Number(e.target.value)||DEFAULT_ROSTER_SPOTS.koi))} style={inp(60)} />
                 </label>
                 <label style={lbl()}>Auction pool
                   <div style={{...inp(90), display:"flex", alignItems:"center"}}>${teams*200}</div>
@@ -934,6 +1116,7 @@ export default function DraftPrepApp() {
                             <option value=""></option>
                             {managers.map(m => <option key={m} value={m}>{m}</option>)}
                           </select>
+                          {league==="final" && r.d.syncedFromSleeper && <sup style={badgeSup()} title="Auto-filled from Sleeper">SLP</sup>}
                         </td>
                         <td style={td()}>{r.risk || ""}</td>
                         <td style={td()}>{r.upside || ""}</td>
@@ -998,6 +1181,117 @@ export default function DraftPrepApp() {
             "Calculations" tab. Owners, drafted marks, and prices are tracked separately per board.
           </div>
         </>
+      )}
+    </div>
+  );
+}
+
+const SLEEPER_API = "https://api.sleeper.app/v1";
+
+/** Read-only, advisory sync against Sleeper's live Final Fantasy draft —
+ *  see PROJECT_CONTEXT.md's "Platform sync strategy" and the design notes
+ *  above reconcileSleeperPicks(). Never blocks manual entry: every fetch
+ *  is caught and degrades to a status message, nothing throws upward. */
+function SleeperSyncPanel({ sourceLeagueId, pool, draft, onMergePicks, onAddManagers }) {
+  const [draftId, setDraftId] = useState(null);
+  const [managerByRoster, setManagerByRoster] = useState(new Map());
+  const [status, setStatus] = useState("idle"); // 'idle' | 'loading' | 'error'
+  const [error, setError] = useState(null);
+  const [lastSynced, setLastSynced] = useState(null);
+  const [unmatched, setUnmatched] = useState([]);
+  const [conflicts, setConflicts] = useState([]);
+  const [autoSync, setAutoSync] = useState(true);
+
+  // Resolve the current draft_id + manager names once we know the league.
+  useEffect(() => {
+    if (!sourceLeagueId) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const [drafts, rosters, users] = await Promise.all([
+          fetch(`${SLEEPER_API}/league/${sourceLeagueId}/drafts`).then(r => r.json()),
+          fetch(`${SLEEPER_API}/league/${sourceLeagueId}/rosters`).then(r => r.json()),
+          fetch(`${SLEEPER_API}/league/${sourceLeagueId}/users`).then(r => r.json()),
+        ]);
+        if (cancelled) return;
+        const userById = new Map((users || []).map(u => [u.user_id, u]));
+        const byRoster = new Map();
+        for (const r of rosters || []) {
+          const u = userById.get(r.owner_id);
+          const name = (u && (u.metadata?.team_name || u.display_name)) || `Sleeper roster ${r.roster_id}`;
+          byRoster.set(r.roster_id, name);
+        }
+        setManagerByRoster(byRoster);
+        onAddManagers([...new Set(byRoster.values())]);
+        const d = Array.isArray(drafts) ? drafts[0] : null;
+        setDraftId(d ? d.draft_id : null);
+        if (!d) setError("No draft found for this league yet");
+      } catch (e) {
+        if (!cancelled) setError("Couldn't reach Sleeper (league setup): " + e.message);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [sourceLeagueId]);
+
+  const sync = useCallback(async () => {
+    if (!draftId) return;
+    setStatus("loading");
+    try {
+      const picks = await fetch(`${SLEEPER_API}/draft/${draftId}/picks`).then(r => r.json());
+      const index = buildPoolMatchIndex(pool);
+      const nameById = {};
+      for (const p of pool) nameById[p.id] = p.name;
+      const { patchMap, unmatched, conflicts } = reconcileSleeperPicks(
+        Array.isArray(picks) ? picks : [], index, draft, (rid) => managerByRoster.get(rid), nameById
+      );
+      if (Object.keys(patchMap).length) onMergePicks(patchMap);
+      setUnmatched(unmatched);
+      setConflicts(conflicts);
+      setLastSynced(new Date());
+      setStatus("idle");
+      setError(null);
+    } catch (e) {
+      setStatus("error");
+      setError("Sync failed: " + e.message);
+    }
+  }, [draftId, pool, draft, managerByRoster, onMergePicks]);
+
+  useEffect(() => {
+    if (!draftId || !autoSync) return;
+    sync();
+    const interval = setInterval(sync, 15000);
+    return () => clearInterval(interval);
+  }, [draftId, autoSync, sync]);
+
+  const statusText = !sourceLeagueId ? "Waiting on league config…"
+    : !draftId ? (error || "Resolving draft…")
+    : status === "loading" ? "Syncing…"
+    : error ? error
+    : lastSynced ? `Last synced ${lastSynced.toLocaleTimeString()}` : "Not synced yet";
+
+  return (
+    <div style={{...panelStyle(), marginBottom:14, display:"flex", flexDirection:"column", gap:8}}>
+      <div style={{ display:"flex", alignItems:"center", gap:10, flexWrap:"wrap" }}>
+        <div style={{ fontSize:11, fontWeight:700, letterSpacing:0.5, color:"#c9a227", textTransform:"uppercase" }}>
+          Sleeper Sync
+        </div>
+        <div style={{ fontSize:12, opacity:0.75 }}>{statusText}</div>
+        <button onClick={sync} disabled={!draftId} style={btnStyle()}>Sync now</button>
+        <label style={{ fontSize:12, display:"flex", alignItems:"center", gap:4, opacity:0.85 }}>
+          <input type="checkbox" checked={autoSync} onChange={e=>setAutoSync(e.target.checked)} /> auto (15s)
+        </label>
+      </div>
+      {conflicts.length > 0 && (
+        <div style={{ fontSize:12, color:"#e08a8a" }}>
+          {conflicts.length} conflict{conflicts.length>1?"s":""} — Sleeper disagrees with a manual entry, not overwritten:{" "}
+          {conflicts.map(c => `${c.name} (local: ${c.localManager || "—"}, Sleeper: ${c.sleeperManager})`).join("; ")}
+        </div>
+      )}
+      {unmatched.length > 0 && (
+        <div style={{ fontSize:12, color:"#c9a227" }}>
+          {unmatched.length} Sleeper pick{unmatched.length>1?"s":""} couldn't be auto-matched — mark manually:{" "}
+          {unmatched.map(u => `${u.name || "?"} (${u.pos})`).join(", ")}
+        </div>
       )}
     </div>
   );
@@ -1161,8 +1455,7 @@ function ImportPanel({ pool, playerImports, onApplyImport, onClearImport }) {
 
   const guessMap = (headers) => {
     const findCol = (patterns) => {
-      const i = headers.findIndex(h => patterns.some(p => h.toLowerCase().replace(/[^a-z0-9]/g,"").includes(p)));
-      return i >= 0 ? headers[i] : "";
+      return headers.findIndex(h => patterns.some(p => h.toLowerCase().replace(/[^a-z0-9]/g,"").includes(p)));
     };
     return {
       name: findCol(["player","name"]),
@@ -1214,18 +1507,9 @@ function ImportPanel({ pool, playerImports, onApplyImport, onClearImport }) {
     let matched = 0;
     const importTimestamp = new Date().toISOString();
     for (const batch of batches) {
-      const idx = (name) => name ? batch.headers.indexOf(name) : -1;
-      const nameCol = idx(batch.map.name);
-      if (nameCol < 0) continue;
-      const cols = {
-        passYds: idx(batch.map.passYds), passTD: idx(batch.map.passTD), INT: idx(batch.map.INT),
-        rushYds: idx(batch.map.rushYds), rushTD: idx(batch.map.rushTD),
-        rec: idx(batch.map.rec), recYds: idx(batch.map.recYds), recTD: idx(batch.map.recTD),
-        fumbles: idx(batch.map.fumbles),
-        koiPoints: idx(batch.map.koiPoints), finalPoints: idx(batch.map.finalPoints), auction: idx(batch.map.auction),
-        tier: idx(batch.map.tier), posRank: idx(batch.map.posRank), risk: idx(batch.map.risk),
-        upside: idx(batch.map.upside), outlook: idx(batch.map.outlook), bye: idx(batch.map.bye),
-      };
+      const nameCol = batch.map.name;
+      if (nameCol == null || nameCol < 0) continue;
+      const cols = batch.map;
       const num = (row, i) => {
         if (i < 0 || row[i] == null) return null;
         const v = parseFloat(String(row[i]).replace(/[^0-9.\-]/g,""));
@@ -1403,12 +1687,19 @@ function ImportPanel({ pool, playerImports, onApplyImport, onClearImport }) {
   );
 }
 function ColMap({ label, value, set, headers, compact }) {
+  const counts = {};
+  for (const h of headers) counts[h] = (counts[h] || 0) + 1;
+  const seen = {};
   return (
     <label style={{ display:"flex", flexDirection:"column", gap:2, fontSize:11, opacity:0.85, width: compact ? 150 : "100%", marginBottom: compact ? 0 : 6 }}>
       <span style={{ opacity:0.65 }}>{label}</span>
-      <select value={value} onChange={e=>set(e.target.value)} style={inp("100%")}>
+      <select value={value != null && value >= 0 ? value : ""} onChange={e=>set(e.target.value === "" ? -1 : Number(e.target.value))} style={inp("100%")}>
         <option value="">— none —</option>
-        {headers.map(h => <option key={h} value={h}>{h}</option>)}
+        {headers.map((h, i) => {
+          seen[h] = (seen[h] || 0) + 1;
+          const displayLabel = counts[h] > 1 ? `${h} (col ${i + 1}, "${h}" #${seen[h]})` : h;
+          return <option key={i} value={i}>{displayLabel}</option>;
+        })}
       </select>
     </label>
   );

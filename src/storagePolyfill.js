@@ -17,10 +17,26 @@
 if (typeof window !== "undefined" && !window.storage) {
   const BASE = "/api/storage";
 
+  // Which person is using this browser — per-device, so localStorage
+  // (not the server-side KV this polyfill talks to) is the right place
+  // for it. Defaults to "Will", matching server/db.js's seeded default
+  // user, so solo/zero-setup use behaves exactly as before.
+  function currentUser() {
+    try {
+      return localStorage.getItem("ffb-user") || "Will";
+    } catch (e) {
+      return "Will";
+    }
+  }
+  function withUser(url) {
+    const sep = url.includes("?") ? "&" : "?";
+    return `${url}${sep}user=${encodeURIComponent(currentUser())}`;
+  }
+
   window.storage = {
     async get(key) {
       try {
-        const res = await fetch(`${BASE}/${encodeURIComponent(key)}`);
+        const res = await fetch(withUser(`${BASE}/${encodeURIComponent(key)}`));
         if (res.status === 404) return null;
         if (!res.ok) return null;
         const data = await res.json();
@@ -31,7 +47,7 @@ if (typeof window !== "undefined" && !window.storage) {
     },
     async set(key, value) {
       try {
-        const res = await fetch(`${BASE}/${encodeURIComponent(key)}`, {
+        const res = await fetch(withUser(`${BASE}/${encodeURIComponent(key)}`), {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ value }),
@@ -45,7 +61,7 @@ if (typeof window !== "undefined" && !window.storage) {
     },
     async delete(key) {
       try {
-        const res = await fetch(`${BASE}/${encodeURIComponent(key)}`, { method: "DELETE" });
+        const res = await fetch(withUser(`${BASE}/${encodeURIComponent(key)}`), { method: "DELETE" });
         if (!res.ok) return null;
         return { key, deleted: true, shared: false };
       } catch (e) {
@@ -55,7 +71,7 @@ if (typeof window !== "undefined" && !window.storage) {
     async list(prefixArg) {
       try {
         const url = prefixArg ? `${BASE}?prefix=${encodeURIComponent(prefixArg)}` : BASE;
-        const res = await fetch(url);
+        const res = await fetch(withUser(url));
         if (!res.ok) return null;
         const data = await res.json();
         return { keys: data.keys, prefix: prefixArg, shared: false };
