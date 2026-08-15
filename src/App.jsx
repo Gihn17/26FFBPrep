@@ -875,7 +875,7 @@ export default function DraftPrepApp() {
           </label>
           {BOARD_TABS.includes(view) && (
             <div style={{ display:"flex", gap:8 }}>
-              <button onClick={()=>setShowBudgets(s=>!s)} style={btnStyle()}>Team Budgets</button>
+              {view === "koi" && <button onClick={()=>setShowBudgets(s=>!s)} style={btnStyle()}>Team Budgets</button>}
               <button onClick={exportCSV} style={btnStyle()}>Export CSV</button>
               <button onClick={resetDraft} style={btnStyle("#3a1f1f","#c0453f")}>Reset Draft</button>
             </div>
@@ -893,8 +893,8 @@ export default function DraftPrepApp() {
         />
       )}
 
-      {BOARD_TABS.includes(view) && showBudgets && (
-        <TeamBudgetsPanel league={league} managers={managers} draft={draft} pool={pool} rosterSpots={rosterSpots} />
+      {view === "koi" && showBudgets && (
+        <TeamBudgetsPanel managers={managers} draft={draft} pool={pool} rosterSpots={rosterSpots} />
       )}
 
       <div style={{ display:"flex", gap:8, marginBottom:14, flexWrap:"wrap" }}>
@@ -1080,14 +1080,13 @@ export default function DraftPrepApp() {
 }
 
 /* ============================================================
-   TEAM BUDGETS — per-manager remaining budget (Koi's $200 auction)
-   and roster construction (all three boards), read live off
-   draftByLeague. Nothing computed here is stored — it's a summary
-   view over the same drafted/manager/paid data the table already
-   shows per player, just grouped the other way.
+   TEAM BUDGETS — Koi's $200 auction only (the only board with a
+   budget to track); read live off draftByLeague. Nothing computed
+   here is stored — it's a summary view over the same drafted/
+   manager/paid data the table already shows per player, just
+   grouped the other way.
    ============================================================ */
-function TeamBudgetsPanel({ league, managers, draft, pool, rosterSpots }) {
-  const isAuction = league === "koi";
+function TeamBudgetsPanel({ managers, draft, pool, rosterSpots }) {
   const posById = useMemo(() => {
     const m = {};
     for (const p of pool) m[p.id] = p.pos;
@@ -1097,21 +1096,21 @@ function TeamBudgetsPanel({ league, managers, draft, pool, rosterSpots }) {
   const rows = useMemo(() => {
     return managers.map(manager => {
       const picks = Object.entries(draft).filter(([, d]) => d && d.drafted && d.manager === manager);
-      const spent = isAuction ? picks.reduce((s, [, d]) => s + Number(d.paid || 0), 0) : 0;
+      const spent = picks.reduce((s, [, d]) => s + Number(d.paid || 0), 0);
       const filled = picks.length;
       const spotsLeft = Math.max(0, rosterSpots - filled);
       // Max bid = what's left after reserving $1 for every OTHER open spot —
       // the number that actually matters mid-auction, not raw remaining budget.
-      const remaining = isAuction ? Math.max(0, 200 - spent) : null;
-      const maxBid = isAuction ? Math.max(0, remaining - Math.max(0, spotsLeft - 1)) : null;
+      const remaining = Math.max(0, 200 - spent);
+      const maxBid = Math.max(0, remaining - Math.max(0, spotsLeft - 1));
       const posCounts = {};
       for (const [id] of picks) {
         const pos = posById[id];
         if (pos) posCounts[pos] = (posCounts[pos] || 0) + 1;
       }
       return { manager, spent, filled, spotsLeft, remaining, maxBid, posCounts };
-    }).sort((a, b) => isAuction ? b.remaining - a.remaining : b.filled - a.filled);
-  }, [managers, draft, posById, rosterSpots, isAuction]);
+    }).sort((a, b) => b.remaining - a.remaining);
+  }, [managers, draft, posById, rosterSpots]);
 
   return (
     <div style={panelStyle()}>
@@ -1123,9 +1122,9 @@ function TeamBudgetsPanel({ league, managers, draft, pool, rosterSpots }) {
           <thead>
             <tr style={{ opacity:0.65, textAlign:"left" }}>
               <th style={{padding:"4px 10px"}}>Manager</th>
-              {isAuction && <th style={{padding:"4px 10px"}}>Spent</th>}
-              {isAuction && <th style={{padding:"4px 10px"}}>Remaining</th>}
-              {isAuction && <th style={{padding:"4px 10px"}}>Max Bid</th>}
+              <th style={{padding:"4px 10px"}}>Spent</th>
+              <th style={{padding:"4px 10px"}}>Remaining</th>
+              <th style={{padding:"4px 10px"}}>Max Bid</th>
               <th style={{padding:"4px 10px"}}>Roster</th>
               {["QB","RB","WR","TE","K","DEF"].map(pos => <th key={pos} style={{padding:"4px 10px", color:POS_COLORS[pos]}}>{pos}</th>)}
             </tr>
@@ -1134,9 +1133,9 @@ function TeamBudgetsPanel({ league, managers, draft, pool, rosterSpots }) {
             {rows.map(r => (
               <tr key={r.manager}>
                 <td style={{padding:"4px 10px", fontWeight:700}}>{r.manager}</td>
-                {isAuction && <td style={{padding:"4px 10px"}}>${r.spent}</td>}
-                {isAuction && <td style={{padding:"4px 10px", color: r.remaining <= 20 ? "#e08a8a" : "#7fd18f"}}>${r.remaining}</td>}
-                {isAuction && <td style={{padding:"4px 10px", fontWeight:700}}>${r.maxBid}</td>}
+                <td style={{padding:"4px 10px"}}>${r.spent}</td>
+                <td style={{padding:"4px 10px", color: r.remaining <= 20 ? "#e08a8a" : "#7fd18f"}}>${r.remaining}</td>
+                <td style={{padding:"4px 10px", fontWeight:700}}>${r.maxBid}</td>
                 <td style={{padding:"4px 10px"}}>{r.filled} / {rosterSpots}</td>
                 {["QB","RB","WR","TE","K","DEF"].map(pos => (
                   <td key={pos} style={{padding:"4px 10px", opacity: r.posCounts[pos] ? 1 : 0.35}}>{r.posCounts[pos]||0}</td>
@@ -1146,12 +1145,10 @@ function TeamBudgetsPanel({ league, managers, draft, pool, rosterSpots }) {
           </tbody>
         </table>
       </div>
-      {isAuction && (
-        <div style={{ fontSize:11, opacity:0.55, marginTop:10 }}>
-          Max Bid = remaining budget minus $1 reserved for every other open roster spot — what a team could
-          actually spend on one player right now, not just raw dollars left.
-        </div>
-      )}
+      <div style={{ fontSize:11, opacity:0.55, marginTop:10 }}>
+        Max Bid = remaining budget minus $1 reserved for every other open roster spot — what a team could
+        actually spend on one player right now, not just raw dollars left.
+      </div>
     </div>
   );
 }
