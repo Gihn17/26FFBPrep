@@ -455,6 +455,7 @@ export default function DraftPrepApp() {
   const [tierParams, setTierParams] = useState(DEFAULT_TIER_PARAMS);
   const [playerImports, setPlayerImports] = useState({}); // id -> {statsOverride, flatPtsOverride, koiPoints, finalPoints, auction}
   const [expanded, setExpanded] = useState(null);
+  const [showBudgets, setShowBudgets] = useState(false);
   const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
@@ -722,29 +723,30 @@ export default function DraftPrepApp() {
     setManagersTextByLeague(all => ({ ...all, [lg]: text }));
     setManagersByLeague(all => ({ ...all, [lg]: text.split(",").map(s=>s.trim()).filter(Boolean) }));
   }, []);
-  // Sleeper sync always targets Final Fantasy specifically, regardless of
-  // which tab is currently active — unlike setDraftField above, which
-  // closes over whichever league the user is currently viewing.
-  const mergeSyncedFinalPicks = useCallback((patchMap) => {
+  // Takes an explicit league (not closed over the active tab) — used by
+  // Sleeper sync (always targets Final Fantasy, regardless of which tab is
+  // active) and by the Keeper import on the Settings tab (targets whichever
+  // league the import is scoped to, shown all at once there like managers).
+  const mergePicksForLeague = useCallback((lg, patchMap) => {
     setDraftByLeague(all => {
-      const cur = all.final || {};
+      const cur = all[lg] || {};
       const merged = { ...cur };
       for (const id in patchMap) {
         merged[id] = { ...(merged[id] || {drafted:false,manager:"",paid:""}), ...patchMap[id] };
       }
-      return { ...all, final: merged };
+      return { ...all, [lg]: merged };
     });
   }, []);
-  const addManagersForFinal = useCallback((names) => {
+  const addManagersForLeague = useCallback((lg, names) => {
     if (!names.length) return;
     setManagersByLeague(all => {
-      const merged = [...new Set([...(all.final || []), ...names])];
-      return { ...all, final: merged };
+      const merged = [...new Set([...(all[lg] || []), ...names])];
+      return { ...all, [lg]: merged };
     });
     setManagersTextByLeague(all => {
-      const curList = (all.final || "").split(",").map(s=>s.trim()).filter(Boolean);
+      const curList = (all[lg] || "").split(",").map(s=>s.trim()).filter(Boolean);
       const merged = [...new Set([...curList, ...names])];
-      return { ...all, final: merged.join(", ") };
+      return { ...all, [lg]: merged.join(", ") };
     });
   }, []);
   const setNote = useCallback((id, patch, base) => {
@@ -873,6 +875,7 @@ export default function DraftPrepApp() {
           </label>
           {BOARD_TABS.includes(view) && (
             <div style={{ display:"flex", gap:8 }}>
+              <button onClick={()=>setShowBudgets(s=>!s)} style={btnStyle()}>Team Budgets</button>
               <button onClick={exportCSV} style={btnStyle()}>Export CSV</button>
               <button onClick={resetDraft} style={btnStyle("#3a1f1f","#c0453f")}>Reset Draft</button>
             </div>
@@ -885,9 +888,13 @@ export default function DraftPrepApp() {
           sourceLeagueId={leagueConfigs.final && leagueConfigs.final.source_league_id}
           pool={poolFinal}
           draft={draftByLeague.final || {}}
-          onMergePicks={mergeSyncedFinalPicks}
-          onAddManagers={addManagersForFinal}
+          onMergePicks={(patchMap) => mergePicksForLeague("final", patchMap)}
+          onAddManagers={(names) => addManagersForLeague("final", names)}
         />
+      )}
+
+      {BOARD_TABS.includes(view) && showBudgets && (
+        <TeamBudgetsPanel league={league} managers={managers} draft={draft} pool={pool} rosterSpots={rosterSpots} />
       )}
 
       <div style={{ display:"flex", gap:8, marginBottom:14, flexWrap:"wrap" }}>
@@ -924,6 +931,9 @@ export default function DraftPrepApp() {
           teamsByLeague={teamsByLeague} rosterSpotsByLeague={rosterSpotsByLeague}
           setTeamsFor={setTeamsFor} setRosterSpotsFor={setRosterSpotsFor}
           managersTextByLeague={managersTextByLeague} setManagersForLeague={setManagersForLeague}
+          pool={pool} draftByLeague={draftByLeague}
+          onApplyKeepers={(lg, patchMap, newManagers) => { mergePicksForLeague(lg, patchMap); addManagersForLeague(lg, newManagers); }}
+          canEditKeepers={currentUserName === "Will"}
         />
       ) : (
         <>
@@ -997,6 +1007,7 @@ export default function DraftPrepApp() {
                             {managers.map(m => <option key={m} value={m}>{m}</option>)}
                           </select>
                           {league==="final" && r.d.syncedFromSleeper && <sup style={badgeSup()} title="Auto-filled from Sleeper">SLP</sup>}
+                          {r.d.viaKeeper && <sup style={badgeSup()} title="Assigned via keeper import">KEEP</sup>}
                         </td>
                         <td style={td()}>{r.risk || ""}</td>
                         <td style={td()}>{r.upside || ""}</td>
@@ -1063,6 +1074,83 @@ export default function DraftPrepApp() {
             and prices are tracked separately per board.
           </div>
         </>
+      )}
+    </div>
+  );
+}
+
+/* ============================================================
+   TEAM BUDGETS — per-manager remaining budget (Koi's $200 auction)
+   and roster construction (all three boards), read live off
+   draftByLeague. Nothing computed here is stored — it's a summary
+   view over the same drafted/manager/paid data the table already
+   shows per player, just grouped the other way.
+   ============================================================ */
+function TeamBudgetsPanel({ league, managers, draft, pool, rosterSpots }) {
+  const isAuction = league === "koi";
+  const posById = useMemo(() => {
+    const m = {};
+    for (const p of pool) m[p.id] = p.pos;
+    return m;
+  }, [pool]);
+
+  const rows = useMemo(() => {
+    return managers.map(manager => {
+      const picks = Object.entries(draft).filter(([, d]) => d && d.drafted && d.manager === manager);
+      const spent = isAuction ? picks.reduce((s, [, d]) => s + Number(d.paid || 0), 0) : 0;
+      const filled = picks.length;
+      const spotsLeft = Math.max(0, rosterSpots - filled);
+      // Max bid = what's left after reserving $1 for every OTHER open spot —
+      // the number that actually matters mid-auction, not raw remaining budget.
+      const remaining = isAuction ? Math.max(0, 200 - spent) : null;
+      const maxBid = isAuction ? Math.max(0, remaining - Math.max(0, spotsLeft - 1)) : null;
+      const posCounts = {};
+      for (const [id] of picks) {
+        const pos = posById[id];
+        if (pos) posCounts[pos] = (posCounts[pos] || 0) + 1;
+      }
+      return { manager, spent, filled, spotsLeft, remaining, maxBid, posCounts };
+    }).sort((a, b) => isAuction ? b.remaining - a.remaining : b.filled - a.filled);
+  }, [managers, draft, posById, rosterSpots, isAuction]);
+
+  return (
+    <div style={panelStyle()}>
+      <div style={{ fontSize:11, fontWeight:700, letterSpacing:0.5, color:"#c9a227", marginBottom:10, textTransform:"uppercase" }}>
+        Team Budgets
+      </div>
+      <div style={{ overflowX:"auto" }}>
+        <table style={{ width:"100%", fontSize:12.5, whiteSpace:"nowrap" }}>
+          <thead>
+            <tr style={{ opacity:0.65, textAlign:"left" }}>
+              <th style={{padding:"4px 10px"}}>Manager</th>
+              {isAuction && <th style={{padding:"4px 10px"}}>Spent</th>}
+              {isAuction && <th style={{padding:"4px 10px"}}>Remaining</th>}
+              {isAuction && <th style={{padding:"4px 10px"}}>Max Bid</th>}
+              <th style={{padding:"4px 10px"}}>Roster</th>
+              {["QB","RB","WR","TE","K","DEF"].map(pos => <th key={pos} style={{padding:"4px 10px", color:POS_COLORS[pos]}}>{pos}</th>)}
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map(r => (
+              <tr key={r.manager}>
+                <td style={{padding:"4px 10px", fontWeight:700}}>{r.manager}</td>
+                {isAuction && <td style={{padding:"4px 10px"}}>${r.spent}</td>}
+                {isAuction && <td style={{padding:"4px 10px", color: r.remaining <= 20 ? "#e08a8a" : "#7fd18f"}}>${r.remaining}</td>}
+                {isAuction && <td style={{padding:"4px 10px", fontWeight:700}}>${r.maxBid}</td>}
+                <td style={{padding:"4px 10px"}}>{r.filled} / {rosterSpots}</td>
+                {["QB","RB","WR","TE","K","DEF"].map(pos => (
+                  <td key={pos} style={{padding:"4px 10px", opacity: r.posCounts[pos] ? 1 : 0.35}}>{r.posCounts[pos]||0}</td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      {isAuction && (
+        <div style={{ fontSize:11, opacity:0.55, marginTop:10 }}>
+          Max Bid = remaining budget minus $1 reserved for every other open roster spot — what a team could
+          actually spend on one player right now, not just raw dollars left.
+        </div>
       )}
     </div>
   );
@@ -1184,7 +1272,8 @@ function SleeperSyncPanel({ sourceLeagueId, pool, draft, onMergePicks, onAddMana
    settings), deliberately separate from the draft/research board
    so opening it never shifts or clutters that view.
    ============================================================ */
-function SettingsTab({ users, toggleUserTab, teamsByLeague, rosterSpotsByLeague, setTeamsFor, setRosterSpotsFor, managersTextByLeague, setManagersForLeague }) {
+function SettingsTab({ users, toggleUserTab, teamsByLeague, rosterSpotsByLeague, setTeamsFor, setRosterSpotsFor, managersTextByLeague, setManagersForLeague, pool, draftByLeague, onApplyKeepers, canEditKeepers }) {
+  const [keeperLeague, setKeeperLeague] = useState("koi");
   return (
     <div style={{ display:"flex", flexDirection:"column", gap:16 }}>
       <div style={panelStyle()}>
@@ -1255,6 +1344,17 @@ function SettingsTab({ users, toggleUserTab, teamsByLeague, rosterSpotsByLeague,
           </div>
         );
       })}
+
+      <div style={panelStyle()}>
+        <div style={{ fontSize:11, fontWeight:700, letterSpacing:0.5, color:"#c9a227", marginBottom:10, textTransform:"uppercase" }}>
+          Keepers — bulk-apply a preseason keeper list to a board
+        </div>
+        <KeeperImportPanel
+          league={keeperLeague} setLeague={setKeeperLeague}
+          pool={pool} draftByLeague={draftByLeague}
+          onApplyKeepers={onApplyKeepers} canEdit={canEditKeepers}
+        />
+      </div>
 
       <div style={{ fontSize:12, opacity:0.65, lineHeight:1.5 }}>
         Want to see or tweak the actual VBD/scoring/projection math? Open the
@@ -1366,6 +1466,183 @@ function MethodologyTab({ weights, setWeight, replacement, setRep, tierParams, s
             $ rather than $1 — there's a real difference between "worth the floor" and "not evaluated yet."
             Change teams/roster spots from the Koi board's Settings panel — that's what actually drives this pool.
           </p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ============================================================
+   KEEPER IMPORT — bulk-apply a preseason keeper list (player,
+   manager, value) to a specific league's draft board. Reuses the
+   exact same draftByLeague shape as manual entry and Sleeper sync
+   (drafted/manager/paid) — a keeper is just a pick that happened
+   before the draft, pre-filled rather than typed in live. This
+   doesn't compute what a keeper SHOULD cost (server/keepers.js has
+   that formula, not wired to a UI yet) — it applies costs you've
+   already decided.
+   ============================================================ */
+function KeeperImportPanel({ league, setLeague, pool, draftByLeague, onApplyKeepers, canEdit }) {
+  const [pasteText, setPasteText] = useState("");
+  const [headers, setHeaders] = useState([]);
+  const [rows, setRows] = useState([]);
+  const [map, setMap] = useState({ name: -1, manager: -1, value: -1 });
+  const [result, setResult] = useState(null);
+
+  const nameIndex = useMemo(() => {
+    const idx = {};
+    for (const p of pool) idx[normName(p.name)] = p;
+    return idx;
+  }, [pool]);
+
+  const loadText = (text) => {
+    const parsed = parseCSV(text).filter(r => r.some(c => c.trim() !== ""));
+    if (!parsed.length) return;
+    const hdrs = parsed[0];
+    const findCol = (patterns) => hdrs.findIndex(h => patterns.some(p => h.toLowerCase().replace(/[^a-z0-9]/g,"").includes(p)));
+    setHeaders(hdrs);
+    setRows(parsed.slice(1));
+    setMap({
+      name: findCol(["player","name"]),
+      manager: findCol(["manager","owner","team"]),
+      value: findCol(["value","price","paid","cost","amount","$"]),
+    });
+    setResult(null);
+  };
+  const addFile = (fileList) => {
+    const file = fileList[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (e) => loadText(String(e.target.result || ""));
+    reader.readAsText(file);
+  };
+  const updateMap = (key, value) => setMap(m => ({ ...m, [key]: value }));
+
+  const preview = useMemo(() => {
+    if (map.name < 0) return [];
+    const leagueDraft = draftByLeague[league] || {};
+    return rows.map(row => {
+      const rawName = row[map.name];
+      const player = rawName ? nameIndex[normName(rawName)] : null;
+      const manager = map.manager >= 0 ? String(row[map.manager] || "").trim() : "";
+      const valueRaw = map.value >= 0 ? row[map.value] : null;
+      const value = valueRaw != null && String(valueRaw).trim() !== ""
+        ? parseFloat(String(valueRaw).replace(/[^0-9.\-]/g,"")) : null;
+      const existing = player ? leagueDraft[player.id] : null;
+      return { rawName, player, manager, value, alreadyDrafted: !!(existing && existing.drafted && !existing.viaKeeper) };
+    });
+  }, [rows, map, nameIndex, draftByLeague, league]);
+
+  const validRows = preview.filter(r => r.player && r.manager);
+  const unmatchedRows = preview.filter(r => rows.length && !r.player && (map.name >= 0));
+  const conflictRows = validRows.filter(r => r.alreadyDrafted);
+
+  const apply = () => {
+    const patchMap = {};
+    const newManagers = [];
+    for (const r of validRows) {
+      patchMap[r.player.id] = {
+        drafted: true, manager: r.manager,
+        paid: r.value != null ? String(r.value) : "",
+        viaKeeper: true,
+      };
+      if (!newManagers.includes(r.manager)) newManagers.push(r.manager);
+    }
+    onApplyKeepers(league, patchMap, newManagers);
+    setResult({ applied: validRows.length });
+    setPasteText(""); setHeaders([]); setRows([]);
+  };
+
+  return (
+    <div>
+      <p style={pText()}>
+        Import a preseason keeper list — one row per kept player, with who they belong to and what they cost
+        (dollar value for Koi, whatever your league tracks for a snake draft — it's stored either way, just
+        only shown as a $ on the Koi board). <b>Apply Keepers</b> marks each matched player drafted, assigns
+        the manager, sets the price, and adds any new manager names to this league's owner list — exactly as
+        if you'd entered them by hand. This is for applying costs you've already decided, not calculating them.
+      </p>
+
+      <div style={{ display:"flex", gap:12, alignItems:"center", marginBottom:14, flexWrap:"wrap" }}>
+        <label style={lbl()}>League
+          <select value={league} onChange={e=>setLeague(e.target.value)} style={inp(160)}>
+            <option value="koi">Koi</option>
+            <option value="final">Final Fantasy</option>
+            <option value="jordan">Jordan</option>
+          </select>
+        </label>
+      </div>
+
+      {!canEdit && (
+        <div style={{ ...pText(), background:"#181910", border:"1px solid #2a2c20", borderRadius:8, padding:12, marginBottom:14 }}>
+          Only <b style={{color:"#f0d97a"}}>Will</b> can apply a keeper list — everyone else sees the resulting
+          board once it's applied.
+        </div>
+      )}
+
+      {canEdit && (
+        <>
+          <div style={{ display:"flex", gap:12, alignItems:"center", flexWrap:"wrap", marginBottom:14 }}>
+            <label style={{...btnStyle("#20211a","#c9a227"), display:"inline-block", cursor:"pointer"}}>
+              + Add file
+              <input type="file" accept=".csv,text/csv" onChange={e => e.target.files.length && addFile(e.target.files)}
+                style={{ display:"none" }} />
+            </label>
+            <span style={{ fontSize:11, opacity:0.5 }}>or paste CSV below</span>
+          </div>
+          <div style={{ display:"flex", gap:8, marginBottom:18 }}>
+            <textarea value={pasteText} onChange={e=>setPasteText(e.target.value)}
+              placeholder="Player,Manager,Value&#10;Nico Collins,Will,42&#10;Kyren Williams,Sarah,38"
+              rows={3} style={{...ta(), flex:1}} />
+            <button onClick={()=>{ if (pasteText.trim()) loadText(pasteText); }} style={btnStyle()}>Load</button>
+          </div>
+
+          {headers.length > 0 && (
+            <div style={{ background:"#0f100b", border:"1px solid #262819", borderRadius:8, padding:12, marginBottom:14 }}>
+              <div style={{ display:"flex", flexWrap:"wrap", gap:8, marginBottom:12 }}>
+                <ColMap label="Player name" value={map.name} set={v=>updateMap("name",v)} headers={headers} compact />
+                <ColMap label="Manager" value={map.manager} set={v=>updateMap("manager",v)} headers={headers} compact />
+                <ColMap label="Value" value={map.value} set={v=>updateMap("value",v)} headers={headers} compact />
+              </div>
+
+              <div style={{ fontSize:12, marginBottom:8 }}>
+                <b style={{color:"#7fd18f"}}>{validRows.length}</b> matched
+                {unmatchedRows.length > 0 && <> · <b style={{color:"#e08a8a"}}>{unmatchedRows.length}</b> unmatched:{" "}
+                  {unmatchedRows.map(r=>r.rawName).join(", ")}</>}
+              </div>
+              {conflictRows.length > 0 && (
+                <div style={{ fontSize:12, color:"#c9a227", marginBottom:8 }}>
+                  {conflictRows.length} already marked drafted by someone else — applying will overwrite:{" "}
+                  {conflictRows.map(r=>`${r.player.name} (currently ${draftByLeague[league][r.player.id].manager || "?"})`).join(", ")}
+                </div>
+              )}
+              <table style={{ width:"100%", fontSize:12, marginBottom:12 }}>
+                <thead>
+                  <tr style={{ opacity:0.6, textAlign:"left" }}>
+                    <th style={{padding:"2px 6px"}}>Player</th><th style={{padding:"2px 6px"}}>Manager</th><th style={{padding:"2px 6px"}}>Value</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {preview.map((r,i) => (
+                    <tr key={i} style={{ opacity: r.player && r.manager ? 1 : 0.5 }}>
+                      <td style={{padding:"2px 6px"}}>{r.player ? r.player.name : `${r.rawName} (no match)`}</td>
+                      <td style={{padding:"2px 6px"}}>{r.manager || "—"}</td>
+                      <td style={{padding:"2px 6px"}}>{r.value != null ? r.value : "—"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              <button onClick={apply} disabled={!validRows.length} style={btnStyle("#20211a","#c9a227")}>
+                Apply Keepers ({validRows.length})
+              </button>
+            </div>
+          )}
+        </>
+      )}
+
+      {result && (
+        <div style={{ fontSize:12.5, color:"#7fd18f", fontWeight:700 }}>
+          Applied {result.applied} keeper{result.applied===1?"":"s"} to the {LEAGUE_LABELS[league] || league} board.
         </div>
       )}
     </div>
