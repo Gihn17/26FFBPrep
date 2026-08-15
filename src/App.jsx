@@ -104,56 +104,11 @@ const RAW = {
   ],
 };
 
-/* Archetype tags nudge the synthetic stat curve toward reality */
-const MOBILE_QB = {
-  "Josh Allen":[750,7],"Joe Burrow":[150,2],"Lamar Jackson":[800,5],"Dak Prescott":[250,2],
-  "Drake Maye":[450,4],"Patrick Mahomes":[300,2],"Justin Herbert":[250,2],"Trevor Lawrence":[400,3],
-  "Jayden Daniels":[700,6],"Jared Goff":[50,0],"Jalen Hurts":[650,12],"Brock Purdy":[200,2],
-  "Matthew Stafford":[60,1],"Caleb Williams":[500,4],"Bo Nix":[350,4],"Jaxson Dart":[420,4],
-  "Baker Mayfield":[250,3],"Jordan Love":[350,3],"Sam Darnold":[220,2],"C.J. Stroud":[220,2],
-  "Tyler Shough":[150,1],"Kyler Murray":[500,4],"Daniel Jones":[450,3],"Malik Willis":[320,3],
-  "Bryce Young":[350,2],
-};
-const QB_PASS = {
-  "Josh Allen":[4000,28,12],"Joe Burrow":[4600,38,11],"Lamar Jackson":[3600,28,7],
-  "Dak Prescott":[4100,28,10],"Drake Maye":[3900,26,11],"Patrick Mahomes":[4300,30,10],
-  "Justin Herbert":[4200,27,9],"Trevor Lawrence":[4000,26,11],"Jayden Daniels":[3600,24,9],
-  "Jared Goff":[4300,27,9],"Jalen Hurts":[3400,19,8],"Brock Purdy":[3900,24,10],
-  "Matthew Stafford":[4100,26,10],"Caleb Williams":[3700,22,11],"Bo Nix":[3900,26,10],
-  "Jaxson Dart":[3400,19,11],"Baker Mayfield":[3900,24,12],"Jordan Love":[3700,22,11],
-  "Sam Darnold":[3600,22,12],"C.J. Stroud":[3600,21,11],"Tyler Shough":[3300,18,12],
-  "Kyler Murray":[3400,20,9],"Daniel Jones":[3300,18,12],"Malik Willis":[3000,16,12],
-  "Bryce Young":[3300,17,13],
-};
-const RB_PASS_CATCH = new Set(["Christian McCaffrey","Alvin Kamara","De'Von Achane","Bucky Irving","James Cook III","Kyren Williams","Rachaad White","Breece Hall","Javonte Williams","Chase Brown","Jahmyr Gibbs"]);
-const RB_GRINDER = new Set(["Derrick Henry","Jonathan Taylor","Josh Jacobs","Quinshon Judkins","David Montgomery","Chuba Hubbard","Tony Pollard"]);
-
 /* ============================================================
    DEFAULT ADJUSTABLE PARAMETERS
    Everything below drives the projections/VBD/tiers/auction math
    and is editable live from the "Calculations" tab.
    ============================================================ */
-const DEFAULT_CURVES = {
-  RB: { rushAttTop:290, rushAttSlope:3.0, rushAttFloor:35,
-        rushYdsTop:1350, rushYdsSlope:15.2, rushYdsFloor:140,
-        rushTDTop:11, rushTDSlope:0.135, rushTDFloor:0.5,
-        recTop:55, recSlope:0.55, recFloor:6, ydsPerRec:7.6,
-        recTDTop:3, recTDSlope:0.03, recTDFloor:0,
-        passCatchMult:1.55, grinderRecMult:0.55, grinderYdsMult:0.6,
-        grinderRushAttMult:1.12, grinderRushYdsMult:1.08 },
-  WR: { targetsTop:165, targetsSlope:1.55, targetsFloor:30, catchRate:0.66,
-        recYdsTop:1450, recYdsSlope:15.1, recYdsFloor:230,
-        recTDTop:9, recTDSlope:0.105, recTDFloor:0.5 },
-  TE: { targetsTop:105, targetsSlope:3, targetsFloor:30, catchRate:0.68,
-        recYdsTop:900, recYdsSlope:30, recYdsFloor:180,
-        recTDTop:6, recTDSlope:0.18, recTDFloor:0.5 },
-  QBFallback: { passYdsTop:3400, passYdsSlope:15, passYdsFloor:2800,
-        passTDTop:22, passTDSlope:0.3, passTDFloor:14,
-        intTop:10, intSlope:0.1, intCeil:16,
-        rushYds:150, rushTD:1 },
-  K: { top:150, slope:2.7, floor:90 },
-  DEF: { top:145, slope:3.4, floor:70 },
-};
 const DEFAULT_WEIGHTS = {
   koi:   { passYdsPerPt:25, passTD:4, intPenalty:2, rushYdsPerPt:10, rushTD:6, rec:0.5, recYdsPerPt:10, recTD:6, fumblePenalty:2 },
   final: { passYdsPerPt:25, passTD:6, intPenalty:4, rushYdsPerPt:10, rushTD:6, rec:1,   recYdsPerPt:10, recTD:6, fumblePenalty:2 },
@@ -191,51 +146,6 @@ function baseLeagueParams(configs) {
   return { teams, rosterSpots, replacement };
 }
 const DEFAULT_TIER_PARAMS = { minGap:4, pctGap:0.14 };
-
-function genQBStats(rank, name, qbf) {
-  const fallback = [
-    Math.max(qbf.passYdsFloor, qbf.passYdsTop - qbf.passYdsSlope*(rank-1)),
-    Math.max(qbf.passTDFloor, qbf.passTDTop - qbf.passTDSlope*(rank-1)),
-    Math.min(qbf.intCeil, qbf.intTop + qbf.intSlope*(rank-1)),
-  ];
-  const [passYds, passTD, INT] = QB_PASS[name] || fallback;
-  const [rushYds, rushTD] = MOBILE_QB[name] || [qbf.rushYds, qbf.rushTD];
-  return { passYds, passTD, INT, rushAtt:0, rushYds, rushTD, rec:0, recYds:0, recTD:0, fumbles:0 };
-}
-function genRBStats(rank, name, c) {
-  let rushAtt = Math.max(c.rushAttFloor, c.rushAttTop - c.rushAttSlope*(rank-1));
-  let rushYds = Math.max(c.rushYdsFloor, c.rushYdsTop - c.rushYdsSlope*(rank-1));
-  let rushTD = Math.max(c.rushTDFloor, c.rushTDTop - c.rushTDSlope*(rank-1));
-  let rec = Math.max(c.recFloor, c.recTop - c.recSlope*(rank-1));
-  let recYds = rec * c.ydsPerRec;
-  let recTD = Math.max(c.recTDFloor, c.recTDTop - c.recTDSlope*(rank-1));
-  if (RB_PASS_CATCH.has(name)) { rec *= c.passCatchMult; recYds *= c.passCatchMult; }
-  if (RB_GRINDER.has(name)) {
-    rec *= c.grinderRecMult; recYds *= c.grinderYdsMult;
-    rushAtt *= c.grinderRushAttMult; rushYds *= c.grinderRushYdsMult;
-  }
-  return { passYds:0,passTD:0,INT:0, rushAtt:Math.round(rushAtt), rushYds:Math.round(rushYds),
-    rushTD:Math.round(rushTD*10)/10, rec:Math.round(rec), recYds:Math.round(recYds), recTD:Math.round(recTD*10)/10, fumbles:0 };
-}
-function genWRStats(rank, c) {
-  const targets = Math.max(c.targetsFloor, c.targetsTop - c.targetsSlope*(rank-1));
-  const rec = targets * c.catchRate;
-  const recYds = Math.max(c.recYdsFloor, c.recYdsTop - c.recYdsSlope*(rank-1));
-  const recTD = Math.max(c.recTDFloor, c.recTDTop - c.recTDSlope*(rank-1));
-  return { passYds:0,passTD:0,INT:0, rushAtt:0,rushYds:0,rushTD:0,
-    rec:Math.round(rec), recYds:Math.round(recYds), recTD:Math.round(recTD*10)/10, fumbles:0 };
-}
-function genTEStats(rank, c) {
-  const targets = Math.max(c.targetsFloor, c.targetsTop - c.targetsSlope*(rank-1));
-  const rec = targets * c.catchRate;
-  const recYds = Math.max(c.recYdsFloor, c.recYdsTop - c.recYdsSlope*(rank-1));
-  const recTD = Math.max(c.recTDFloor, c.recTDTop - c.recTDSlope*(rank-1));
-  return { passYds:0,passTD:0,INT:0, rushAtt:0,rushYds:0,rushTD:0,
-    rec:Math.round(rec), recYds:Math.round(recYds), recTD:Math.round(recTD*10)/10, fumbles:0 };
-}
-function genFlatPoints(rank, c) {
-  return Math.max(c.floor, Math.round((c.top - c.slope*(rank-1))*10)/10);
-}
 
 /* ============================================================
    SCORING ENGINE — one formula, weights swapped per league
@@ -347,25 +257,20 @@ function noteFor(pos, name, rank) {
 }
 
 /* ============================================================
-   BUILD PLAYER POOL — regenerated whenever curve params change
+   BUILD PLAYER POOL — no synthetic stats. Every player starts
+   blank (stats/flatPts null) until a real projection is imported
+   via the CSV import panel; see computeLeagueFields below for how
+   that blank is carried through points/VBD/tier/auction.
    ============================================================ */
-function buildPool(curves) {
+function buildPool() {
   const players = [];
   let uid = 1;
   for (const pos of ["QB","RB","WR","TE","K","DEF"]) {
     for (const [rank, name, team, bye] of RAW[pos]) {
-      let stats = null, flatPts = null;
-      if (pos === "QB") stats = genQBStats(rank, name, curves.QBFallback);
-      else if (pos === "RB") stats = genRBStats(rank, name, curves.RB);
-      else if (pos === "WR") stats = genWRStats(rank, curves.WR);
-      else if (pos === "TE") stats = genTEStats(rank, curves.TE);
-      else if (pos === "K") flatPts = genFlatPoints(rank, curves.K);
-      else if (pos === "DEF") flatPts = genFlatPoints(rank, curves.DEF);
-
       const [pos1, neg1, outlook1] = noteFor(pos, name, rank);
       players.push({
         id: uid++, pos, name, team, bye, adpRank: rank,
-        stats, flatPts,
+        stats: null, flatPts: null,
         note: { pos: pos1, neg: neg1, outlook: outlook1 },
       });
     }
@@ -383,20 +288,35 @@ function computeLeagueFields(players, weights, rep, overrides) {
     if (ov && ov.points != null) {
       ptsById[p.id] = ov.points;
       importedById[p.id] = true;
+    } else if (p.pos === "K" || p.pos === "DEF") {
+      // No synthetic flat-points curve anymore — blank until a points column is imported.
+      ptsById[p.id] = p.flatPts != null ? p.flatPts : null;
+      importedById[p.id] = false;
+    } else if (p.stats) {
+      // Only reachable via an imported raw-stat line (statsOverride) — there's no
+      // synthetic stat generator to fall back to anymore.
+      ptsById[p.id] = Math.round(scorePoints(p.stats, weights)*10)/10;
+      importedById[p.id] = false;
     } else {
-      ptsById[p.id] = (p.pos==="K"||p.pos==="DEF") ? p.flatPts : Math.round(scorePoints(p.stats, weights)*10)/10;
+      ptsById[p.id] = null;
       importedById[p.id] = false;
     }
   }
   const out = {};
   for (const pos of Object.keys(byPos)) {
-    const list = [...byPos[pos]].sort((a,b) => ptsById[b.id]-ptsById[a.id]);
+    // Only players with a real projection participate in position rank/VBD/replacement —
+    // a blank projection has no meaningful value yet, so it's excluded rather than
+    // ranked last with a fabricated score.
+    const list = [...byPos[pos]].filter(p => ptsById[p.id] != null).sort((a,b) => ptsById[b.id]-ptsById[a.id]);
     const repIdx = Math.min(rep[pos]||1, list.length) - 1;
-    const repPts = list[repIdx] ? ptsById[list[repIdx].id] : ptsById[list[list.length-1].id];
+    const repPts = list.length ? (list[repIdx] ? ptsById[list[repIdx].id] : ptsById[list[list.length-1].id]) : null;
     list.forEach((p, i) => {
       const vbd = Math.round((ptsById[p.id]-repPts)*10)/10;
       out[p.id] = { posRank: i+1, vbd, pts: ptsById[p.id], imported: importedById[p.id] };
     });
+    for (const p of byPos[pos]) {
+      if (!(p.id in out)) out[p.id] = { posRank: null, vbd: null, pts: null, imported: false };
+    }
   }
   return out;
 }
@@ -406,7 +326,7 @@ function computeTiers(players, fields, tierParams) {
   for (const p of players) (byPos[p.pos] = byPos[p.pos] || []).push(p);
   const tiers = {};
   for (const pos of Object.keys(byPos)) {
-    const list = [...byPos[pos]].sort((a,b) => fields[b.id].vbd - fields[a.id].vbd);
+    const list = [...byPos[pos]].filter(p => fields[p.id].vbd != null).sort((a,b) => fields[b.id].vbd - fields[a.id].vbd);
     let tier = 1;
     list.forEach((p, i) => {
       if (i > 0) {
@@ -418,6 +338,7 @@ function computeTiers(players, fields, tierParams) {
       }
       tiers[p.id] = tier;
     });
+    for (const p of byPos[pos]) { if (!(p.id in tiers)) tiers[p.id] = null; }
   }
   return tiers;
 }
@@ -434,6 +355,7 @@ function computeAuctionValues(players, fields, teams, rosterSpots, auctionOverri
   const values = {};
   for (const p of players) {
     if (hasOverride(p.id)) { values[p.id] = auctionOverrides[p.id]; continue; }
+    if (fields[p.id].vbd == null) { values[p.id] = null; continue; }
     if (fields[p.id].vbd > 0) {
       values[p.id] = Math.max(1, Math.round(1 + (fields[p.id].vbd/sumVbd)*remaining));
     } else {
@@ -581,7 +503,6 @@ export default function DraftPrepApp() {
   const [leagueConfigs, setLeagueConfigs] = useState({}); // id -> row from /api/leagues
   const [teamsByLeague, setTeamsByLeague] = useState(DEFAULT_TEAMS);
   const [rosterSpotsByLeague, setRosterSpotsByLeague] = useState(DEFAULT_ROSTER_SPOTS);
-  const [curves, setCurves] = useState(DEFAULT_CURVES);
   const [weights, setWeights] = useState(DEFAULT_WEIGHTS);
   const [replacement, setReplacement] = useState(DEFAULT_REPLACEMENT);
   const [tierParams, setTierParams] = useState(DEFAULT_TIER_PARAMS);
@@ -634,7 +555,6 @@ export default function DraftPrepApp() {
           rosterSpotsOverride = parsed.rosterSpotsByLeague
             || (parsed.rosterSpots != null ? { koi: parsed.rosterSpots } : null);
           replacementOverride = parsed.replacement || null;
-          setCurves(parsed.curves || DEFAULT_CURVES);
           setWeights({
             koi: { ...DEFAULT_WEIGHTS.koi, ...((parsed.weights||{}).koi||{}) },
             final: { ...DEFAULT_WEIGHTS.final, ...((parsed.weights||{}).final||{}) },
@@ -673,12 +593,12 @@ export default function DraftPrepApp() {
     if (!loaded) return;
     const payload = JSON.stringify({
       draftByLeague, notesOverride, managersByLeague, teamsByLeague, rosterSpotsByLeague,
-      curves, weights, replacement, tierParams, playerImports,
+      weights, replacement, tierParams, playerImports,
     });
     window.storage.set("ffb-draft-state", payload).catch(() => {});
-  }, [draftByLeague, notesOverride, managersByLeague, teamsByLeague, rosterSpotsByLeague, curves, weights, replacement, tierParams, playerImports, loaded]);
+  }, [draftByLeague, notesOverride, managersByLeague, teamsByLeague, rosterSpotsByLeague, weights, replacement, tierParams, playerImports, loaded]);
 
-  const pool = useMemo(() => buildPool(curves), [curves]);
+  const pool = useMemo(() => buildPool(), []);
   const poolFinal = useMemo(() => pool.map(p => {
     const imp = playerImports[p.id];
     if (!imp) return p;
@@ -774,6 +694,11 @@ export default function DraftPrepApp() {
     };
     list.sort((a, b) => {
       const av = sortVal(a, sortKey), bv = sortVal(b, sortKey);
+      // Blank projections (null) always sort last, regardless of direction —
+      // there's nothing to rank them by.
+      if (av == null && bv == null) return 0;
+      if (av == null) return 1;
+      if (bv == null) return -1;
       const cmp = (typeof av === "string" || typeof bv === "string")
         ? String(av).localeCompare(String(bv))
         : av - bv;
@@ -830,9 +755,6 @@ export default function DraftPrepApp() {
   const setNote = useCallback((id, patch, base) => {
     setNotesOverride(n => ({ ...n, [id]: { ...(n[id]||base), ...patch } }));
   }, []);
-  const setCurve = useCallback((group, key, value) => {
-    setCurves(c => ({ ...c, [group]: { ...c[group], [key]: value } }));
-  }, []);
   const setWeight = useCallback((lg, key, value) => {
     setWeights(w => ({ ...w, [lg]: { ...w[lg], [key]: value } }));
   }, []);
@@ -866,9 +788,9 @@ export default function DraftPrepApp() {
     setPlayerImports({});
   }, []);
   const resetAllCalcParams = () => {
-    if (confirm("Reset all projection curves, scoring weights, replacement levels, and team/roster settings back to defaults? This won't clear imported data.")) {
+    if (confirm("Reset all scoring weights, replacement levels, and team/roster settings back to defaults? This won't clear imported data.")) {
       const base = baseLeagueParams(leagueConfigs);
-      setCurves(DEFAULT_CURVES); setWeights(DEFAULT_WEIGHTS);
+      setWeights(DEFAULT_WEIGHTS);
       setReplacement(base.replacement); setTierParams(DEFAULT_TIER_PARAMS);
       setTeamsByLeague(base.teams); setRosterSpotsByLeague(base.rosterSpots);
     }
@@ -1034,7 +956,6 @@ export default function DraftPrepApp() {
 
       {view === "how" ? (
         <MethodologyTab
-          curves={curves} setCurve={setCurve}
           weights={weights} setWeight={setWeight}
           replacement={replacement} setRep={setRep}
           tierParams={tierParams} setTierParams={setTierParams}
@@ -1095,16 +1016,16 @@ export default function DraftPrepApp() {
                           <input type="checkbox" checked={!!r.d.drafted}
                             onChange={e=>setDraftField(r.id,{drafted:e.target.checked})} />
                         </td>
-                        <td style={td()}>{r.tier}{r.tierImported && <sup style={badgeSup()}>FFB</sup>}</td>
+                        <td style={td()}>{r.tier ?? "—"}{r.tierImported && <sup style={badgeSup()}>FFB</sup>}</td>
                         <td style={{...td(), color:POS_COLORS[r.pos], fontWeight:700}}>{r.pos}</td>
                         <td style={{...td("left"), fontWeight:600}}>{r.name}</td>
                         <td style={td()}>{r.team}</td>
                         <td style={td()}>{r.bye}{r.byeImported && <sup style={badgeSup()}>FFB</sup>}</td>
                         <td style={td()}>{r.adpRank}</td>
-                        <td style={td()}>{/[A-Za-z]/.test(String(r.posRank)) ? r.posRank : `${r.pos}${r.posRank}`}{r.posRankImported && <sup style={badgeSup()}>FFB</sup>}</td>
-                        <td style={td()}>{r.pts.toFixed(1)}{r.ptsImported && <sup style={badgeSup()}>FFB</sup>}</td>
-                        <td style={{...td(), color: r.vbd>=0 ? "#7fd18f" : "#e08a8a"}}>{r.vbd.toFixed(1)}</td>
-                        {league==="koi" && <td style={{...td(), fontWeight:700}}>${r.auction}{r.auctionImported && <sup style={badgeSup()}>FFB</sup>}</td>}
+                        <td style={td()}>{r.posRank == null ? "—" : (/[A-Za-z]/.test(String(r.posRank)) ? r.posRank : `${r.pos}${r.posRank}`)}{r.posRankImported && <sup style={badgeSup()}>FFB</sup>}</td>
+                        <td style={td()}>{r.pts != null ? r.pts.toFixed(1) : "—"}{r.ptsImported && <sup style={badgeSup()}>FFB</sup>}</td>
+                        <td style={{...td(), color: r.vbd == null ? "#7c7a6d" : (r.vbd>=0 ? "#7fd18f" : "#e08a8a")}}>{r.vbd != null ? r.vbd.toFixed(1) : "—"}</td>
+                        {league==="koi" && <td style={{...td(), fontWeight:700}}>{r.auction != null ? `$${r.auction}` : "—"}{r.auctionImported && <sup style={badgeSup()}>FFB</sup>}</td>}
                         {league==="koi" && (
                           <td style={td()} onClick={e=>e.stopPropagation()}>
                             <input type="number" placeholder="$" value={r.d.paid}
@@ -1149,7 +1070,9 @@ export default function DraftPrepApp() {
                               </div>
                             </div>
                             <div style={{ fontSize:11, opacity:0.55, marginTop:8 }}>
-                              Raw projection — {r.pos!=="K" && r.pos!=="DEF" ? Object.entries(r.stats).filter(([,v])=>v).map(([k,v])=>`${k}: ${v}`).join(" · ") : "flat position score"}
+                              {r.pos!=="K" && r.pos!=="DEF"
+                                ? (r.stats ? `Raw projection — ${Object.entries(r.stats).filter(([,v])=>v).map(([k,v])=>`${k}: ${v}`).join(" · ")}` : "No projection imported yet — update via the Import Real Data tab.")
+                                : (r.pts != null ? "Flat position score (imported)" : "No projection imported yet — update via the Import Real Data tab.")}
                             </div>
                             {r.importSources && r.importSources.length > 0 && (
                               <div style={{ fontSize:11, opacity:0.55, marginTop:4 }}>
@@ -1174,11 +1097,10 @@ export default function DraftPrepApp() {
           </div>
 
           <div style={{ fontSize:11, opacity:0.5, marginTop:14, lineHeight:1.6 }}>
-            ADP order and player pool sourced from 2026 consensus half-PPR rankings. Season point projections are
-            a model curve fit to each player's ADP rank (with rushing/receiving-role adjustments for known player
-            archetypes) — not scraped box-score projections — so treat exact point totals as directional, and lean
-            on tiers/VBD for the real signal. Every base number driving that curve is visible and editable on the
-            "Calculations" tab. Owners, drafted marks, and prices are tracked separately per board.
+            ADP order and player pool sourced from 2026 consensus half-PPR rankings. Points, Pos Rk, VBD, and
+            Auction $ show <b>—</b> until real projection data is imported for that player — there's no synthetic
+            fallback. Import CSVs on the "Calculations" tab's "Import Real Data" section. Owners, drafted marks,
+            and prices are tracked separately per board.
           </div>
         </>
       )}
@@ -1297,7 +1219,7 @@ function SleeperSyncPanel({ sourceLeagueId, pool, draft, onMergePicks, onAddMana
   );
 }
 
-function MethodologyTab({ curves, setCurve, weights, setWeight, replacement, setRep, tierParams, setTierParams, teams, rosterSpots, onReset, pool, playerImports, onApplyImport, onClearImport }) {
+function MethodologyTab({ weights, setWeight, replacement, setRep, tierParams, setTierParams, teams, rosterSpots, onReset, pool, playerImports, onApplyImport, onClearImport }) {
   const [section, setSection] = useState("import");
   const totalPool = teams * 200;
   const totalSpots = teams * rosterSpots;
@@ -1307,7 +1229,6 @@ function MethodologyTab({ curves, setCurve, weights, setWeight, replacement, set
     ["replacement","VBD replacement levels"],
     ["tiers","Tier grouping"],
     ["auction","Auction values"],
-    ["curves","Projection curves"],
   ];
   return (
     <div style={{ background:"#15160f", border:"1px solid #262819", borderRadius:12, padding:18 }}>
@@ -1334,9 +1255,10 @@ function MethodologyTab({ curves, setCurve, weights, setWeight, replacement, set
             Every skill-position player (QB/RB/WR/TE) scores off the same formula; only the weights change
             per league. Points = passYds ÷ passYdsPerPt + passTD × passTD − INT × intPenalty + rushYds ÷
             rushYdsPerPt + rushTD × rushTD + rec × recPts + recYds ÷ recYdsPerPt + recTD × recTD −
-            fumbles × fumblePenalty.
-            Kickers and defenses use a flat position-rank curve instead (see Projection Curves) since their
-            scoring doesn't depend on receptions.
+            fumbles × fumblePenalty. This only applies once a raw stat line has been imported for a player —
+            there's no synthetic stat generator anymore, so an unimported player shows blank points rather than
+            a fabricated projection. Kickers and defenses skip this formula entirely and take a flat points
+            total straight from an import.
           </p>
           <div style={{ display:"flex", gap:16, flexWrap:"wrap" }}>
             <CurveCard title="Koi (Half-PPR)" values={weights.koi} onSet={(k,v)=>setWeight("koi",k,v)}
@@ -1392,50 +1314,12 @@ function MethodologyTab({ curves, setCurve, weights, setWeight, replacement, set
           <p style={pText()}>
             Koi-only. Total pool = teams × $200 = <b>${totalPool}</b>. Every roster spot needs at least a $1 bid,
             so <b>${totalSpots}</b> ({teams} teams × {rosterSpots} spots) is reserved off the top, leaving
-            <b> ${Math.max(0,totalPool-totalSpots)}</b> to distribute. Any player with VBD ≤ 0 is a $1 player.
-            Everyone else gets: <b>$ = 1 + (player VBD ÷ sum of VBD across all VBD&gt;0 players) × remaining pool</b>.
+            <b> ${Math.max(0,totalPool-totalSpots)}</b> to distribute. Any player with a real projection and VBD
+            ≤ 0 is a $1 player. Everyone else with a projection gets: <b>$ = 1 + (player VBD ÷ sum of VBD across
+            all VBD&gt;0 players) × remaining pool</b>. A player with no imported projection at all shows a blank
+            $ rather than $1 — there's a real difference between "worth the floor" and "not evaluated yet."
             Change teams/roster spots from the Koi board's Settings panel — that's what actually drives this pool.
           </p>
-        </div>
-      )}
-
-      {section === "curves" && (
-        <div>
-          <p style={pText()}>
-            Projected stats are a straight-line decay by position rank: <b>value = max(floor, top − slope ×
-            (positionRank − 1))</b>. RB/WR/TE use this for every player at the position. QBs are individually
-            hand-set for the players actually in the pool (mobility/efficiency vary too much for one curve to
-            fit) — the QB curve below is only a fallback used if a QB isn't in that hand-set list. K/DEF skip
-            the stat line entirely and go straight to a flat points curve.
-          </p>
-          <div style={{ display:"flex", gap:16, flexWrap:"wrap" }}>
-            <CurveCard title="Running backs" desc="Receiving/rushing role auto-adjusts for tagged pass-catchers vs. grinders using the multipliers below."
-              values={curves.RB} onSet={(k,v)=>setCurve("RB",k,v)}
-              fields={[["rushAttTop","Rush att top"],["rushAttSlope","Rush att slope"],["rushAttFloor","Rush att floor"],
-                       ["rushYdsTop","Rush yds top"],["rushYdsSlope","Rush yds slope"],["rushYdsFloor","Rush yds floor"],
-                       ["rushTDTop","Rush TD top",0.1],["rushTDSlope","Rush TD slope",0.001],["rushTDFloor","Rush TD floor",0.1],
-                       ["recTop","Rec top"],["recSlope","Rec slope",0.01],["recFloor","Rec floor"],["ydsPerRec","Yds / catch",0.1],
-                       ["recTDTop","Rec TD top",0.1],["recTDSlope","Rec TD slope",0.001],["recTDFloor","Rec TD floor",0.1],
-                       ["passCatchMult","Pass-catcher ×",0.01],["grinderRecMult","Grinder rec ×",0.01],
-                       ["grinderYdsMult","Grinder yds ×",0.01],["grinderRushAttMult","Grinder att ×",0.01],["grinderRushYdsMult","Grinder yds ×",0.01]]} />
-            <CurveCard title="Wide receivers" values={curves.WR} onSet={(k,v)=>setCurve("WR",k,v)}
-              fields={[["targetsTop","Targets top"],["targetsSlope","Targets slope",0.01],["targetsFloor","Targets floor"],
-                       ["catchRate","Catch rate",0.01],["recYdsTop","Rec yds top"],["recYdsSlope","Rec yds slope",0.01],
-                       ["recYdsFloor","Rec yds floor"],["recTDTop","Rec TD top",0.1],["recTDSlope","Rec TD slope",0.001],["recTDFloor","Rec TD floor",0.1]]} />
-            <CurveCard title="Tight ends" values={curves.TE} onSet={(k,v)=>setCurve("TE",k,v)}
-              fields={[["targetsTop","Targets top"],["targetsSlope","Targets slope",0.01],["targetsFloor","Targets floor"],
-                       ["catchRate","Catch rate",0.01],["recYdsTop","Rec yds top"],["recYdsSlope","Rec yds slope",0.01],
-                       ["recYdsFloor","Rec yds floor"],["recTDTop","Rec TD top",0.1],["recTDSlope","Rec TD slope",0.001],["recTDFloor","Rec TD floor",0.1]]} />
-            <CurveCard title="QB fallback (unused by current pool)" values={curves.QBFallback} onSet={(k,v)=>setCurve("QBFallback",k,v)}
-              fields={[["passYdsTop","Pass yds top"],["passYdsSlope","Pass yds slope"],["passYdsFloor","Pass yds floor"],
-                       ["passTDTop","Pass TD top",0.1],["passTDSlope","Pass TD slope",0.01],["passTDFloor","Pass TD floor",0.1],
-                       ["intTop","INT top",0.1],["intSlope","INT slope",0.01],["intCeil","INT ceiling",0.1],
-                       ["rushYds","Rush yds (flat)"],["rushTD","Rush TD (flat)",0.1]]} />
-            <CurveCard title="Kickers (flat)" values={curves.K} onSet={(k,v)=>setCurve("K",k,v)}
-              fields={[["top","Top score"],["slope","Slope per rank",0.01],["floor","Floor score"]]} />
-            <CurveCard title="Defenses (flat)" values={curves.DEF} onSet={(k,v)=>setCurve("DEF",k,v)}
-              fields={[["top","Top score"],["slope","Slope per rank",0.01],["floor","Floor score"]]} />
-          </div>
         </div>
       )}
     </div>
