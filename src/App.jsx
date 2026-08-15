@@ -1,110 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback } from "react";
 
 /* ============================================================
-   RAW PLAYER POOL — real 2026 preseason ADP order, team, bye
-   Source: consensus half-PPR positional rankings, July 2026.
-   [adpRank, name, team, bye]
-   ============================================================ */
-const RAW = {
-  QB: [
-    [1,"Josh Allen","BUF",7],[2,"Joe Burrow","CIN",6],[3,"Lamar Jackson","BAL",13],
-    [4,"Dak Prescott","DAL",14],[5,"Drake Maye","NE",11],[6,"Patrick Mahomes","KC",5],
-    [7,"Justin Herbert","LAC",7],[8,"Trevor Lawrence","JAX",7],[9,"Jayden Daniels","WAS",7],
-    [10,"Jared Goff","DET",6],[11,"Jalen Hurts","PHI",10],[12,"Brock Purdy","SF",8],
-    [13,"Matthew Stafford","LAR",11],[14,"Caleb Williams","CHI",10],[15,"Bo Nix","DEN",10],
-    [16,"Jaxson Dart","NYG",8],[17,"Baker Mayfield","TB",10],[18,"Jordan Love","GB",11],
-    [19,"Sam Darnold","SEA",11],[20,"C.J. Stroud","HOU",8],[21,"Tyler Shough","NO",8],
-    [22,"Kyler Murray","MIN",6],[23,"Daniel Jones","IND",13],[24,"Malik Willis","MIA",6],
-    [25,"Bryce Young","CAR",5],
-  ],
-  RB: [
-    [1,"Jahmyr Gibbs","DET",6],[2,"Bijan Robinson","ATL",11],[3,"Christian McCaffrey","SF",8],
-    [4,"Jonathan Taylor","IND",13],[5,"De'Von Achane","MIA",6],[6,"Derrick Henry","BAL",13],
-    [7,"James Cook III","BUF",7],[8,"Ashton Jeanty","LV",13],[9,"Saquon Barkley","PHI",10],
-    [10,"Omarion Hampton","LAC",7],[11,"Kenneth Walker III","KC",5],[12,"Chase Brown","CIN",6],
-    [13,"Josh Jacobs","GB",11],[14,"Jeremiyah Love","ARI",14],[15,"Breece Hall","NYJ",13],
-    [16,"Kyren Williams","LAR",11],[17,"Javonte Williams","DAL",14],[18,"Cam Skattebo","NYG",8],
-    [19,"Travis Etienne Jr.","NO",8],[20,"D'Andre Swift","CHI",10],[21,"Bucky Irving","TB",10],
-    [22,"Quinshon Judkins","CLE",11],[23,"David Montgomery","HOU",8],[24,"Bhayshul Tuten","JAX",7],
-    [25,"TreVeyon Henderson","NE",11],[26,"Jaylen Warren","PIT",9],[27,"Jadarian Price","SEA",11],
-    [28,"Tony Pollard","TEN",9],[29,"Rhamondre Stevenson","NE",11],[30,"Rico Dowdle","PIT",9],
-    [31,"Chuba Hubbard","CAR",5],[32,"J.K. Dobbins","DEN",10],[33,"Aaron Jones Sr.","MIN",6],
-    [34,"RJ Harvey","DEN",10],[35,"Kyle Monangai","CHI",10],[36,"Rachaad White","WAS",7],
-    [37,"Kenny Gainwell","TB",10],[38,"Jacory Croskey-Merritt","WAS",7],[39,"Blake Corum","LAR",11],
-    [40,"Jordan Mason","MIN",6],[41,"Tyjae Spears","TEN",9],[42,"Jonathon Brooks","CAR",5],
-    [43,"Woody Marks","HOU",8],[44,"Chris Rodriguez Jr.","JAX",7],[45,"Tyrone Tracy Jr.","NYG",8],
-    [46,"Isiah Pacheco","DET",6],[47,"Zach Charbonnet","SEA",11],[48,"Brian Robinson Jr.","ATL",11],
-    [49,"Dylan Sampson","CLE",11],[50,"Alvin Kamara","NO",8],[51,"Tyler Allgeier","ARI",14],
-    [52,"Justice Hill","BAL",13],[53,"Braelon Allen","NYJ",13],[54,"Samaje Perine","CIN",6],
-    [55,"Keaton Mitchell","LAC",7],[56,"Ty Johnson","BUF",7],[57,"AJ Dillon","CAR",5],
-    [58,"Jordan James","SF",8],[59,"Tank Bigsby","PHI",10],[60,"Mike Washington Jr.","LV",13],
-    [61,"Kaelon Black","SF",8],[62,"Emari Demercado","KC",5],[63,"Chris Brooks","GB",11],
-    [64,"James Conner","ARI",14],[65,"Malik Davis","DAL",14],[66,"Kimani Vidal","LAC",7],
-    [67,"MarShawn Lloyd","GB",11],[68,"Sean Tucker","TB",10],[69,"Jaylen Wright","MIA",6],
-    [70,"Emanuel Wilson","SEA",11],
-  ],
-  WR: [
-    [1,"Puka Nacua","LAR",11],[2,"Ja'Marr Chase","CIN",6],[3,"Jaxon Smith-Njigba","SEA",11],
-    [4,"Amon-Ra St. Brown","DET",6],[5,"Drake London","ATL",11],[6,"CeeDee Lamb","DAL",14],
-    [7,"Justin Jefferson","MIN",6],[8,"A.J. Brown","NE",11],[9,"George Pickens","DAL",14],
-    [10,"Chris Olave","NO",8],[11,"Tee Higgins","CIN",6],[12,"Nico Collins","HOU",8],
-    [13,"Zay Flowers","BAL",13],[14,"Rashee Rice","KC",5],[15,"Garrett Wilson","NYJ",13],
-    [16,"DeVonta Smith","PHI",10],[17,"Tetairoa McMillan","CAR",5],[18,"Terry McLaurin","WAS",7],
-    [19,"Davante Adams","LAR",11],[20,"Ladd McConkey","LAC",7],[21,"Jameson Williams","DET",6],
-    [22,"Jaylen Waddle","DEN",10],[23,"Malik Nabers","NYG",8],[24,"Luther Burden III","CHI",10],
-    [25,"Emeka Egbuka","TB",10],[26,"Mike Evans","SF",8],[27,"Rome Odunze","CHI",10],
-    [28,"DK Metcalf","PIT",9],[29,"Alec Pierce","IND",13],[30,"Christian Watson","GB",11],
-    [31,"Carnell Tate","TEN",9],[32,"Marvin Harrison Jr.","ARI",14],[33,"DJ Moore","BUF",7],
-    [34,"Courtland Sutton","DEN",10],[35,"Parker Washington","JAX",7],[36,"Brian Thomas Jr.","JAX",7],
-    [37,"Michael Pittman Jr.","PIT",9],[38,"Jayden Reed","GB",11],[39,"Michael Wilson","ARI",14],
-    [40,"Jordyn Tyson","NO",8],[41,"Chris Godwin Jr.","TB",10],[42,"Jordan Addison","MIN",6],
-    [43,"Josh Downs","IND",13],[44,"Xavier Worthy","KC",5],[45,"Quentin Johnston","LAC",7],
-    [46,"Romeo Doubs","NE",11],[47,"Jakobi Meyers","JAX",7],[48,"Ricky Pearsall","SF",8],
-    [49,"Wan'Dale Robinson","TEN",9],[50,"Khalil Shakir","BUF",7],[51,"Makai Lemon","PHI",10],
-    [52,"Jalen Coker","CAR",5],[53,"Matthew Golden","GB",11],[54,"Jayden Higgins","HOU",8],
-    [55,"KC Concepcion","CLE",11],[56,"Rashid Shaheed","SEA",11],[57,"Jauan Jennings","MIN",6],
-    [58,"Omar Cooper Jr.","NYJ",13],[59,"Denzel Boston","CLE",11],[60,"Tre Tucker","LV",13],
-    [61,"Jalen Nailor","LV",13],[62,"Jalen McMillan","TB",10],[63,"Jerry Jeudy","CLE",11],
-    [64,"Antonio Williams","WAS",7],[65,"Brandon Aiyuk","SF",8],[66,"Calvin Ridley","TEN",9],
-    [67,"Germie Bernard","PIT",9],[68,"Rashod Bateman","BAL",13],[69,"Malik Washington","MIA",6],
-    [70,"Ryan Flournoy","DAL",14],[71,"Adonai Mitchell","NYJ",13],[72,"Isaac TeSlaa","DET",6],
-    [73,"Cooper Kupp","SEA",11],[74,"Tank Dell","HOU",8],[75,"Travis Hunter","JAX",7],
-    [76,"Chris Bell","MIA",6],
-  ],
-  TE: [
-    [1,"George Kittle","SF",8],[2,"David Njoku","LAC",7],[3,"Brock Bowers","LV",13],
-    [4,"Travis Kelce","KC",5],[5,"T.J. Hockenson","MIN",6],[6,"Sam LaPorta","DET",6],
-    [7,"Jake Ferguson","DAL",14],[8,"Tucker Kraft","GB",11],[9,"Evan Engram","DEN",10],
-    [10,"Mark Andrews","BAL",13],[11,"Cade Otton","TB",10],[12,"Hunter Henry","NE",11],
-    [13,"Kyle Pitts Sr.","ATL",11],[14,"Brenton Strange","JAX",7],[15,"Chig Okonkwo","WAS",7],
-    [16,"Dallas Goedert","PHI",10],[17,"Dalton Kincaid","BUF",7],[18,"Mike Gesicki","CIN",6],
-    [19,"Dalton Schultz","HOU",8],[20,"Theo Johnson","NYG",8],[21,"Juwan Johnson","NO",8],
-    [22,"Ja'Tavion Sanders","CAR",5],[23,"Tyler Higbee","LAR",11],[24,"Tyler Conklin","DET",6],
-    [25,"Colston Loveland","CHI",10],
-  ],
-  K: [
-    [1,"Brandon Aubrey","DAL",14],[2,"Jason Myers","SEA",11],[3,"Cameron Dicker","LAC",7],
-    [4,"Ka'imi Fairbairn","HOU",8],[5,"Harrison Mevis","LAR",11],[6,"Jake Bates","DET",6],
-    [7,"Eddy Pineiro","SF",8],[8,"Tyler Loop","BAL",13],[9,"Cairo Santos","CHI",10],
-    [10,"Trey Smack","GB",11],[11,"Chase McLaughlin","TB",10],[12,"Harrison Butker","KC",5],
-    [13,"Cam Little","JAX",7],[14,"Evan McPherson","CIN",6],[15,"Will Reichard","MIN",6],
-    [16,"Wil Lutz","DEN",10],[17,"Nick Folk","ATL",11],[18,"Tyler Bass","BUF",7],
-    [19,"Andy Borregales","NE",11],[20,"Charlie Smyth","NO",8],[21,"Chris Boswell","PIT",9],
-    [22,"Jake Moody","WAS",7],
-  ],
-  DEF: [
-    [1,"Atlanta","ATL",11],[2,"New Orleans","NO",8],[3,"Dallas","DAL",14],
-    [4,"San Francisco","SF",8],[5,"Jacksonville","JAX",7],[6,"Buffalo","BUF",7],
-    [7,"Denver","DEN",10],[8,"Las Vegas","LV",13],[9,"Minnesota","MIN",6],
-    [10,"Tampa Bay","TB",10],[11,"Detroit","DET",6],[12,"Green Bay","GB",11],
-    [13,"NY Giants","NYG",8],[14,"Miami","MIA",6],[15,"Tennessee","TEN",9],
-    [16,"Washington","WAS",7],[17,"Pittsburgh","PIT",9],[18,"LA Rams","LAR",11],
-    [19,"Philadelphia","PHI",10],[20,"LA Chargers","LAC",7],[21,"Baltimore","BAL",13],
-    [22,"New England","NE",11],
-  ],
-};
-
-/* ============================================================
    DEFAULT ADJUSTABLE PARAMETERS
    Everything below drives the projections/VBD/tiers/auction math
    and is editable live from the "Calculations" tab.
@@ -163,86 +59,86 @@ function scorePoints(s, w) {
 }
 
 const NOTES = {
-  "Josh Allen":["Complete QB1 package — elite arm plus 7-8 rushing TDs a year, the safest QB in the format.","Buffalo's offense could lean run-first more in tight games, capping ceiling weeks.","green"],
-  "Joe Burrow":["Full seasons of Burrow have produced top-3 QB numbers with Chase/Higgins both healthy.","Injury history is the one real red flag after last year's wrist.","green"],
-  "Lamar Jackson":["Rushing floor alone makes him a locked-in top-3 QB most weeks.","Ravens' run-heavy identity caps his passing volume relative to peers.","green"],
-  "Dak Prescott":["Big arm, full weapons, should post QB1-tier counting stats again.","Turnover-prone in stretches; touchdown regression is possible.","yellow"],
-  "Drake Maye":["Year 2 leap candidate with a legitimate rushing floor added to a live arm.","Still unproven — offensive line and weapons are a step behind the top tier.","yellow"],
-  "Patrick Mahomes":["Still the standard for offensive execution when the pieces are healthy.","Receiving corps remains a question until it's proven on the field.","green"],
-  "Justin Herbert":["Elite arm talent finally has a real backfield/offense around him.","Health and coaching continuity are perennial swing factors.","green"],
-  "Trevor Lawrence":["Full arsenal returns and he's shown flashes of true QB1 ceiling.","Consistency has been the missing piece three years running.","yellow"],
-  "Jayden Daniels":["Dual-threat production this explosive is basically a QB1 floor by itself.","Second-year defenses will scheme him differently; some regression is normal.","green"],
-  "Jared Goff":["Efficient, high-volume passer in one of the league's best offenses.","Almost no rushing floor, so any passing dip hurts more.","yellow"],
-  "Jalen Hurts":["Best rushing TD floor at the position when the tush push stays live.","Passing volume gets capped by a run-first gameplan behind Saquon.","green"],
-  "Brock Purdy":["Full receiving corps and a great offensive infrastructure around him.","Ceiling is offense-dependent; a scheme change could cap the upside.","yellow"],
-  "Matthew Stafford":["Big arm still humming in a great offensive environment.","Zero rushing equity and an age-related injury risk every year now.","yellow"],
-  "Caleb Williams":["Year 2 with a real weapon upgrade and more rushing usage expected.","Offensive line questions linger; sacks were a problem as a rookie.","yellow"],
-  "Bo Nix":["Comfortable in Payton's system with real weapons finally around him.","Ceiling still capped versus the true top tier of the position.","yellow"],
-  "Jaxson Dart":["Rushing equity plus a full season as the starter gives real weekly floor.","Rookie-QB volatility is real — expect some ugly weeks mixed in.","pink"],
-  "Baker Mayfield":["Should again push for a top-10 passing-volume season in Tampa's offense.","Turnover risk creeps up whenever the pocket collapses.","yellow"],
-  "Jordan Love":["Full complement of weapons and a proven vertical arm.","Turnover bunches have hurt his weekly consistency before.","yellow"],
-  "Sam Darnold":["Comfortable, low-mistake game manager in a talented Seattle offense.","Passing ceiling is limited without much rushing equity.","yellow"],
-  "C.J. Stroud":["Talented enough to bounce back hard if the line holds up.","O-line and playcalling were real drags on him last season.","yellow"],
-  "Kyler Murray":["Rushing equity alone keeps the streaming floor respectable.","Injury history and inconsistent offensive environment remain concerns.","yellow"],
-  "Daniel Jones":["Rushing floor gives him streamer appeal in the right matchups.","Ceiling is capped as a game-manager in a run-first offense.","red"],
-  "Bryce Young":["Better weapons and continuity finally give him a real shot.","Still needs to prove it after a rocky start to his career.","red"],
+  "Josh Allen":["Complete QB1 package — elite arm plus 7-8 rushing TDs a year, the safest QB in the format.","","green"],
+  "Joe Burrow":["Full seasons of Burrow have produced top-3 QB numbers with Chase/Higgins both healthy.","","green"],
+  "Lamar Jackson":["Rushing floor alone makes him a locked-in top-3 QB most weeks.","","green"],
+  "Dak Prescott":["Big arm, full weapons, should post QB1-tier counting stats again.","","yellow"],
+  "Drake Maye":["Year 2 leap candidate with a legitimate rushing floor added to a live arm.","","yellow"],
+  "Patrick Mahomes":["Still the standard for offensive execution when the pieces are healthy.","","green"],
+  "Justin Herbert":["Elite arm talent finally has a real backfield/offense around him.","","green"],
+  "Trevor Lawrence":["Full arsenal returns and he's shown flashes of true QB1 ceiling.","","yellow"],
+  "Jayden Daniels":["Dual-threat production this explosive is basically a QB1 floor by itself.","","green"],
+  "Jared Goff":["Efficient, high-volume passer in one of the league's best offenses.","","yellow"],
+  "Jalen Hurts":["Best rushing TD floor at the position when the tush push stays live.","","green"],
+  "Brock Purdy":["Full receiving corps and a great offensive infrastructure around him.","","yellow"],
+  "Matthew Stafford":["Big arm still humming in a great offensive environment.","","yellow"],
+  "Caleb Williams":["Year 2 with a real weapon upgrade and more rushing usage expected.","","yellow"],
+  "Bo Nix":["Comfortable in Payton's system with real weapons finally around him.","","yellow"],
+  "Jaxson Dart":["Rushing equity plus a full season as the starter gives real weekly floor.","","pink"],
+  "Baker Mayfield":["Should again push for a top-10 passing-volume season in Tampa's offense.","","yellow"],
+  "Jordan Love":["Full complement of weapons and a proven vertical arm.","","yellow"],
+  "Sam Darnold":["Comfortable, low-mistake game manager in a talented Seattle offense.","","yellow"],
+  "C.J. Stroud":["Talented enough to bounce back hard if the line holds up.","","yellow"],
+  "Kyler Murray":["Rushing equity alone keeps the streaming floor respectable.","","yellow"],
+  "Daniel Jones":["Rushing floor gives him streamer appeal in the right matchups.","","red"],
+  "Bryce Young":["Better weapons and continuity finally give him a real shot.","","red"],
 
-  "Jahmyr Gibbs":["Explosive, three-down workhorse now that Montgomery's been traded to Houston — no committee left to cap him.","Detroit's offensive line health and scheme continuity are the real swing factors now.","green"],
-  "Bijan Robinson":["Full workhorse role now with receiving work added — elite floor and ceiling.","No real red flags — as safe a top pick as exists.","green"],
-  "Christian McCaffrey":["When healthy, still the most complete back in football with receiving work galore.","Age and recent injury history are legitimate concerns on draft day.","yellow"],
-  "Jonathan Taylor":["Bell-cow volume in a run-funnel offense — huge floor.","Limited receiving role caps the PPR ceiling somewhat.","green"],
-  "De'Von Achane":["Home-run speed with real receiving work now — league-winner upside.","Touch total still shared in a crowded Miami backfield.","green"],
-  "Derrick Henry":["Still bulldozing at an ageless rate with a great offensive line.","Receiving work is minimal, and the workload is finally a real age concern.","yellow"],
-  "James Cook III":["Every-down role and goal-line usage in an explosive Buffalo offense.","Contract situation is worth monitoring for motivation/usage chatter.","green"],
-  "Ashton Jeanty":["Talented rookie workhorse, immediately the clear lead back in Vegas.","Rookie-year offensive line and passing-down role are unproven.","yellow"],
-  "Saquon Barkley":["Elite offensive line and a dominant offense make him a locked-in RB1.","Touch total could dip late in blowouts given Philly's depth.","green"],
-  "Omarion Hampton":["Explosive rookie who profiles as an immediate three-down back.","Rookie learning curve and a crowded backfield to start are real risks.","yellow"],
-  "Kenneth Walker III":["New offense/weapons around him should boost his efficiency further.","Receiving role has never fully been unlocked.","yellow"],
-  "Chase Brown":["Proven three-down producer now firmly entrenched as the lead back.","Touch total dips whenever the offense scripts more pass-heavy.","green"],
-  "Josh Jacobs":["Bell-cow workload in a good offensive situation again.","Age and wear are ticking up; efficiency could regress.","yellow"],
-  "Jeremiyah Love":["Explosive rookie talent that could take over the backfield fast.","Committee to start his rookie year caps the immediate floor.","pink"],
-  "Breece Hall":["Talent for a true three-down role if the Jets commit to him.","Offensive line and QB situation have capped efficiency before.","yellow"],
-  "Kyren Williams":["Proven, goal-line-friendly early-down producer in a good offense.","Receiving role remains limited relative to his ADP.","yellow"],
-  "Javonte Williams":["Fresh start with real early-down volume upside.","Efficiency has never matched the volume in his career.","yellow"],
-  "Cam Skattebo":["Physical, three-down rookie profile that the Giants lean on early.","Offensive line and passing game around him are shaky.","pink"],
-  "Travis Etienne Jr.":["Every-down role in an offense that should improve.","Efficiency dipped hard last year and touches could be shared.","yellow"],
-  "D'Andre Swift":["Comfortable, receiving-friendly role in a decent offense.","Committee risk caps the weekly ceiling.","yellow"],
-  "Bucky Irving":["Explosive, PPR-friendly role as a clear early-down/passing-down hybrid.","Size/workload concerns if touches climb even higher.","green"],
-  "Quinshon Judkins":["Powerful early-down rookie with real touchdown equity.","Receiving-down role likely goes elsewhere, capping PPR value.","yellow"],
-  "David Montgomery":["Traded to Houston and projected as the presumptive lead back, with Mixon expected to be released.","Woody Marks is a real threat to cut into his workload from day one in a new backfield.","yellow"],
-  "Bhayshul Tuten":["Explosive rookie speed threat who could quickly force touches.","Timeshare at the start of his rookie year is a real risk.","pink"],
-  "TreVeyon Henderson":["Talented pass-catching complement in an ascending Pats offense.","Early-down work likely shared, keeping this a committee role.","yellow"],
-  "Jaylen Warren":["Proven, well-rounded back who produces whenever given volume.","Timeshare risk if the Steelers add competition.","yellow"],
-  "Alvin Kamara":["Still an every-down, target-monster floor whenever healthy.","Age and a crowded backfield behind him are real concerns.","yellow"],
-  "Tank Bigsby":["Change-of-pace back who could see a real bump in touches.","Buried on the depth chart unless something changes ahead of him.","red"],
+  "Jahmyr Gibbs":["Explosive, three-down workhorse now that Montgomery's been traded to Houston — no committee left to cap him.","","green"],
+  "Bijan Robinson":["Full workhorse role now with receiving work added — elite floor and ceiling.","","green"],
+  "Christian McCaffrey":["When healthy, still the most complete back in football with receiving work galore.","","yellow"],
+  "Jonathan Taylor":["Bell-cow volume in a run-funnel offense — huge floor.","","green"],
+  "De'Von Achane":["Home-run speed with real receiving work now — league-winner upside.","","green"],
+  "Derrick Henry":["Still bulldozing at an ageless rate with a great offensive line.","","yellow"],
+  "James Cook III":["Every-down role and goal-line usage in an explosive Buffalo offense.","","green"],
+  "Ashton Jeanty":["Talented rookie workhorse, immediately the clear lead back in Vegas.","","yellow"],
+  "Saquon Barkley":["Elite offensive line and a dominant offense make him a locked-in RB1.","","green"],
+  "Omarion Hampton":["Explosive rookie who profiles as an immediate three-down back.","","yellow"],
+  "Kenneth Walker III":["New offense/weapons around him should boost his efficiency further.","","yellow"],
+  "Chase Brown":["Proven three-down producer now firmly entrenched as the lead back.","","green"],
+  "Josh Jacobs":["Bell-cow workload in a good offensive situation again.","","yellow"],
+  "Jeremiyah Love":["Explosive rookie talent that could take over the backfield fast.","","pink"],
+  "Breece Hall":["Talent for a true three-down role if the Jets commit to him.","","yellow"],
+  "Kyren Williams":["Proven, goal-line-friendly early-down producer in a good offense.","","yellow"],
+  "Javonte Williams":["Fresh start with real early-down volume upside.","","yellow"],
+  "Cam Skattebo":["Physical, three-down rookie profile that the Giants lean on early.","","pink"],
+  "Travis Etienne Jr.":["Every-down role in an offense that should improve.","","yellow"],
+  "D'Andre Swift":["Comfortable, receiving-friendly role in a decent offense.","","yellow"],
+  "Bucky Irving":["Explosive, PPR-friendly role as a clear early-down/passing-down hybrid.","","green"],
+  "Quinshon Judkins":["Powerful early-down rookie with real touchdown equity.","","yellow"],
+  "David Montgomery":["Traded to Houston and projected as the presumptive lead back, with Mixon expected to be released.","","yellow"],
+  "Bhayshul Tuten":["Explosive rookie speed threat who could quickly force touches.","","pink"],
+  "TreVeyon Henderson":["Talented pass-catching complement in an ascending Pats offense.","","yellow"],
+  "Jaylen Warren":["Proven, well-rounded back who produces whenever given volume.","","yellow"],
+  "Alvin Kamara":["Still an every-down, target-monster floor whenever healthy.","","yellow"],
+  "Tank Bigsby":["Change-of-pace back who could see a real bump in touches.","","red"],
 
-  "Puka Nacua":["Elite target share in a pass-funnel offense — true WR1 upside.","Health has been the swing factor the last two seasons.","green"],
-  "Ja'Marr Chase":["Best receiver in football when healthy, full target monopoly.","Very little downside here beyond generic injury risk.","green"],
-  "Jaxon Smith-Njigba":["Emerged as a true alpha WR1 with a massive target share.","Efficiency regression is possible after a career year.","green"],
-  "Amon-Ra St. Brown":["Elite, high-floor target hog in an explosive offense.","Touchdown equity could dip if the run game vultures scores.","green"],
-  "Drake London":["Full-time WR1 role with a big catch radius and target volume.","Touchdown efficiency lagged behind his volume last year.","green"],
-  "CeeDee Lamb":["Bounce-back candidate as the clear top target in Dallas.","Quarterback and offensive-line health are lingering concerns.","green"],
-  "Justin Jefferson":["Simply an elite, matchup-proof alpha receiver every week.","Little real risk here beyond normal injury variance.","green"],
-  "A.J. Brown":["Elite talent, but reunited with familiar concerns about target share.","Run-first gameplans have capped his weekly ceiling before.","yellow"],
-  "George Pickens":["Big-play, high-catch-radius WR1 role in a new offense.","Volume consistency has been an issue throughout his career.","yellow"],
-  "Chris Olave":["Proven, high-target WR1 whenever the QB play is stable.","Concussion history is a real lingering concern.","yellow"],
-  "Tee Higgins":["Elite big-play threat opposite Chase, huge TD equity.","Injury history keeps him unavailable for stretches most years.","yellow"],
-  "Nico Collins":["True alpha WR1 in a pass-heavy, explosive offense.","Health derailed last season and is worth tracking.","green"],
-  "Zay Flowers":["Emerging as the clear go-to target in Baltimore's passing game.","Touchdown loop is capped by Lamar vulturing rushing scores.","yellow"],
-  "Rashee Rice":["True target hog whenever available in a Mahomes-led offense.","Off-field/suspension risk has loomed over his outlook.","yellow"],
-  "Garrett Wilson":["Full target monopoly regardless of QB play.","Quarterback instability keeps a lid on efficiency.","yellow"],
-  "DeVonta Smith":["Reliable, high-floor route runner in an explosive offense.","Touchdown equity is capped behind Hurts/Barkley near the goal line.","yellow"],
-  "Malik Nabers":["Elite target volume even in a rough offensive situation.","Quarterback play around him remains a real concern.","green"],
-  "Mike Evans":["Still a touchdown machine whenever on the field.","Age and a crowded WR room could dent target share.","yellow"],
-  "DK Metcalf":["Fresh start with a real chance to reclaim true WR1 volume.","New offense/QB chemistry is an unknown to open the year.","yellow"],
-  "Marvin Harrison Jr.":["Elite talent poised for a big Year 2 target-share jump.","Rookie-year inconsistency showed up often; QB play is a question.","yellow"],
+  "Puka Nacua":["Elite target share in a pass-funnel offense — true WR1 upside.","","green"],
+  "Ja'Marr Chase":["Best receiver in football when healthy, full target monopoly.","","green"],
+  "Jaxon Smith-Njigba":["Emerged as a true alpha WR1 with a massive target share.","","green"],
+  "Amon-Ra St. Brown":["Elite, high-floor target hog in an explosive offense.","","green"],
+  "Drake London":["Full-time WR1 role with a big catch radius and target volume.","","green"],
+  "CeeDee Lamb":["Bounce-back candidate as the clear top target in Dallas.","","green"],
+  "Justin Jefferson":["Simply an elite, matchup-proof alpha receiver every week.","","green"],
+  "A.J. Brown":["Elite talent, but reunited with familiar concerns about target share.","","yellow"],
+  "George Pickens":["Big-play, high-catch-radius WR1 role in a new offense.","","yellow"],
+  "Chris Olave":["Proven, high-target WR1 whenever the QB play is stable.","","yellow"],
+  "Tee Higgins":["Elite big-play threat opposite Chase, huge TD equity.","","yellow"],
+  "Nico Collins":["True alpha WR1 in a pass-heavy, explosive offense.","","green"],
+  "Zay Flowers":["Emerging as the clear go-to target in Baltimore's passing game.","","yellow"],
+  "Rashee Rice":["True target hog whenever available in a Mahomes-led offense.","","yellow"],
+  "Garrett Wilson":["Full target monopoly regardless of QB play.","","yellow"],
+  "DeVonta Smith":["Reliable, high-floor route runner in an explosive offense.","","yellow"],
+  "Malik Nabers":["Elite target volume even in a rough offensive situation.","","green"],
+  "Mike Evans":["Still a touchdown machine whenever on the field.","","yellow"],
+  "DK Metcalf":["Fresh start with a real chance to reclaim true WR1 volume.","","yellow"],
+  "Marvin Harrison Jr.":["Elite talent poised for a big Year 2 target-share jump.","","yellow"],
 
-  "George Kittle":["Elite, matchup-proof TE1 whenever healthy and featured.","Health and target competition (Pearsall/Aiyuk) can dent volume.","green"],
-  "David Njoku":["Proven high-volume producer now in a fresh situation.","New offense/QB chemistry is an unknown after the move.","yellow"],
-  "Brock Bowers":["Elite target hog at the position — locked-in TE1 with WR-level volume.","Touchdown scoring has lagged the target share so far.","green"],
-  "Travis Kelce":["Still productive when the offense funnels through him.","Father Time is undefeated — decline risk grows every year.","yellow"],
-  "T.J. Hockenson":["Full recovery and a featured role make him a high-end TE1 bet.","Health track record adds real downside risk.","yellow"],
-  "Sam LaPorta":["Proven, high-volume producer in the league's best offense.","Touchdown regression is possible in a crowded red zone.","green"],
+  "George Kittle":["Elite, matchup-proof TE1 whenever healthy and featured.","","green"],
+  "David Njoku":["Proven high-volume producer now in a fresh situation.","","yellow"],
+  "Brock Bowers":["Elite target hog at the position — locked-in TE1 with WR-level volume.","","green"],
+  "Travis Kelce":["Still productive when the offense funnels through him.","","yellow"],
+  "T.J. Hockenson":["Full recovery and a featured role make him a high-end TE1 bet.","","yellow"],
+  "Sam LaPorta":["Proven, high-volume producer in the league's best offense.","","green"],
   "Brock Bowers2":[],
 };
 
@@ -256,29 +152,34 @@ function noteFor(pos, name, rank) {
     K:"Kicker — draft last, stream if needed. Job security is the only real variable.",
     DEF:"Matchup-dependent streaming defense; schedule matters more than talent.",
   }[pos];
-  const genericNeg = "Limited proven role — update this note after camp/preseason news.";
+  const genericNeg = ""; // Personal Notes — starts blank for everyone, filled in per-user on the board
   const color = rank <= 8 ? "yellow" : "red";
   return [genericPos, genericNeg, color];
 }
 
 /* ============================================================
-   BUILD PLAYER POOL — no synthetic stats. Every player starts
-   blank (stats/flatPts null) until a real projection is imported
-   via the CSV import panel; see computeLeagueFields below for how
-   that blank is carried through points/VBD/tier/auction.
+   BUILD PLAYER POOL — from the live ADP pool (GET /api/players,
+   see server/adp.js), not a hardcoded list. No synthetic stats
+   either way: every player starts blank (stats/flatPts null) until
+   a real projection is imported via the CSV import panel; see
+   computeLeagueFields below for how that blank is carried through
+   points/VBD/tier/auction.
+
+   Player id comes straight from the server (Fantasy Football
+   Calculator's own player_id) — stable across daily ADP refreshes,
+   unlike an id assigned by array position, which would silently
+   repoint every stored draft pick/note/import at a different player
+   the moment rank order shifted.
    ============================================================ */
-function buildPool() {
+function buildPool(adpPool) {
   const players = [];
-  let uid = 1;
-  for (const pos of ["QB","RB","WR","TE","K","DEF"]) {
-    for (const [rank, name, team, bye] of RAW[pos]) {
-      const [pos1, neg1, outlook1] = noteFor(pos, name, rank);
-      players.push({
-        id: uid++, pos, name, team, bye, adpRank: rank,
-        stats: null, flatPts: null,
-        note: { pos: pos1, neg: neg1, outlook: outlook1 },
-      });
-    }
+  for (const p of adpPool) {
+    const [pos1, neg1, outlook1] = noteFor(p.position, p.name, p.adp_rank);
+    players.push({
+      id: p.id, pos: p.position, name: p.name, team: p.team, bye: p.bye, adpRank: p.adp_rank,
+      stats: null, flatPts: null,
+      note: { pos: pos1, neg: neg1, outlook: outlook1 },
+    });
   }
   return players;
 }
@@ -506,8 +407,37 @@ function CurveCard({ title, desc, fields, values, onSet }) {
   );
 }
 
+/* ============================================================
+   PERSONAL NOTES — the one thing that stays per "Viewing as" user
+   rather than in the single shared record everything else lives in
+   (draft picks, league settings, and — importantly — the imported
+   base notes themselves, which only Will can upload). A user's own
+   inline edit/addition on a player's note sticks to their profile
+   and survives Will re-uploading the shared base notes later.
+   Hits /api/notes (per-user), not /api/storage (shared, see
+   storagePolyfill.js) — same underlying user_kv table, different
+   route so the two scopes can't get confused.
+   ============================================================ */
+async function getPersonalNotes(user) {
+  try {
+    const res = await fetch(`/api/notes/ffb-notes-overrides?user=${encodeURIComponent(user)}`);
+    if (!res.ok) return null;
+    return await res.json(); // {key, value}
+  } catch (e) { return null; }
+}
+async function setPersonalNotes(user, value) {
+  try {
+    await fetch(`/api/notes/ffb-notes-overrides?user=${encodeURIComponent(user)}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ value }),
+    });
+  } catch (e) { /* best effort — local state already updated for this session */ }
+}
+
 export default function DraftPrepApp() {
   const [users, setUsers] = useState([{ name: "Will" }]); // [{id,name}] — who can be picked in the header
+  const [adpPool, setAdpPool] = useState([]); // live pool from GET /api/players (server/adp.js), refreshed daily
   const [view, setView] = useState("koi"); // "koi" | "final" | "jordan" | "how"
   const [posFilter, setPosFilter] = useState("ALL");
   const [search, setSearch] = useState("");
@@ -531,6 +461,12 @@ export default function DraftPrepApp() {
     fetch("/api/users").then(res => (res.ok ? res.json() : null)).then(list => {
       if (list && list.length) setUsers(list);
     }).catch(() => {}); // never blocks the app — solo/"Will" use works with no server round-trip
+  }, []);
+
+  useEffect(() => {
+    fetch("/api/players").then(res => (res.ok ? res.json() : null)).then(list => {
+      if (list && list.length) setAdpPool(list);
+    }).catch(() => {}); // board just shows empty until the server's next successful ADP refresh
   }, []);
 
   // Who's currently signed in (see "Viewing as" below) and which tabs
@@ -567,10 +503,14 @@ export default function DraftPrepApp() {
 
   useEffect(() => {
     (async () => {
-      const [d, leagueRows] = await Promise.all([
+      const [d, leagueRows, personalNotes] = await Promise.all([
         window.storage.get("ffb-draft-state").catch(() => null),
         fetch("/api/leagues").then(res => (res.ok ? res.json() : [])).catch(() => []),
+        getPersonalNotes(currentUserName),
       ]);
+      try {
+        setNotesOverride(personalNotes && personalNotes.value ? JSON.parse(personalNotes.value) : {});
+      } catch (e) { setNotesOverride({}); }
 
       const configs = {};
       for (const row of leagueRows || []) configs[row.id] = row;
@@ -585,7 +525,14 @@ export default function DraftPrepApp() {
           if (!dbl && parsed.draft) dbl = { koi: parsed.draft, final: {} };
           dbl = dbl || {};
           setDraftByLeague({ koi:{}, final:{}, jordan:{}, ...dbl });
-          setNotesOverride(parsed.notesOverride || {});
+          // notesOverride is loaded separately above (getPersonalNotes) — it's
+          // per-user, not part of this shared blob. parsed.notesOverride is
+          // read here only as a one-time migration for anyone whose personal
+          // edits are still sitting in the old shared location.
+          if (!personalNotes && parsed.notesOverride && Object.keys(parsed.notesOverride).length) {
+            setNotesOverride(parsed.notesOverride);
+            setPersonalNotes(currentUserName, JSON.stringify(parsed.notesOverride));
+          }
           let mbl = parsed.managersByLeague;
           if (!mbl && parsed.managers) mbl = { koi: parsed.managers, final: parsed.managers };
           mbl = { koi:["Will"], final:["Will"], jordan:["Will"], ...(mbl || {}) };
@@ -640,13 +587,20 @@ export default function DraftPrepApp() {
   useEffect(() => {
     if (!loaded) return;
     const payload = JSON.stringify({
-      draftByLeague, notesOverride, managersByLeague, teamsByLeague, rosterSpotsByLeague,
+      draftByLeague, managersByLeague, teamsByLeague, rosterSpotsByLeague,
       weights, replacement, tierParams, playerImports,
     });
     window.storage.set("ffb-draft-state", payload).catch(() => {});
-  }, [draftByLeague, notesOverride, managersByLeague, teamsByLeague, rosterSpotsByLeague, weights, replacement, tierParams, playerImports, loaded]);
+  }, [draftByLeague, managersByLeague, teamsByLeague, rosterSpotsByLeague, weights, replacement, tierParams, playerImports, loaded]);
 
-  const pool = useMemo(() => buildPool(), []);
+  // Personal notes save separately, per "Viewing as" user — see getPersonalNotes/
+  // setPersonalNotes above for why this isn't part of the shared payload.
+  useEffect(() => {
+    if (!loaded) return;
+    setPersonalNotes(currentUserName, JSON.stringify(notesOverride));
+  }, [notesOverride, loaded, currentUserName]);
+
+  const pool = useMemo(() => buildPool(adpPool), [adpPool]);
   const poolFinal = useMemo(() => pool.map(p => {
     const imp = playerImports[p.id];
     if (!imp) return p;
@@ -849,7 +803,7 @@ export default function DraftPrepApp() {
   const exportCSV = () => {
     const header = ["ADP","Tier","Pos","Player","Team","Bye","PosRank","Proj Pts","VBD"]
       .concat(league==="koi" ? ["Auction $"] : [])
-      .concat(["Drafted","Manager","Paid","Risk","Upside","Outlook","Positive","Negative"]);
+      .concat(["Drafted","Manager","Paid","Risk","Upside","Outlook","Expert Notes","Personal Notes"]);
     const lines = [header.join(",")];
     for (const r of rows) {
       const row = [r.adpRank, r.tier, r.pos, `"${r.name}"`, r.team, r.bye, r.posRank, r.pts, r.vbd]
@@ -1067,12 +1021,12 @@ export default function DraftPrepApp() {
                           <td colSpan={league==="koi" ? 16 : 14} style={{ background:"#181910", padding:"14px 18px" }}>
                             <div style={{ display:"flex", gap:20, flexWrap:"wrap" }}>
                               <div style={{ flex:"1 1 320px" }}>
-                                <div style={lblSmall("#7fd18f")}>Positive{r.outlookImported && <sup style={badgeSup()}>FFB</sup>}</div>
+                                <div style={lblSmall("#7fd18f")}>Expert Notes{r.outlookImported && <sup style={badgeSup()}>FFB</sup>}</div>
                                 <textarea value={r.noteData.pos} onChange={e=>setNote(r.id,{pos:e.target.value}, r.note)}
                                   style={ta()} rows={2} />
                               </div>
                               <div style={{ flex:"1 1 320px" }}>
-                                <div style={lblSmall("#e08a8a")}>Negative</div>
+                                <div style={lblSmall("#e08a8a")}>Personal Notes</div>
                                 <textarea value={r.noteData.neg} onChange={e=>setNote(r.id,{neg:e.target.value}, r.note)}
                                   style={ta()} rows={2} />
                               </div>
@@ -1111,7 +1065,8 @@ export default function DraftPrepApp() {
           </div>
 
           <div style={{ fontSize:11, opacity:0.5, marginTop:14, lineHeight:1.6 }}>
-            ADP order and player pool sourced from 2026 consensus half-PPR rankings. Points, Pos Rk, VBD, and
+            ADP order and player pool are live half-PPR consensus data from Fantasy Football Calculator, refreshed
+            daily. Points, Pos Rk, VBD, and
             Auction $ show <b>—</b> until real projection data is imported for that player — there's no synthetic
             fallback. Import CSVs on the "Calculations" tab's "Import Real Data" section. Owners, drafted marks,
             and prices are tracked separately per board.
@@ -1575,8 +1530,10 @@ function ImportPanel({ pool, playerImports, onApplyImport, onClearImport, canEdi
         have raw stats. You can also import a separate rankings/write-up file per position — map its Tier,
         Position Rank, Risk, Upside, Bye Week, and Write-up columns and they'll combine with whatever you already imported
         from a projections file for the same player. Imported tiers/ranks/bye weeks take priority over the model's
-        computed or default values, and an imported write-up replaces the "Positive" note (edit it same as any other note
-        afterward). Imported fields show a small <b style={{color:"#7fd1c9"}}>FFB</b> tag on the board.
+        computed or default values, and an imported write-up replaces the shared <b>Expert Notes</b> field for
+        everyone. <b>Personal Notes</b> works differently — it's blank by default and edited directly on the board,
+        not through import, and each person's own edits there stay on their profile even after a re-import. Imported
+        fields show a small <b style={{color:"#7fd1c9"}}>FFB</b> tag on the board.
       </p>
 
       {!canEdit && (

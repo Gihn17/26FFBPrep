@@ -4,6 +4,7 @@ import fs from "fs";
 import { fileURLToPath } from "url";
 import { seedLeagues, getAllLeagues } from "./leagues.js";
 import { db, getOrCreateUser, listUsers, setUserAllowedTabs } from "./db.js";
+import { getAdpPool, getAdpStatus, refreshAdpPool, startAdpScheduler } from "./adp.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -27,6 +28,9 @@ function loadStore() {
 // Seeds/refreshes the leagues table from LEAGUE_DEFAULTS. Idempotent
 // upsert by id, safe to run on every boot.
 seedLeagues();
+
+// Pulls the live ADP pool on boot, then every 24h — see server/adp.js.
+startAdpScheduler();
 
 // One-time migration: whatever used to live in the shared storage.json
 // (from before per-user KV) becomes Will's data — the default user this
@@ -127,6 +131,58 @@ router.delete("/:key", (req, res) => {
 });
 
 app.use("/api/storage", router);
+
+// --- Personal notes API — per-user, unlike /api/storage above. A user's
+// own inline edit/addition on a player's note (board's expanded row, not
+// the CSV import panel) lives here, keyed by "Viewing as", so it survives
+// Will re-uploading the shared base notes later. Same user_kv table as
+// the storage router, just resolved per-request instead of fixed to
+// "Will" — kept as a separate router rather than a flag on the one above
+// so the two scopes (shared vs. personal) can't get crossed by accident. ---
+const notesRouter = express.Router();
+
+notesRouter.use((req, res, next) => {
+  try {
+    req.user = getOrCreateUser(req.query.user || "Will");
+    next();
+  } catch (e) {
+    res.status(400).json({ error: e.message });
+  }
+});
+
+notesRouter.get("/:key", (req, res) => {
+  const row = db.prepare("SELECT value FROM user_kv WHERE user_id = ? AND key = ?")
+    .get(req.user.id, req.params.key);
+  if (!row) return res.status(404).json({ error: "not found" });
+  res.json({ key: req.params.key, value: row.value });
+});
+
+notesRouter.put("/:key", (req, res) => {
+  const value = req.body && req.body.value;
+  if (typeof value !== "string") {
+    return res.status(400).json({ error: "body must be JSON with a string 'value' field" });
+  }
+  db.prepare(`
+    INSERT INTO user_kv (user_id, key, value) VALUES (?, ?, ?)
+    ON CONFLICT(user_id, key) DO UPDATE SET value = excluded.value, updated_at = datetime('now')
+  `).run(req.user.id, req.params.key, value);
+  res.json({ key: req.params.key, value });
+});
+
+app.use("/api/notes", notesRouter);
+
+// --- Live player pool (name/pos/team/bye/ADP), cached from Fantasy Football
+// Calculator and refreshed daily — see server/adp.js. ---
+app.get("/api/players", (req, res) => res.json(getAdpPool()));
+app.get("/api/players/status", (req, res) => res.json(getAdpStatus()));
+app.post("/api/players/refresh", async (req, res) => {
+  try {
+    const count = await refreshAdpPool();
+    res.json({ ok: true, count });
+  } catch (e) {
+    res.status(502).json({ error: e.message });
+  }
+});
 
 app.get("/api/health", (req, res) => res.json({ ok: true, dataFile: DATA_FILE }));
 
