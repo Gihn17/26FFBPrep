@@ -604,8 +604,6 @@ export default function DraftPrepApp() {
   const poolFinal = useMemo(() => pool.map(p => {
     const imp = playerImports[p.id];
     if (!imp) return p;
-    const hasImport = !!(imp.statsOverride || imp.flatPtsOverride != null || imp.koiPoints != null || imp.finalPoints != null
-      || imp.tier != null || imp.posRank != null || imp.risk != null || imp.upside != null || imp.outlook != null || imp.bye != null);
     return {
       ...p,
       stats: imp.statsOverride ? { ...(p.stats || {}), ...imp.statsOverride } : p.stats,
@@ -615,10 +613,7 @@ export default function DraftPrepApp() {
       posRankOverride: imp.posRank != null ? imp.posRank : null,
       risk: imp.risk != null ? imp.risk : null,
       upside: imp.upside != null ? imp.upside : null,
-      outlookImported: imp.outlook != null,
       bye: imp.bye != null ? imp.bye : p.bye,
-      byeImported: imp.bye != null,
-      imported: hasImport,
       importSources: imp.sources || [],
     };
   }), [pool, playerImports]);
@@ -661,13 +656,9 @@ export default function DraftPrepApp() {
       ...p,
       vbd: fields[p.id].vbd,
       posRank: p.posRankOverride != null ? p.posRankOverride : fields[p.id].posRank,
-      posRankImported: p.posRankOverride != null,
       tier: p.tierOverride != null ? p.tierOverride : tiers[p.id],
-      tierImported: p.tierOverride != null,
       auction: auctionValues[p.id],
-      auctionImported: koiAuctionOverrides[p.id] != null,
       pts: fields[p.id].pts,
-      ptsImported: !!p.imported,
       d: draft[p.id] || { drafted:false, manager:"", paid:"" },
       noteData: notesOverride[p.id] || p.note,
     }));
@@ -984,16 +975,16 @@ export default function DraftPrepApp() {
                           <input type="checkbox" checked={!!r.d.drafted}
                             onChange={e=>setDraftField(r.id,{drafted:e.target.checked})} />
                         </td>
-                        <td style={td()}>{r.tier ?? "—"}{r.tierImported && <sup style={badgeSup()}>FFB</sup>}</td>
+                        <td style={td()}>{r.tier ?? "—"}</td>
                         <td style={{...td(), color:POS_COLORS[r.pos], fontWeight:700}}>{r.pos}</td>
                         <td style={{...td("left"), fontWeight:600}}>{r.name}</td>
                         <td style={td()}>{r.team}</td>
-                        <td style={td()}>{r.bye}{r.byeImported && <sup style={badgeSup()}>FFB</sup>}</td>
+                        <td style={td()}>{r.bye}</td>
                         <td style={td()}>{r.adpRank}</td>
-                        <td style={td()}>{r.posRank == null ? "—" : (/[A-Za-z]/.test(String(r.posRank)) ? r.posRank : `${r.pos}${r.posRank}`)}{r.posRankImported && <sup style={badgeSup()}>FFB</sup>}</td>
-                        <td style={td()}>{r.pts != null ? r.pts.toFixed(1) : "—"}{r.ptsImported && <sup style={badgeSup()}>FFB</sup>}</td>
+                        <td style={td()}>{r.posRank == null ? "—" : (/[A-Za-z]/.test(String(r.posRank)) ? r.posRank : `${r.pos}${r.posRank}`)}</td>
+                        <td style={td()}>{r.pts != null ? r.pts.toFixed(1) : "—"}</td>
                         <td style={{...td(), color: r.vbd == null ? "#7c7a6d" : (r.vbd>=0 ? "#7fd18f" : "#e08a8a")}}>{r.vbd != null ? r.vbd.toFixed(1) : "—"}</td>
-                        {league==="koi" && <td style={{...td(), fontWeight:700}}>{r.auction != null ? `$${r.auction}` : "—"}{r.auctionImported && <sup style={badgeSup()}>FFB</sup>}</td>}
+                        {league==="koi" && <td style={{...td(), fontWeight:700}}>{r.auction != null ? `$${r.auction}` : "—"}</td>}
                         {league==="koi" && (
                           <td style={td()} onClick={e=>e.stopPropagation()}>
                             <input type="number" placeholder="$" value={r.d.paid}
@@ -1021,7 +1012,7 @@ export default function DraftPrepApp() {
                           <td colSpan={league==="koi" ? 16 : 14} style={{ background:"#181910", padding:"14px 18px" }}>
                             <div style={{ display:"flex", gap:20, flexWrap:"wrap" }}>
                               <div style={{ flex:"1 1 320px" }}>
-                                <div style={lblSmall("#7fd18f")}>Expert Notes{r.outlookImported && <sup style={badgeSup()}>FFB</sup>}</div>
+                                <div style={lblSmall("#7fd18f")}>Expert Notes</div>
                                 <textarea value={r.noteData.pos} onChange={e=>setNote(r.id,{pos:e.target.value}, r.note)}
                                   style={ta()} rows={2} />
                               </div>
@@ -1532,8 +1523,7 @@ function ImportPanel({ pool, playerImports, onApplyImport, onClearImport, canEdi
         from a projections file for the same player. Imported tiers/ranks/bye weeks take priority over the model's
         computed or default values, and an imported write-up replaces the shared <b>Expert Notes</b> field for
         everyone. <b>Personal Notes</b> works differently — it's blank by default and edited directly on the board,
-        not through import, and each person's own edits there stay on their profile even after a re-import. Imported
-        fields show a small <b style={{color:"#7fd1c9"}}>FFB</b> tag on the board.
+        not through import, and each person's own edits there stay on their profile even after a re-import.
       </p>
 
       {!canEdit && (
