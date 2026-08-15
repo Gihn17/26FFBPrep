@@ -75,13 +75,20 @@ app.put("/api/users/:id/tabs", (req, res) => {
 });
 
 // --- Storage API (mirrors the shape App.jsx already expects from
-// window.storage), namespaced per user via ?user=<name> (default "Will"
-// so zero-setup solo use behaves exactly as before) ---
+// window.storage) — single shared source of truth for the draft board,
+// projections, and league config. Deliberately NOT namespaced by "Viewing
+// as" (that used to split this per-person; backed out per request — one
+// person's CSV import or drafted-player mark should be visible to everyone
+// immediately, not siloed to their own copy). "Viewing as" now only drives
+// Tab Access and the Import panel's upload permission below — nothing
+// about which data gets read or written. The user_kv table still supports
+// per-user rows at the schema level; this just always resolves to "Will"'s
+// row rather than trusting the request. ---
 const router = express.Router();
 
 router.use((req, res, next) => {
   try {
-    req.user = getOrCreateUser(req.query.user || "Will");
+    req.user = getOrCreateUser("Will");
     next();
   } catch (e) {
     res.status(400).json({ error: e.message });

@@ -151,9 +151,14 @@ const DEFAULT_TIER_PARAMS = { minGap:4, pctGap:0.14 };
    SCORING ENGINE — one formula, weights swapped per league
    ============================================================ */
 function scorePoints(s, w) {
-  return (s.passYds / w.passYdsPerPt) + (s.passTD * w.passTD) - (s.INT * w.intPenalty)
-       + (s.rushYds / w.rushYdsPerPt) + (s.rushTD * w.rushTD)
-       + (s.rec * w.rec) + (s.recYds / w.recYdsPerPt) + (s.recTD * w.recTD)
+  // Every field defaults to 0 — an imported stat line only has the columns
+  // its CSV actually contained (a QB export has no receiving columns, an
+  // RB/WR export usually has no passing columns), so missing fields are
+  // normal, not an error. Without these defaults, one undefined field
+  // (undefined * weight = NaN) poisons the entire sum.
+  return ((s.passYds||0) / w.passYdsPerPt) + ((s.passTD||0) * w.passTD) - ((s.INT||0) * w.intPenalty)
+       + ((s.rushYds||0) / w.rushYdsPerPt) + ((s.rushTD||0) * w.rushTD)
+       + ((s.rec||0) * w.rec) + ((s.recYds||0) / w.recYdsPerPt) + ((s.recTD||0) * w.recTD)
        - ((s.fumbles||0) * (w.fumblePenalty||0));
 }
 
@@ -463,14 +468,18 @@ const OUTLOOK_STYLE = {
 };
 const POS_COLORS = { QB:"#d162a4", RB:"#3f9e5e", WR:"#4f8fd1", TE:"#c9a227", K:"#9a9a9a", DEF:"#c0453f" };
 const LEAGUE_LABELS = { koi:"Koi", final:"Final Fantasy", jordan:"Jordan" };
+// The three actual draft boards — used to gate board-only UI (Export CSV,
+// Reset Draft, the drafted/spent counter, Sleeper sync) and to fall back
+// "league" to a real board whenever the active tab isn't one (how/settings).
+const BOARD_TABS = ["koi", "final", "jordan"];
 // Keep in sync with VALID_TABS in server/db.js — that's the server-side
 // copy used to validate/store a user's allowed_tabs.
-const ALL_TABS = ["koi", "final", "jordan", "how"];
+const ALL_TABS = [...BOARD_TABS, "how", "settings"];
 const TAB_LABELS = {
   koi: "Koi — $200 Auction · Half-PPR", final: "Final Fantasy · Full PPR",
-  jordan: "Jordan", how: "Calculations",
+  jordan: "Jordan", how: "Calculations", settings: "Settings",
 };
-const TAB_LABELS_SHORT = { koi: "Koi", final: "Final Fantasy", jordan: "Jordan", how: "Calculations" };
+const TAB_LABELS_SHORT = { koi: "Koi", final: "Final Fantasy", jordan: "Jordan", how: "Calculations", settings: "Settings" };
 
 function NumField({ label, value, onChange, step }) {
   return (
@@ -515,8 +524,6 @@ export default function DraftPrepApp() {
   const [replacement, setReplacement] = useState(DEFAULT_REPLACEMENT);
   const [tierParams, setTierParams] = useState(DEFAULT_TIER_PARAMS);
   const [playerImports, setPlayerImports] = useState({}); // id -> {statsOverride, flatPtsOverride, koiPoints, finalPoints, auction}
-  const [showSettings, setShowSettings] = useState(false);
-  const [showAccessPanel, setShowAccessPanel] = useState(false);
   const [expanded, setExpanded] = useState(null);
   const [loaded, setLoaded] = useState(false);
 
@@ -686,7 +693,7 @@ export default function DraftPrepApp() {
   // always what drive the $200/team pool math, regardless of which tab is active.
   const auctionValues = useMemo(() => computeAuctionValues(poolFinal, koiFields, teamsByLeague.koi, rosterSpotsByLeague.koi, koiAuctionOverrides), [poolFinal, koiFields, teamsByLeague.koi, rosterSpotsByLeague.koi, koiAuctionOverrides]);
 
-  const league = view === "how" ? "koi" : view;
+  const league = BOARD_TABS.includes(view) ? view : "koi";
   const teams = teamsByLeague[league];
   const rosterSpots = rosterSpotsByLeague[league];
   const fields = league === "koi" ? koiFields : league === "jordan" ? jordanFields : finalFields;
@@ -764,13 +771,15 @@ export default function DraftPrepApp() {
       return { ...all, [league]: { ...cur, [id]: { ...(cur[id]||{drafted:false,manager:"",paid:""}), ...patch } } };
     });
   }, [league]);
-  const setManagersForLeague = useCallback((text) => {
-    setManagersTextByLeague(all => ({ ...all, [league]: text }));
-    setManagersByLeague(all => ({ ...all, [league]: text.split(",").map(s=>s.trim()).filter(Boolean) }));
-  }, [league]);
+  // Takes an explicit league now (not closed over the active tab) — managers
+  // are edited from the Settings tab, which shows all three leagues at once.
+  const setManagersForLeague = useCallback((lg, text) => {
+    setManagersTextByLeague(all => ({ ...all, [lg]: text }));
+    setManagersByLeague(all => ({ ...all, [lg]: text.split(",").map(s=>s.trim()).filter(Boolean) }));
+  }, []);
   // Sleeper sync always targets Final Fantasy specifically, regardless of
-  // which tab is currently active — unlike setDraftField/setManagersForLeague
-  // above, which close over whichever league the user is currently viewing.
+  // which tab is currently active — unlike setDraftField above, which
+  // closes over whichever league the user is currently viewing.
   const mergeSyncedFinalPicks = useCallback((patchMap) => {
     setDraftByLeague(all => {
       const cur = all.final || {};
@@ -917,10 +926,8 @@ export default function DraftPrepApp() {
               <option value="__new__">+ New user…</option>
             </select>
           </label>
-          <button onClick={()=>setShowAccessPanel(s=>!s)} style={btnStyle()}>Tab Access</button>
-          {view !== "how" && (
+          {BOARD_TABS.includes(view) && (
             <div style={{ display:"flex", gap:8 }}>
-              <button onClick={()=>setShowSettings(s=>!s)} style={btnStyle()}>Settings</button>
               <button onClick={exportCSV} style={btnStyle()}>Export CSV</button>
               <button onClick={resetDraft} style={btnStyle("#3a1f1f","#c0453f")}>Reset Draft</button>
             </div>
@@ -928,35 +935,7 @@ export default function DraftPrepApp() {
         </div>
       </div>
 
-      {showAccessPanel && (
-        <div style={panelStyle()}>
-          <div style={{ fontSize:11, fontWeight:700, letterSpacing:0.5, color:"#c9a227", marginBottom:10, textTransform:"uppercase" }}>
-            Tab Access — which boards each person can see
-          </div>
-          <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
-            {users.filter(u => u.id != null).map(u => {
-              const active = (u.allowedTabs && u.allowedTabs.length) ? u.allowedTabs : ALL_TABS;
-              return (
-                <div key={u.id} style={{ display:"flex", alignItems:"center", gap:16, flexWrap:"wrap" }}>
-                  <div style={{ width:90, fontWeight:700 }}>{u.name}</div>
-                  {ALL_TABS.map(t => (
-                    <label key={t} style={{ display:"flex", alignItems:"center", gap:5, fontSize:12 }}>
-                      <input type="checkbox" checked={active.includes(t)} onChange={()=>toggleUserTab(u, t)} />
-                      {TAB_LABELS_SHORT[t]}
-                    </label>
-                  ))}
-                </div>
-              );
-            })}
-          </div>
-          <div style={{ fontSize:11, opacity:0.55, marginTop:10 }}>
-            At least one tab has to stay checked per person. If someone's current tab gets unchecked, they're
-            moved to their next allowed tab automatically the next time the app loads for them.
-          </div>
-        </div>
-      )}
-
-      {league === "final" && view !== "how" && (
+      {view === "final" && (
         <SleeperSyncPanel
           sourceLeagueId={leagueConfigs.final && leagueConfigs.final.source_league_id}
           pool={poolFinal}
@@ -964,49 +943,6 @@ export default function DraftPrepApp() {
           onMergePicks={mergeSyncedFinalPicks}
           onAddManagers={addManagersForFinal}
         />
-      )}
-
-      {view !== "how" && showSettings && (
-        <div style={panelStyle()}>
-          <div style={{ fontSize:11, fontWeight:700, letterSpacing:0.5, color:"#c9a227", marginBottom:10, textTransform:"uppercase" }}>
-            {league === "koi" ? "Koi — $200 Auction Settings" : `${LEAGUE_LABELS[league] || league} — Standard Draft Settings`}
-          </div>
-          <div style={{ display:"flex", gap:24, flexWrap:"wrap" }}>
-            {league === "koi" && (
-              <>
-                <label style={lbl()}>Koi teams
-                  <input type="number" min="4" max="20" value={teams}
-                    onChange={e=>setTeamsFor("koi", Math.max(4,Number(e.target.value)||DEFAULT_TEAMS.koi))} style={inp(60)} />
-                </label>
-                <label style={lbl()}>Roster spots/team
-                  <input type="number" min="10" max="30" value={rosterSpots}
-                    onChange={e=>setRosterSpotsFor("koi", Math.max(10,Number(e.target.value)||DEFAULT_ROSTER_SPOTS.koi))} style={inp(60)} />
-                </label>
-                <label style={lbl()}>Auction pool
-                  <div style={{...inp(90), display:"flex", alignItems:"center"}}>${teams*200}</div>
-                </label>
-              </>
-            )}
-            <div style={{flex:1, minWidth:220}}>
-              <div style={{fontSize:11, opacity:0.7, marginBottom:4}}>
-                {LEAGUE_LABELS[league] || league} owners (comma separated)
-              </div>
-              <input value={managersText}
-                onChange={e=>setManagersForLeague(e.target.value)}
-                style={{...inp("100%"), width:"100%"}} />
-            </div>
-          </div>
-          {league !== "koi" && (
-            <div style={{ fontSize:12, opacity:0.7, marginTop:10 }}>
-              Standard snake draft — no auction pool or price tracking here. Mark players drafted and assign
-              the owner as picks happen; the Paid column only shows up on the Koi board.
-            </div>
-          )}
-          <div style={{ fontSize:12, opacity:0.65, marginTop:10, lineHeight:1.5 }}>
-            Want to see or tweak the actual VBD/scoring/projection math? Open the
-            <b style={{color:"#f0d97a"}}> "Calculations"</b> tab above the board.
-          </div>
-        </div>
       )}
 
       <div style={{ display:"flex", gap:8, marginBottom:14, flexWrap:"wrap" }}>
@@ -1017,7 +953,7 @@ export default function DraftPrepApp() {
             fontWeight:700, fontSize:14,
           }}>{label}</button>
         ))}
-        {view !== "how" && (
+        {BOARD_TABS.includes(view) && (
           <div style={{ marginLeft:"auto", fontSize:13, opacity:0.75, alignSelf:"center" }}>
             Drafted: {draftedCount} {league==="koi" && <> · Spent: ${spent} / ${teams*200}</>}
           </div>
@@ -1035,6 +971,14 @@ export default function DraftPrepApp() {
           playerImports={playerImports}
           onApplyImport={applyImport}
           onClearImport={clearImport}
+          currentUserName={currentUserName}
+        />
+      ) : view === "settings" ? (
+        <SettingsTab
+          users={users} toggleUserTab={toggleUserTab}
+          teamsByLeague={teamsByLeague} rosterSpotsByLeague={rosterSpotsByLeague}
+          setTeamsFor={setTeamsFor} setRosterSpotsFor={setRosterSpotsFor}
+          managersTextByLeague={managersTextByLeague} setManagersForLeague={setManagersForLeague}
         />
       ) : (
         <>
@@ -1289,7 +1233,92 @@ function SleeperSyncPanel({ sourceLeagueId, pool, draft, onMergePicks, onAddMana
   );
 }
 
-function MethodologyTab({ weights, setWeight, replacement, setRep, tierParams, setTierParams, teams, rosterSpots, onReset, pool, playerImports, onApplyImport, onClearImport }) {
+/* ============================================================
+   SETTINGS TAB — its own page (Tab Access + per-league board
+   settings), deliberately separate from the draft/research board
+   so opening it never shifts or clutters that view.
+   ============================================================ */
+function SettingsTab({ users, toggleUserTab, teamsByLeague, rosterSpotsByLeague, setTeamsFor, setRosterSpotsFor, managersTextByLeague, setManagersForLeague }) {
+  return (
+    <div style={{ display:"flex", flexDirection:"column", gap:16 }}>
+      <div style={panelStyle()}>
+        <div style={{ fontSize:11, fontWeight:700, letterSpacing:0.5, color:"#c9a227", marginBottom:10, textTransform:"uppercase" }}>
+          Tab Access — which boards each person can see
+        </div>
+        <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
+          {users.filter(u => u.id != null).map(u => {
+            const active = (u.allowedTabs && u.allowedTabs.length) ? u.allowedTabs : ALL_TABS;
+            return (
+              <div key={u.id} style={{ display:"flex", alignItems:"center", gap:16, flexWrap:"wrap" }}>
+                <div style={{ width:90, fontWeight:700 }}>{u.name}</div>
+                {ALL_TABS.map(t => (
+                  <label key={t} style={{ display:"flex", alignItems:"center", gap:5, fontSize:12 }}>
+                    <input type="checkbox" checked={active.includes(t)} onChange={()=>toggleUserTab(u, t)} />
+                    {TAB_LABELS_SHORT[t]}
+                  </label>
+                ))}
+              </div>
+            );
+          })}
+        </div>
+        <div style={{ fontSize:11, opacity:0.55, marginTop:10 }}>
+          At least one tab has to stay checked per person. If someone's current tab gets unchecked, they're
+          moved to their next allowed tab automatically the next time the app loads for them.
+        </div>
+      </div>
+
+      {BOARD_TABS.map(lg => {
+        const teams = teamsByLeague[lg];
+        const rosterSpots = rosterSpotsByLeague[lg];
+        return (
+          <div key={lg} style={panelStyle()}>
+            <div style={{ fontSize:11, fontWeight:700, letterSpacing:0.5, color:"#c9a227", marginBottom:10, textTransform:"uppercase" }}>
+              {lg === "koi" ? "Koi — $200 Auction Settings" : `${LEAGUE_LABELS[lg] || lg} — Standard Draft Settings`}
+            </div>
+            <div style={{ display:"flex", gap:24, flexWrap:"wrap" }}>
+              {lg === "koi" && (
+                <>
+                  <label style={lbl()}>Koi teams
+                    <input type="number" min="4" max="20" value={teams}
+                      onChange={e=>setTeamsFor("koi", Math.max(4,Number(e.target.value)||DEFAULT_TEAMS.koi))} style={inp(60)} />
+                  </label>
+                  <label style={lbl()}>Roster spots/team
+                    <input type="number" min="10" max="30" value={rosterSpots}
+                      onChange={e=>setRosterSpotsFor("koi", Math.max(10,Number(e.target.value)||DEFAULT_ROSTER_SPOTS.koi))} style={inp(60)} />
+                  </label>
+                  <label style={lbl()}>Auction pool
+                    <div style={{...inp(90), display:"flex", alignItems:"center"}}>${teams*200}</div>
+                  </label>
+                </>
+              )}
+              <div style={{flex:1, minWidth:220}}>
+                <div style={{fontSize:11, opacity:0.7, marginBottom:4}}>
+                  {LEAGUE_LABELS[lg] || lg} owners (comma separated)
+                </div>
+                <input value={managersTextByLeague[lg] || ""}
+                  onChange={e=>setManagersForLeague(lg, e.target.value)}
+                  style={{...inp("100%"), width:"100%"}} />
+              </div>
+            </div>
+            {lg !== "koi" && (
+              <div style={{ fontSize:12, opacity:0.7, marginTop:10 }}>
+                Standard snake draft — no auction pool or price tracking here. Mark players drafted and assign
+                the owner as picks happen; the Paid column only shows up on the Koi board.
+              </div>
+            )}
+          </div>
+        );
+      })}
+
+      <div style={{ fontSize:12, opacity:0.65, lineHeight:1.5 }}>
+        Want to see or tweak the actual VBD/scoring/projection math? Open the
+        <b style={{color:"#f0d97a"}}> "Calculations"</b> tab instead.
+      </div>
+    </div>
+  );
+}
+
+function MethodologyTab({ weights, setWeight, replacement, setRep, tierParams, setTierParams, teams, rosterSpots, onReset, pool, playerImports, onApplyImport, onClearImport, currentUserName }) {
   const [section, setSection] = useState("import");
   const totalPool = teams * 200;
   const totalSpots = teams * rosterSpots;
@@ -1316,7 +1345,8 @@ function MethodologyTab({ weights, setWeight, replacement, setRep, tierParams, s
       </div>
 
       {section === "import" && (
-        <ImportPanel pool={pool} playerImports={playerImports} onApplyImport={onApplyImport} onClearImport={onClearImport} />
+        <ImportPanel pool={pool} playerImports={playerImports} onApplyImport={onApplyImport} onClearImport={onClearImport}
+          canEdit={currentUserName === "Will"} />
       )}
 
       {section === "scoring" && (
@@ -1396,7 +1426,7 @@ function MethodologyTab({ weights, setWeight, replacement, setRep, tierParams, s
   );
 }
 
-function ImportPanel({ pool, playerImports, onApplyImport, onClearImport }) {
+function ImportPanel({ pool, playerImports, onApplyImport, onClearImport, canEdit }) {
   const [batches, setBatches] = useState([]); // {id, label, headers, data, map:{...}}
   const [pasteText, setPasteText] = useState("");
   const [result, setResult] = useState(null); // {matched, unmatched: []}
@@ -1549,15 +1579,24 @@ function ImportPanel({ pool, playerImports, onApplyImport, onClearImport }) {
         afterward). Imported fields show a small <b style={{color:"#7fd1c9"}}>FFB</b> tag on the board.
       </p>
 
+      {!canEdit && (
+        <div style={{ ...pText(), background:"#181910", border:"1px solid #2a2c20", borderRadius:8, padding:12, marginBottom:14 }}>
+          Only <b style={{color:"#f0d97a"}}>Will</b> can upload or clear projection files — everyone else sees
+          whatever's currently imported (it drives the points/VBD/tiers/auction values on every board already),
+          but the upload controls only show up when you're viewing as Will.
+        </div>
+      )}
+
       <div style={{ display:"flex", gap:12, alignItems:"center", marginBottom:14, flexWrap:"wrap" }}>
         <span style={{ fontSize:11, opacity:0.6 }}>
           {importCount > 0 ? `${importCount} players currently have imported data` : "No import applied yet"}
         </span>
-        {importCount > 0 && (
+        {canEdit && importCount > 0 && (
           <button onClick={()=>{ onClearImport(); setResult(null); }} style={btnStyle("#3a1f1f","#c0453f")}>Clear all imports</button>
         )}
       </div>
 
+      {canEdit && (
       <div style={{ display:"flex", gap:12, alignItems:"center", flexWrap:"wrap", marginBottom:14 }}>
         <label style={{...btnStyle("#20211a","#c9a227"), display:"inline-block", cursor:"pointer"}}>
           + Add file(s)
@@ -1566,7 +1605,9 @@ function ImportPanel({ pool, playerImports, onApplyImport, onClearImport }) {
         </label>
         <span style={{ fontSize:11, opacity:0.5 }}>or paste one CSV below and add it as a file</span>
       </div>
+      )}
 
+      {canEdit && (
       <div style={{ display:"flex", gap:8, marginBottom:18 }}>
         <textarea value={pasteText} onChange={e=>setPasteText(e.target.value)}
           placeholder="Paste one file's CSV text here (e.g. just the RB export)..."
@@ -1574,8 +1615,9 @@ function ImportPanel({ pool, playerImports, onApplyImport, onClearImport }) {
         <button onClick={()=>{ if (pasteText.trim()) { addBatchFromText(pasteText, `Pasted ${batches.length+1}`); setPasteText(""); } }}
           style={btnStyle()}>Add as file</button>
       </div>
+      )}
 
-      {batches.length > 0 && (
+      {canEdit && batches.length > 0 && (
         <div style={{ display:"flex", flexDirection:"column", gap:12, marginBottom:14 }}>
           {batches.map(batch => (
             <div key={batch.id} style={{ background:"#0f100b", border:"1px solid #262819", borderRadius:8, padding:12 }}>
