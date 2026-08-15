@@ -463,6 +463,14 @@ const OUTLOOK_STYLE = {
 };
 const POS_COLORS = { QB:"#d162a4", RB:"#3f9e5e", WR:"#4f8fd1", TE:"#c9a227", K:"#9a9a9a", DEF:"#c0453f" };
 const LEAGUE_LABELS = { koi:"Koi", final:"Final Fantasy", jordan:"Jordan" };
+// Keep in sync with VALID_TABS in server/db.js — that's the server-side
+// copy used to validate/store a user's allowed_tabs.
+const ALL_TABS = ["koi", "final", "jordan", "how"];
+const TAB_LABELS = {
+  koi: "Koi — $200 Auction · Half-PPR", final: "Final Fantasy · Full PPR",
+  jordan: "Jordan", how: "Calculations",
+};
+const TAB_LABELS_SHORT = { koi: "Koi", final: "Final Fantasy", jordan: "Jordan", how: "Calculations" };
 
 function NumField({ label, value, onChange, step }) {
   return (
@@ -508,6 +516,7 @@ export default function DraftPrepApp() {
   const [tierParams, setTierParams] = useState(DEFAULT_TIER_PARAMS);
   const [playerImports, setPlayerImports] = useState({}); // id -> {statsOverride, flatPtsOverride, koiPoints, finalPoints, auction}
   const [showSettings, setShowSettings] = useState(false);
+  const [showAccessPanel, setShowAccessPanel] = useState(false);
   const [expanded, setExpanded] = useState(null);
   const [loaded, setLoaded] = useState(false);
 
@@ -516,6 +525,38 @@ export default function DraftPrepApp() {
       if (list && list.length) setUsers(list);
     }).catch(() => {}); // never blocks the app — solo/"Will" use works with no server round-trip
   }, []);
+
+  // Who's currently signed in (see "Viewing as" below) and which tabs
+  // they're allowed to see. Defaults to all tabs — for the built-in "Will"
+  // user before /api/users resolves, and for anyone with no restriction set.
+  const currentUserName = (typeof localStorage !== "undefined" && localStorage.getItem("ffb-user")) || "Will";
+  const currentUser = users.find(u => u.name === currentUserName);
+  const allowedTabs = (currentUser && currentUser.allowedTabs && currentUser.allowedTabs.length)
+    ? currentUser.allowedTabs : ALL_TABS;
+
+  // If the active tab isn't (or is no longer) allowed for this user, bump
+  // them to their first allowed tab instead of showing a tab they can't see.
+  useEffect(() => {
+    if (!allowedTabs.includes(view)) setView(allowedTabs[0] || "koi");
+  }, [allowedTabs, view]);
+
+  const updateUserTabs = useCallback(async (userId, tabs) => {
+    setUsers(list => list.map(u => u.id === userId ? { ...u, allowedTabs: tabs } : u));
+    try {
+      await fetch(`/api/users/${userId}/tabs`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tabs }),
+      });
+    } catch (e) { /* local state already updated for this session; server may retry on next load */ }
+  }, []);
+  const toggleUserTab = useCallback((user, tabKey) => {
+    const current = (user.allowedTabs && user.allowedTabs.length) ? user.allowedTabs : ALL_TABS;
+    const has = current.includes(tabKey);
+    if (has && current.length === 1) return; // at least one tab has to stay visible
+    const next = has ? current.filter(t => t !== tabKey) : [...current, tabKey];
+    updateUserTabs(user.id, next.length === ALL_TABS.length ? null : next);
+  }, [updateUserTabs]);
 
   useEffect(() => {
     (async () => {
@@ -876,6 +917,7 @@ export default function DraftPrepApp() {
               <option value="__new__">+ New user…</option>
             </select>
           </label>
+          <button onClick={()=>setShowAccessPanel(s=>!s)} style={btnStyle()}>Tab Access</button>
           {view !== "how" && (
             <div style={{ display:"flex", gap:8 }}>
               <button onClick={()=>setShowSettings(s=>!s)} style={btnStyle()}>Settings</button>
@@ -885,6 +927,34 @@ export default function DraftPrepApp() {
           )}
         </div>
       </div>
+
+      {showAccessPanel && (
+        <div style={panelStyle()}>
+          <div style={{ fontSize:11, fontWeight:700, letterSpacing:0.5, color:"#c9a227", marginBottom:10, textTransform:"uppercase" }}>
+            Tab Access — which boards each person can see
+          </div>
+          <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
+            {users.filter(u => u.id != null).map(u => {
+              const active = (u.allowedTabs && u.allowedTabs.length) ? u.allowedTabs : ALL_TABS;
+              return (
+                <div key={u.id} style={{ display:"flex", alignItems:"center", gap:16, flexWrap:"wrap" }}>
+                  <div style={{ width:90, fontWeight:700 }}>{u.name}</div>
+                  {ALL_TABS.map(t => (
+                    <label key={t} style={{ display:"flex", alignItems:"center", gap:5, fontSize:12 }}>
+                      <input type="checkbox" checked={active.includes(t)} onChange={()=>toggleUserTab(u, t)} />
+                      {TAB_LABELS_SHORT[t]}
+                    </label>
+                  ))}
+                </div>
+              );
+            })}
+          </div>
+          <div style={{ fontSize:11, opacity:0.55, marginTop:10 }}>
+            At least one tab has to stay checked per person. If someone's current tab gets unchecked, they're
+            moved to their next allowed tab automatically the next time the app loads for them.
+          </div>
+        </div>
+      )}
 
       {league === "final" && view !== "how" && (
         <SleeperSyncPanel
@@ -940,7 +1010,7 @@ export default function DraftPrepApp() {
       )}
 
       <div style={{ display:"flex", gap:8, marginBottom:14, flexWrap:"wrap" }}>
-        {[["koi","Koi — $200 Auction · Half-PPR"],["final","Final Fantasy · Full PPR"],["jordan","Jordan"],["how","Calculations"]].map(([k,label]) => (
+        {ALL_TABS.filter(k => allowedTabs.includes(k)).map(k => [k, TAB_LABELS[k]]).map(([k,label]) => (
           <button key={k} onClick={()=>setView(k)} style={{
             padding:"10px 18px", borderRadius:8, border:"1px solid " + (view===k ? "#c9a227" : "#33362a"),
             background: view===k ? "#2a2a18" : "#181910", color: view===k ? "#f0d97a" : "#c9c6ba",

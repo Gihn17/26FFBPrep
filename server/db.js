@@ -29,9 +29,11 @@ db.exec(`
 -- Not real auth. This is a LAN app; a name is enough.
 -- ============================================================
 CREATE TABLE IF NOT EXISTS users (
-  id         INTEGER PRIMARY KEY AUTOINCREMENT,
-  name       TEXT UNIQUE NOT NULL,
-  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  id           INTEGER PRIMARY KEY AUTOINCREMENT,
+  name         TEXT UNIQUE NOT NULL,
+  allowed_tabs TEXT,                  -- comma-separated tab keys (koi/final/jordan/how);
+                                        -- NULL or empty means "all tabs" (the default)
+  created_at   TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
 -- ============================================================
@@ -175,10 +177,36 @@ CREATE TABLE IF NOT EXISTS user_kv (
 );
 `);
 
+// Migration: CREATE TABLE IF NOT EXISTS above doesn't add columns to a
+// users table that already existed before allowed_tabs was introduced —
+// add it here if it's missing, safe to run on every boot.
+const usersCols = db.prepare("PRAGMA table_info(users)").all().map((c) => c.name);
+if (!usersCols.includes("allowed_tabs")) {
+  db.exec("ALTER TABLE users ADD COLUMN allowed_tabs TEXT");
+}
+
 // Seed a default user so single-player usage works with zero setup.
 const defaultUser = db.prepare("SELECT id FROM users WHERE name = ?").get("Will");
 if (!defaultUser) {
   db.prepare("INSERT INTO users (name) VALUES (?)").run("Will");
+}
+
+// Keep in sync with ALL_TABS in src/App.jsx — that's the client-side copy
+// used for the checkbox UI and the nav-filtering fallback.
+export const VALID_TABS = ["koi", "final", "jordan", "how"];
+
+/** allowed_tabs is stored as a comma-separated string; NULL/empty means
+ *  "all tabs" (the default, so existing single-user setups are never
+ *  restricted). Always comes back as either an array or null, never "". */
+function parseAllowedTabs(raw) {
+  if (!raw) return null;
+  const tabs = raw.split(",").map((t) => t.trim()).filter((t) => VALID_TABS.includes(t));
+  return tabs.length ? tabs : null;
+}
+function serializeAllowedTabs(tabs) {
+  if (!Array.isArray(tabs) || !tabs.length) return null;
+  const clean = [...new Set(tabs.filter((t) => VALID_TABS.includes(t)))];
+  return clean.length && clean.length < VALID_TABS.length ? clean.join(",") : null;
 }
 
 /** Looks up a user by name, creating it if it doesn't exist yet.
@@ -186,16 +214,27 @@ if (!defaultUser) {
 export function getOrCreateUser(name) {
   name = String(name || "").trim();
   if (!name) throw new Error("user name required");
-  let row = db.prepare("SELECT id, name FROM users WHERE name = ?").get(name);
+  let row = db.prepare("SELECT id, name, allowed_tabs FROM users WHERE name = ?").get(name);
   if (!row) {
     db.prepare("INSERT INTO users (name) VALUES (?)").run(name);
-    row = db.prepare("SELECT id, name FROM users WHERE name = ?").get(name);
+    row = db.prepare("SELECT id, name, allowed_tabs FROM users WHERE name = ?").get(name);
   }
-  return row;
+  return { id: row.id, name: row.name, allowedTabs: parseAllowedTabs(row.allowed_tabs) };
 }
 
 export function listUsers() {
-  return db.prepare("SELECT id, name FROM users ORDER BY id").all();
+  return db.prepare("SELECT id, name, allowed_tabs FROM users ORDER BY id").all()
+    .map((row) => ({ id: row.id, name: row.name, allowedTabs: parseAllowedTabs(row.allowed_tabs) }));
+}
+
+/** tabs: array of tab keys to restrict this user to, or null/[]/undefined
+ *  for "all tabs". Unknown keys are silently dropped; if every valid tab
+ *  ends up included, that's stored as NULL too (same as "all"). */
+export function setUserAllowedTabs(id, tabs) {
+  const value = serializeAllowedTabs(tabs);
+  const result = db.prepare("UPDATE users SET allowed_tabs = ? WHERE id = ?").run(value, id);
+  if (result.changes === 0) throw new Error("user not found");
+  return { id, allowedTabs: parseAllowedTabs(value) };
 }
 
 export default db;

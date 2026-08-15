@@ -3,7 +3,7 @@ import path from "path";
 import fs from "fs";
 import { fileURLToPath } from "url";
 import { seedLeagues, getAllLeagues } from "./leagues.js";
-import { db, getOrCreateUser, listUsers } from "./db.js";
+import { db, getOrCreateUser, listUsers, setUserAllowedTabs } from "./db.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -56,6 +56,19 @@ app.get("/api/users", (req, res) => res.json(listUsers()));
 app.post("/api/users", (req, res) => {
   try {
     res.json(getOrCreateUser(req.body && req.body.name));
+  } catch (e) {
+    res.status(400).json({ error: e.message });
+  }
+});
+
+// Which board tabs a user can see — null/omitted "tabs" means "all tabs".
+// No real auth (see db.js) — anyone can change anyone's access, same as
+// anyone can already switch "Viewing as" to anyone.
+app.put("/api/users/:id/tabs", (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    if (!Number.isInteger(id)) return res.status(400).json({ error: "invalid user id" });
+    res.json(setUserAllowedTabs(id, req.body && req.body.tabs));
   } catch (e) {
     res.status(400).json({ error: e.message });
   }
