@@ -6,10 +6,10 @@ three leagues at once — **Koi** ($200 auction, half-PPR), **Final Fantasy**
 
 ## What it does
 
-- **Player pool & projections** — QB/RB/WR/TE/K/DEF ranked by 2026 preseason
-  ADP, with synthetic per-player stat lines (passing/rushing/receiving) driven
-  by tunable projection curves, plus real archetype data (mobile QBs, pass-
-  catching vs. grinder RBs) layered on top.
+- **Player pool** — QB/RB/WR/TE/K/DEF ranked by 2026 preseason ADP. No
+  synthetic stats or fabricated projections: every player shows blank
+  points/VBD/tier/auction value until you import real data for them (see
+  "CSV Import Format" below).
 - **Per-league scoring** — each league has its own scoring weights and
   replacement-level settings, so the same player pool produces different
   points, VBD (value-based drafting), and tiers per league.
@@ -20,15 +20,16 @@ three leagues at once — **Koi** ($200 auction, half-PPR), **Final Fantasy**
 - **Scouting notes** — a positive/negative blurb and a green/yellow/red/pink
   outlook tag for every notable player, editable inline.
 - **CSV import/export** — pull in real projections/auction values from an
-  external source (e.g. an exported rankings CSV) to override the synthetic
-  numbers, and export the live board (points, VBD, tiers, draft status) as
-  CSV — handy as a paper backup on draft day.
+  external source (e.g. an exported UDK CSV) — this is the only way points
+  get onto the board. Also exports the live board (points, VBD, tiers, draft
+  status) as CSV — handy as a paper backup on draft day.
 - **Live draft-day tracker** — mark players drafted, assign the manager who
   took them, and (on the Koi board) log the price paid, live-updating
   remaining budget and pick counts.
-- **"Calculations" tab** — every projection curve, scoring weight,
-  replacement level, and tier-gap parameter is exposed and editable from the
-  UI, so the math behind the board can be tuned without touching code.
+- **"Calculations" tab** — every scoring weight, replacement level, and
+  tier-gap parameter is exposed and editable from the UI (plus the CSV
+  import panel itself), so the math behind the board can be tuned without
+  touching code.
 
 ## Run it
 
@@ -62,6 +63,93 @@ docker build -t ffb-draft-prep .
 docker run -d --name ffb-draft-prep -p 9090:3000 \
   -v ffb-data:/app/data --restart unless-stopped ffb-draft-prep
 ```
+
+## CSV Import Format
+
+There's no synthetic data anymore — this is the only way a player gets
+real points/VBD/tier/auction values. Import lives in the app under the
+**"Calculations" tab → "Import Real Data"**.
+
+You can drop in multiple files at once (e.g. one export per position), and
+each file gets matched and merged into the same player pool by name.
+
+### Required
+
+- **One column identifying the player.** Header just needs to contain
+  `player` or `name` (e.g. "Player", "Player Name", "Name" all work).
+  Everything else in the row is optional — a row with no recognizable name
+  column is skipped entirely, and a row whose name doesn't match anyone in
+  the pool gets listed as "unmatched" after import (nothing is silently
+  dropped).
+
+### Optional — raw stats
+
+Drive both Koi and Final Fantasy, via each league's own scoring weights.
+Jordan *always* scores off these — see the note below.
+
+| Field | Header should contain |
+|---|---|
+| Pass yards | `pass yds` / `passing yds` / `pyds` |
+| Pass TD | `pass td` / `passing td` / `ptd` |
+| Interceptions | `int` / `interception` |
+| Rush yards | `rush yds` / `rushing yds` / `ryds` |
+| Rush TD | `rush td` / `rushing td` / `rtd` |
+| Receptions | `receptions` / `rec` / `catches` |
+| Rec yards | `rec yds` / `receiving yds` / `reyds` |
+| Rec TD | `rec td` / `receiving td` / `retd` |
+| Fumbles lost | `fumbles lost` / `fuml` / `fumbles` |
+
+### Optional — direct point totals
+
+Override the raw-stat math for that one league. K/DEF *only* use these,
+since they don't have a raw stat line.
+
+| Field | Header should contain | Applies to |
+|---|---|---|
+| Half-PPR points | `half ppr` / `koi` | Koi only |
+| Full-PPR / generic points | `full ppr` / `ppr pts` / `fpts` / `fantasy points` / `points` / `proj` | Final Fantasy only |
+
+A generic header like "Points" or "FPTS" is treated as the **Final
+Fantasy** total, not Koi — if it's actually a half-PPR number meant for
+Koi, either rename the header to include "half ppr"/"koi" or remap it
+manually (see "Fixing a missed column" below). **Jordan has no
+direct-points column at all** — it always computes from the raw stats
+above via its own scoring weights, so a Jordan projection needs the raw
+stat columns, not a points column.
+
+### Optional — metadata (fills in the board directly, no scoring math)
+
+| Field | Header should contain |
+|---|---|
+| Auction $ | `auction` / `dollar` / `aav` / `$` (Koi board only) |
+| Tier | `tier` |
+| Position rank | `pos rank` / `position rank` / `pos rk` |
+| Risk | `risk` |
+| Upside | `upside` / `ceiling` |
+| Write-up | `writeup` / `outlook` / `blurb` / `summary` / `analysis` / `notes` / `comment` — replaces the player's "Positive" note |
+| Bye week | `bye week` / `bye` |
+
+### Column order doesn't matter
+
+Columns are matched by **header text**, not position — put them in
+whatever order your export uses. Matching is case-insensitive and ignores
+spaces/punctuation (`"Pass Yds"`, `"PassYds"`, and `"pass-yds"` all match
+the same way).
+
+### A real gotcha: spelled-out "Yards" won't auto-match
+
+The auto-detect patterns look for the abbreviation **"Yds"**, not
+"Yards" — `"Pass Yds"` auto-matches, but `"Passing Yards"` or `"Pass
+Yards"` does **not**. If your export uses the spelled-out form, either
+rename the header before importing or use the column dropdown in the app
+to map it manually — every field has one, and it overrides the guess.
+
+### Fixing a missed column
+
+After adding a file, each expected field shows as a dropdown pre-filled
+with the app's best guess (or blank if nothing matched). Just reassign
+the dropdown to the correct column — nothing about the file itself needs
+to change.
 
 ## Where your data lives
 
