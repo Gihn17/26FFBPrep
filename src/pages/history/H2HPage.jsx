@@ -38,13 +38,13 @@ export default function H2HPage() {
         <label style={{ display:"flex", flexDirection:"column", gap:4, fontSize:11, opacity:0.75 }}>
           Team A
           <select value={ownerA} onChange={e=>setOwnerA(e.target.value)} style={{...btnStyle(), cursor:"pointer"}}>
-            {ownerOptions.map(o => <option key={o.guid} value={o.guid}>{o.name}</option>)}
+            {ownerOptions.map(o => <option key={o.guid} value={o.guid} disabled={o.guid === ownerB}>{o.name}</option>)}
           </select>
         </label>
         <label style={{ display:"flex", flexDirection:"column", gap:4, fontSize:11, opacity:0.75 }}>
           Team B
           <select value={ownerB} onChange={e=>setOwnerB(e.target.value)} style={{...btnStyle(), cursor:"pointer"}}>
-            {ownerOptions.map(o => <option key={o.guid} value={o.guid}>{o.name}</option>)}
+            {ownerOptions.map(o => <option key={o.guid} value={o.guid} disabled={o.guid === ownerA}>{o.name}</option>)}
           </select>
         </label>
       </div>
