@@ -956,6 +956,8 @@ export default function DraftPrepApp() {
               <thead>
                 <tr style={{ fontSize:11, textTransform:"uppercase", letterSpacing:0.6, color:"#a9a795" }}>
                   <th style={th()}>Drafted</th>
+                  {league==="koi" && <th style={th()}>Paid</th>}
+                  {league==="koi" && <th style={th()}>Manager</th>}
                   <SortTh label="Tier" col="tier" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
                   <SortTh label="Pos" col="pos" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
                   <SortTh label="Player" col="name" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} align="left" />
@@ -966,8 +968,7 @@ export default function DraftPrepApp() {
                   <SortTh label="Proj Pts" col="pts" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
                   <SortTh label="VBD" col="vbd" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
                   {league==="koi" && <SortTh label="Auction $" col="auction" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} />}
-                  {league==="koi" && <th style={th()}>Paid</th>}
-                  <th style={th()}>Manager</th>
+                  {league!=="koi" && <th style={th()}>Manager</th>}
                   <SortTh label="Risk" col="risk" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
                   <SortTh label="Upside" col="upside" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
                   <SortTh label="Outlook" col="outlook" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
@@ -977,6 +978,16 @@ export default function DraftPrepApp() {
                 {rows.map(r => {
                   const style = OUTLOOK_STYLE[r.noteData.outlook] || OUTLOOK_STYLE.yellow;
                   const isOpen = expanded === r.id;
+                  const managerCell = (
+                    <td style={td()} onClick={e=>e.stopPropagation()}>
+                      <select value={r.d.manager} onChange={e=>setDraftField(r.id,{manager:e.target.value})} style={inp(100)}>
+                        <option value=""></option>
+                        {managers.map(m => <option key={m} value={m}>{m}</option>)}
+                      </select>
+                      {league==="final" && r.d.syncedFromSleeper && <sup style={badgeSup()} title="Auto-filled from Sleeper">SLP</sup>}
+                      {r.d.viaKeeper && <sup style={badgeSup()} title="Assigned via keeper import">KEEP</sup>}
+                    </td>
+                  );
                   return (
                     <React.Fragment key={r.id}>
                       <tr style={{ opacity: r.d.drafted ? 0.45 : 1, cursor:"pointer" }}
@@ -985,6 +996,13 @@ export default function DraftPrepApp() {
                           <input type="checkbox" checked={!!r.d.drafted}
                             onChange={e=>setDraftField(r.id,{drafted:e.target.checked})} />
                         </td>
+                        {league==="koi" && (
+                          <td style={td()} onClick={e=>e.stopPropagation()}>
+                            <input type="number" placeholder="$" value={r.d.paid}
+                              onChange={e=>setDraftField(r.id,{paid:e.target.value})} style={inp(50)} />
+                          </td>
+                        )}
+                        {league==="koi" && managerCell}
                         <td style={td()}>{r.tier ?? "—"}</td>
                         <td style={{...td(), color:POS_COLORS[r.pos], fontWeight:700}}>{r.pos}</td>
                         <td style={{...td("left"), fontWeight:600}}>{r.name}</td>
@@ -995,20 +1013,7 @@ export default function DraftPrepApp() {
                         <td style={td()}>{r.pts != null ? r.pts.toFixed(1) : "—"}</td>
                         <td style={{...td(), color: r.vbd == null ? "#7c7a6d" : (r.vbd>=0 ? "#7fd18f" : "#e08a8a")}}>{r.vbd != null ? r.vbd.toFixed(1) : "—"}</td>
                         {league==="koi" && <td style={{...td(), fontWeight:700}}>{r.auction != null ? `$${r.auction}` : "—"}</td>}
-                        {league==="koi" && (
-                          <td style={td()} onClick={e=>e.stopPropagation()}>
-                            <input type="number" placeholder="$" value={r.d.paid}
-                              onChange={e=>setDraftField(r.id,{paid:e.target.value})} style={inp(50)} />
-                          </td>
-                        )}
-                        <td style={td()} onClick={e=>e.stopPropagation()}>
-                          <select value={r.d.manager} onChange={e=>setDraftField(r.id,{manager:e.target.value})} style={inp(100)}>
-                            <option value=""></option>
-                            {managers.map(m => <option key={m} value={m}>{m}</option>)}
-                          </select>
-                          {league==="final" && r.d.syncedFromSleeper && <sup style={badgeSup()} title="Auto-filled from Sleeper">SLP</sup>}
-                          {r.d.viaKeeper && <sup style={badgeSup()} title="Assigned via keeper import">KEEP</sup>}
-                        </td>
+                        {league!=="koi" && managerCell}
                         <td style={td()}>{r.risk || ""}</td>
                         <td style={td()}>{r.upside || ""}</td>
                         <td style={td()}>
