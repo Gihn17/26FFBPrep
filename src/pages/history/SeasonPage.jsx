@@ -52,12 +52,6 @@ export default function SeasonPage() {
     <>
       <SeasonFilterBar seasons={seasons} filter={filter} />
 
-      {mostRecentInProgress && !showProbability && activeYears.includes(mostRecentSeason) && (
-        <div style={{ ...panelStyle(), fontSize:12.5, opacity:0.7 }}>
-          Playoff probability will show once {mostRecentSeason} reaches Week {MIN_GAMES_FOR_PROBABILITY} — too early in the season for it to be reliable yet.
-        </div>
-      )}
-
       <div style={panelStyle()}>
         <div style={{ fontSize:11, fontWeight:700, letterSpacing:0.5, color:"#c9a227", marginBottom:10, textTransform:"uppercase" }}>
           Season Records
@@ -67,6 +61,7 @@ export default function SeasonPage() {
           const ranked = rows.filter(r => r.finalRank != null);
           const champion = ranked.find(r => r.finalRank === 1);
           const lastPlace = ranked.length ? ranked.reduce((a, b) => (a.finalRank > b.finalRank ? a : b)) : null;
+          const showColumn = mostRecentInProgress && s === mostRecentSeason;
           const withProbability = showProbability && s === mostRecentSeason;
           return (
             <div key={s} style={{ marginBottom:16 }}>
@@ -88,9 +83,14 @@ export default function SeasonPage() {
                       <th style={th()}>W</th><th style={th()}>L</th><th style={th()}>T</th>
                       <th style={th()}>Pts For</th><th style={th()}>Pts Against</th>
                       <th style={th()}>High</th><th style={th()}>Low</th>
-                      {withProbability && (
+                      {showColumn && (
                         <th style={th()} title={PROB_TOOLTIP}>
                           Playoff % <span style={{ fontSize:10, opacity:0.6 }}>ⓘ</span>
+                          {!withProbability && (
+                            <div style={{ fontSize:9, fontWeight:400, opacity:0.6, marginTop:2, textTransform:"none" }}>
+                              from Wk {MIN_GAMES_FOR_PROBABILITY}
+                            </div>
+                          )}
                         </th>
                       )}
                     </tr>
@@ -112,15 +112,19 @@ export default function SeasonPage() {
                             <td style={td()}>{r.pointsFor.toFixed(1)}</td><td style={td()}>{r.pointsAgainst.toFixed(1)}</td>
                             <td style={td()}>{r.high != null ? r.high.toFixed(1) : "—"}</td>
                             <td style={td()}>{r.low != null ? r.low.toFixed(1) : "—"}</td>
-                            {withProbability && (
-                              <td style={{...td(), cursor: p?.sampleSize ? "pointer" : "default"}} title={PROB_TOOLTIP}
-                                onClick={() => p?.sampleSize && setExpandedKey(isExpanded ? null : rowKey)}>
-                                {p && p.probability != null ? (
-                                  <span style={{ fontWeight:700, color: probColor(p.probability) }}>
-                                    {p.probability.toFixed(0)}% <span style={{ fontSize:10, opacity:0.55 }}>{isExpanded ? "▲" : "▾"}</span>
-                                  </span>
-                                ) : <span style={{ opacity:0.5 }}>—</span>}
-                              </td>
+                            {showColumn && (
+                              withProbability ? (
+                                <td style={{...td(), cursor: p?.sampleSize ? "pointer" : "default"}} title={PROB_TOOLTIP}
+                                  onClick={() => p?.sampleSize && setExpandedKey(isExpanded ? null : rowKey)}>
+                                  {p && p.probability != null ? (
+                                    <span style={{ fontWeight:700, color: probColor(p.probability) }}>
+                                      {p.probability.toFixed(0)}% <span style={{ fontSize:10, opacity:0.55 }}>{isExpanded ? "▲" : "▾"}</span>
+                                    </span>
+                                  ) : <span style={{ opacity:0.5 }}>—</span>}
+                                </td>
+                              ) : (
+                                <td style={{...td(), opacity:0.4, fontSize:11}} title={`Playoff probability becomes available at Week ${MIN_GAMES_FOR_PROBABILITY}`}>—</td>
+                              )
                             )}
                           </tr>
                           {isExpanded && p && (
