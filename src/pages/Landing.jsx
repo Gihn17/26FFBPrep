@@ -12,7 +12,7 @@ const TOOLS = [
     desc: "Live matchup scores for the current week, per league — updates while games are being played.",
   },
   {
-    to: "/history", emoji: "📚", title: "League History",
+    to: "/league-koi/season", emoji: "📚", title: "League History",
     desc: "Season records, matchup log, head-to-head, and high/low weekly scores — starting with Koi.",
   },
 ];
