@@ -202,13 +202,13 @@ app.post("/api/history/:league/refresh", async (req, res) => {
     return res.status(400).json({ error: `${req.params.league} has no ESPN league id on file yet` });
   }
   const currentYear = new Date().getFullYear();
-  // Default start year is a conservative floor, not a known cutoff — how
-  // far back a league's data actually goes varies per league (confirmed:
-  // Koi reaches back to 2011, 2010 and earlier 404 even with cookies).
-  // refreshLeagueHistory reports every year it couldn't reach in `skipped`
-  // rather than guessing where to stop, so a few extra no-op years here
-  // cost one HTTP request each, not correctness.
-  const startYear = Number(req.body?.startYear) || 2000;
+  // 2011 is Koi's real floor, not a guess — verified directly: 2010 and
+  // earlier 404 even with valid cookies (the league didn't exist yet).
+  // Starting there instead of scanning further back saves a dozen-plus
+  // guaranteed-empty HTTP round-trips on every refresh. Still overridable
+  // via the request body for whenever a second ESPN league (Jordan) with a
+  // different history is wired up here.
+  const startYear = Number(req.body?.startYear) || 2011;
   const endYear = Number(req.body?.endYear) || currentYear;
   try {
     const result = await refreshLeagueHistory(req.params.league, league.source_league_id, startYear, endYear);
