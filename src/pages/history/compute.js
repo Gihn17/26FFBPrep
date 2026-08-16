@@ -123,6 +123,68 @@ export function computeH2HGames(teamIdx, matchups, guidA, guidB) {
   return games.sort((x, y) => y.season - x.season || y.week - x.week);
 }
 
+/** The most recent (season, week) with at least one played game — what the
+ *  Head-to-Head page's "Current" quick button jumps to. Falls back to the
+ *  most recent season's Week 1 if nothing's been played yet (preseason),
+ *  so the picker always lands somewhere real rather than a blank state. */
+export function computeLatestPlayedWeek(teams, matchups) {
+  let best = null;
+  for (const m of matchups) {
+    if (!isPlayed(m) || m.away_team_id == null) continue;
+    if (!best || m.season > best.season || (m.season === best.season && m.week > best.week)) best = { season: m.season, week: m.week };
+  }
+  if (best) return best;
+  const seasons = teams.map(t => t.season);
+  return seasons.length ? { season: Math.max(...seasons), week: 1 } : null;
+}
+
+/** Every played matchup in one (season, week) slate, each enriched with
+ *  both teams' own record-and-streak through that week and the all-time
+ *  head-to-head history between the two opponents as of that game — the
+ *  Head-to-Head page's "browse a week" view. Reuses computeH2HGames per
+ *  matchup (cheap — a handful of games per week) rather than a bespoke
+ *  aggregation, so the two views can never disagree about what a given
+ *  pair's history looks like. */
+export function computeWeekSlate(teamIdx, matchups, season, week) {
+  const logs = computeGameLogs(matchups);
+  const tally = (log) => {
+    let wins = 0, losses = 0, ties = 0, streakType = null, streakLen = 0;
+    for (const g of log) {
+      if (g.result === "W") wins++; else if (g.result === "L") losses++; else ties++;
+      if (g.result === streakType) streakLen++; else { streakType = g.result; streakLen = 1; }
+    }
+    return { wins, losses, ties, streakType, streakLen };
+  };
+
+  const games = matchups.filter(m => m.season === season && m.week === week && m.away_team_id != null && isPlayed(m));
+  return games.map(m => {
+    const home = teamIdx.get(teamKey(season, m.home_team_id));
+    const away = teamIdx.get(teamKey(season, m.away_team_id));
+    const homeRecord = tally((logs.get(teamKey(season, m.home_team_id)) || []).filter(g => g.week <= week));
+    const awayRecord = tally((logs.get(teamKey(season, m.away_team_id)) || []).filter(g => g.week <= week));
+
+    let h2h = null;
+    if (home?.owner_guid && away?.owner_guid && home.owner_guid !== away.owner_guid) {
+      const allGames = [...computeH2HGames(teamIdx, matchups, home.owner_guid, away.owner_guid)].reverse(); // oldest -> newest, A=home, B=away
+      const idx = allGames.findIndex(g => g.season === season && g.week === week);
+      const prefix = idx >= 0 ? allGames.slice(0, idx + 1) : allGames;
+      let winsHome = 0, winsAway = 0, ties = 0, streakSide = null, streakLen = 0;
+      for (const g of prefix) {
+        if (g.scoreA > g.scoreB) { winsHome++; streakLen = streakSide === "home" ? streakLen + 1 : 1; streakSide = "home"; }
+        else if (g.scoreB > g.scoreA) { winsAway++; streakLen = streakSide === "away" ? streakLen + 1 : 1; streakSide = "away"; }
+        else { ties++; streakSide = null; streakLen = 0; }
+      }
+      h2h = { winsHome, winsAway, ties, totalGames: prefix.length, streakSide, streakLen, allGames };
+    }
+
+    return {
+      season, week, playoffTier: m.playoff_tier,
+      homeTeam: home, awayTeam: away, homeScore: m.home_score, awayScore: m.away_score, winner: m.winner,
+      homeRecord, awayRecord, h2h,
+    };
+  });
+}
+
 /** Every individual team-week score, flat — high/low is then just "sort and
  *  slice" over whichever seasons are in scope (all-time, one season, or a
  *  custom range), rather than three separately-computed shapes. */
