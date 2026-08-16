@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from "react";
 import { Link, NavLink, Outlet } from "react-router-dom";
 import { pageShell, panelStyle, btnStyle } from "../../theme.jsx";
 import { buildTeamIndex, computeSeasonRecords, computeOwnerOptions, computeCurrentLogos, applyOwnershipCorrections, applyDisplayNames } from "./compute.js";
+import { useAuth } from "../../AuthContext.jsx";
 
 const LEAGUE = "koi"; // only league with an ESPN id on file so far — same code path once Jordan/Final have one
 
@@ -23,8 +24,8 @@ export default function HistoryLayout() {
   const [refreshResult, setRefreshResult] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
 
-  const currentUserName = (typeof localStorage !== "undefined" && localStorage.getItem("ffb-user")) || "Will";
-  const canEdit = currentUserName === "Will";
+  const { user } = useAuth();
+  const canEdit = user?.role === "admin";
 
   const load = () => {
     fetch(`/api/history/${LEAGUE}`).then(r => r.json()).then(d => {

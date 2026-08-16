@@ -209,15 +209,19 @@ function serializeAllowedTabs(tabs) {
   return clean.length && clean.length < VALID_TABS.length ? clean.join(",") : null;
 }
 
-/** Looks up a user by name, creating it if it doesn't exist yet.
- *  No real auth — a name is enough (see users table comment above). */
+/** Looks up a user by name, creating it if it doesn't exist yet. The
+ *  lookup is case-insensitive (COLLATE NOCASE) so the real auth username
+ *  ("will", lowercase — see server/auth.js) reuses the pre-existing "Will"
+ *  row here rather than spawning a second, empty profile and orphaning
+ *  whatever personal notes were saved under the original casing. A brand
+ *  new name still gets inserted with whatever casing was actually passed. */
 export function getOrCreateUser(name) {
   name = String(name || "").trim();
   if (!name) throw new Error("user name required");
-  let row = db.prepare("SELECT id, name, allowed_tabs FROM users WHERE name = ?").get(name);
+  let row = db.prepare("SELECT id, name, allowed_tabs FROM users WHERE name = ? COLLATE NOCASE").get(name);
   if (!row) {
     db.prepare("INSERT INTO users (name) VALUES (?)").run(name);
-    row = db.prepare("SELECT id, name, allowed_tabs FROM users WHERE name = ?").get(name);
+    row = db.prepare("SELECT id, name, allowed_tabs FROM users WHERE name = ? COLLATE NOCASE").get(name);
   }
   return { id: row.id, name: row.name, allowedTabs: parseAllowedTabs(row.allowed_tabs) };
 }

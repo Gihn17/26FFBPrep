@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { Link } from "react-router-dom";
+import { useAuth } from "./AuthContext.jsx";
 import {
   OUTLOOK_STYLE, POS_COLORS, LEAGUE_LABELS, btnStyle, panelStyle, lbl, lblSmall,
   pText, inp, ta, th, td, SortTh, badgeSup,
@@ -376,7 +377,6 @@ const TAB_LABELS = {
   koi: "Koi — $200 Auction · Half-PPR", final: "Final Fantasy · Full PPR",
   jordan: "Jordan", how: "Calculations", settings: "Settings",
 };
-const TAB_LABELS_SHORT = { koi: "Koi", final: "Final Fantasy", jordan: "Jordan", how: "Calculations", settings: "Settings" };
 
 /** A textarea that grows to fit its full content — used for Expert/Personal
  *  Notes so opening a player's row always shows the whole note, not a
@@ -421,26 +421,27 @@ function CurveCard({ title, desc, fields, values, onSet }) {
 }
 
 /* ============================================================
-   PERSONAL NOTES — the one thing that stays per "Viewing as" user
-   rather than in the single shared record everything else lives in
-   (draft picks, league settings, and — importantly — the imported
-   base notes themselves, which only Will can upload). A user's own
-   inline edit/addition on a player's note sticks to their profile
-   and survives Will re-uploading the shared base notes later.
-   Hits /api/notes (per-user), not /api/storage (shared, see
-   storagePolyfill.js) — same underlying user_kv table, different
-   route so the two scopes can't get confused.
+   PERSONAL NOTES — the one thing that stays per signed-in account rather
+   than in the single shared record everything else lives in (draft picks,
+   league settings, and — importantly — the imported base notes
+   themselves, which only an admin can upload). A user's own inline
+   edit/addition on a player's note sticks to their account and survives
+   the shared base notes being re-uploaded later. Hits /api/notes
+   (per-user, identity read from the session cookie server-side — nothing
+   client-supplied), not /api/storage (shared, see storagePolyfill.js) —
+   same underlying user_kv table, different route so the two scopes can't
+   get confused.
    ============================================================ */
-async function getPersonalNotes(user) {
+async function getPersonalNotes() {
   try {
-    const res = await fetch(`/api/notes/ffb-notes-overrides?user=${encodeURIComponent(user)}`);
+    const res = await fetch(`/api/notes/ffb-notes-overrides`);
     if (!res.ok) return null;
     return await res.json(); // {key, value}
   } catch (e) { return null; }
 }
-async function setPersonalNotes(user, value) {
+async function setPersonalNotes(value) {
   try {
-    await fetch(`/api/notes/ffb-notes-overrides?user=${encodeURIComponent(user)}`, {
+    await fetch(`/api/notes/ffb-notes-overrides`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ value }),
@@ -449,7 +450,6 @@ async function setPersonalNotes(user, value) {
 }
 
 export default function DraftPrepApp() {
-  const [users, setUsers] = useState([{ name: "Will" }]); // [{id,name}] — who can be picked in the header
   const [adpPool, setAdpPool] = useState([]); // live pool from GET /api/players (server/adp.js), refreshed daily
   const [view, setView] = useState("koi"); // "koi" | "final" | "jordan" | "how"
   const [posFilter, setPosFilter] = useState("ALL");
@@ -476,11 +476,6 @@ export default function DraftPrepApp() {
   const [showBudgets, setShowBudgets] = useState(false);
   const [loaded, setLoaded] = useState(false);
 
-  useEffect(() => {
-    fetch("/api/users").then(res => (res.ok ? res.json() : null)).then(list => {
-      if (list && list.length) setUsers(list);
-    }).catch(() => {}); // never blocks the app — solo/"Will" use works with no server round-trip
-  }, []);
 
   useEffect(() => {
     fetch("/api/players").then(res => (res.ok ? res.json() : null)).then(list => {
@@ -488,44 +483,30 @@ export default function DraftPrepApp() {
     }).catch(() => {}); // board just shows empty until the server's next successful ADP refresh
   }, []);
 
-  // Who's currently signed in (see "Viewing as" below) and which tabs
-  // they're allowed to see. Defaults to all tabs — for the built-in "Will"
-  // user before /api/users resolves, and for anyone with no restriction set.
-  const currentUserName = (typeof localStorage !== "undefined" && localStorage.getItem("ffb-user")) || "Will";
-  const currentUser = users.find(u => u.name === currentUserName);
-  const allowedTabs = (currentUser && currentUser.allowedTabs && currentUser.allowedTabs.length)
-    ? currentUser.allowedTabs : ALL_TABS;
+  // Who's actually signed in (real session, see AuthContext — this
+  // replaces the old free-text "Viewing as" picker entirely) and which of
+  // this board's tabs they can see. Admin always gets everything; a
+  // restricted account only sees whatever's checked for them in the Admin
+  // panel — no implicit "all tabs" fallback the way the old system had,
+  // since the whole point of per-area permissions is that nothing's
+  // visible until it's explicitly granted.
+  const { user: authUser, logout } = useAuth();
+  const currentUserName = authUser?.username || "";
+  const isAdmin = authUser?.role === "admin";
+  const allowedTabs = isAdmin ? ALL_TABS : (authUser?.draftTabs || []);
 
   // If the active tab isn't (or is no longer) allowed for this user, bump
   // them to their first allowed tab instead of showing a tab they can't see.
   useEffect(() => {
-    if (!allowedTabs.includes(view)) setView(allowedTabs[0] || "koi");
+    if (allowedTabs.length && !allowedTabs.includes(view)) setView(allowedTabs[0]);
   }, [allowedTabs, view]);
-
-  const updateUserTabs = useCallback(async (userId, tabs) => {
-    setUsers(list => list.map(u => u.id === userId ? { ...u, allowedTabs: tabs } : u));
-    try {
-      await fetch(`/api/users/${userId}/tabs`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ tabs }),
-      });
-    } catch (e) { /* local state already updated for this session; server may retry on next load */ }
-  }, []);
-  const toggleUserTab = useCallback((user, tabKey) => {
-    const current = (user.allowedTabs && user.allowedTabs.length) ? user.allowedTabs : ALL_TABS;
-    const has = current.includes(tabKey);
-    if (has && current.length === 1) return; // at least one tab has to stay visible
-    const next = has ? current.filter(t => t !== tabKey) : [...current, tabKey];
-    updateUserTabs(user.id, next.length === ALL_TABS.length ? null : next);
-  }, [updateUserTabs]);
 
   useEffect(() => {
     (async () => {
       const [d, leagueRows, personalNotes] = await Promise.all([
         window.storage.get("ffb-draft-state").catch(() => null),
         fetch("/api/leagues").then(res => (res.ok ? res.json() : [])).catch(() => []),
-        getPersonalNotes(currentUserName),
+        getPersonalNotes(),
       ]);
       try {
         setNotesOverride(personalNotes && personalNotes.value ? JSON.parse(personalNotes.value) : {});
@@ -550,7 +531,7 @@ export default function DraftPrepApp() {
           // edits are still sitting in the old shared location.
           if (!personalNotes && parsed.notesOverride && Object.keys(parsed.notesOverride).length) {
             setNotesOverride(parsed.notesOverride);
-            setPersonalNotes(currentUserName, JSON.stringify(parsed.notesOverride));
+            setPersonalNotes(JSON.stringify(parsed.notesOverride));
           }
           let mbl = parsed.managersByLeague;
           if (!mbl && parsed.managers) mbl = { koi: parsed.managers, final: parsed.managers };
@@ -613,12 +594,13 @@ export default function DraftPrepApp() {
     window.storage.set("ffb-draft-state", payload).catch(() => {});
   }, [draftByLeague, managersByLeague, teamsByLeague, rosterSpotsByLeague, weights, replacement, tierParams, playerImports, sleeperSyncPaused, loaded]);
 
-  // Personal notes save separately, per "Viewing as" user — see getPersonalNotes/
-  // setPersonalNotes above for why this isn't part of the shared payload.
+  // Personal notes save separately, per signed-in account — see
+  // getPersonalNotes/setPersonalNotes above for why this isn't part of
+  // the shared payload.
   useEffect(() => {
     if (!loaded) return;
-    setPersonalNotes(currentUserName, JSON.stringify(notesOverride));
-  }, [notesOverride, loaded, currentUserName]);
+    setPersonalNotes(JSON.stringify(notesOverride));
+  }, [notesOverride, loaded]);
 
   const pool = useMemo(() => buildPool(adpPool), [adpPool]);
   const poolFinal = useMemo(() => pool.map(p => {
@@ -866,33 +848,10 @@ export default function DraftPrepApp() {
           <h1 style={{ margin:"2px 0 0", fontSize:32, fontWeight:800, letterSpacing:0.5 }}>Draft Prep Board — 2026</h1>
         </div>
         <div style={{ display:"flex", gap:8, alignItems:"flex-end" }}>
-          <label style={{...lbl(), flexDirection:"row", alignItems:"center", gap:6}}>
-            <span style={{opacity:0.65}}>Viewing as</span>
-            <select
-              value={(typeof localStorage !== "undefined" && localStorage.getItem("ffb-user")) || "Will"}
-              onChange={async e => {
-                const val = e.target.value;
-                let name = val;
-                if (val === "__new__") {
-                  name = (prompt("New user's name?") || "").trim();
-                  if (!name) return;
-                  try {
-                    await fetch("/api/users", {
-                      method: "POST",
-                      headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify({ name }),
-                    });
-                  } catch (err) { /* server get-or-creates it on the next request anyway */ }
-                }
-                localStorage.setItem("ffb-user", name);
-                window.location.reload(); // simplest correct way to re-run every load effect against the new user
-              }}
-              style={inp(140)}
-            >
-              {users.map(u => <option key={u.id ?? u.name} value={u.name}>{u.name}</option>)}
-              <option value="__new__">+ New user…</option>
-            </select>
-          </label>
+          <div style={{ fontSize:12.5, opacity:0.65, alignSelf:"center" }}>
+            Signed in as <b style={{opacity:0.9}}>{currentUserName}</b>
+          </div>
+          <button onClick={logout} style={btnStyle()}>Log out</button>
           {BOARD_TABS.includes(view) && (
             <div style={{ display:"flex", gap:8 }}>
               {view === "koi" && <button onClick={()=>setShowBudgets(s=>!s)} style={btnStyle()}>Team Budgets</button>}
@@ -945,18 +904,17 @@ export default function DraftPrepApp() {
           playerImports={playerImports}
           onApplyImport={applyImport}
           onClearImport={clearImport}
-          currentUserName={currentUserName}
+          isAdmin={isAdmin}
         />
       ) : view === "settings" ? (
         <SettingsTab
-          users={users} toggleUserTab={toggleUserTab}
           teamsByLeague={teamsByLeague} rosterSpotsByLeague={rosterSpotsByLeague}
           setTeamsFor={setTeamsFor} setRosterSpotsFor={setRosterSpotsFor}
           managersTextByLeague={managersTextByLeague} setManagersForLeague={setManagersForLeague}
           pool={pool} draftByLeague={draftByLeague}
           onApplyKeepers={(lg, patchMap, newManagers) => { mergePicksForLeague(lg, patchMap); addManagersForLeague(lg, newManagers); }}
-          canEditKeepers={currentUserName === "Will"}
-          canEditEspnAccess={currentUserName === "Will"}
+          canEditKeepers={isAdmin}
+          canEditEspnAccess={isAdmin}
         />
       ) : (
         <>
@@ -1304,34 +1262,13 @@ function SleeperSyncPanel({ sourceLeagueId, pool, draft, onMergePicks, onAddMana
    settings), deliberately separate from the draft/research board
    so opening it never shifts or clutters that view.
    ============================================================ */
-function SettingsTab({ users, toggleUserTab, teamsByLeague, rosterSpotsByLeague, setTeamsFor, setRosterSpotsFor, managersTextByLeague, setManagersForLeague, pool, draftByLeague, onApplyKeepers, canEditKeepers, canEditEspnAccess }) {
+function SettingsTab({ teamsByLeague, rosterSpotsByLeague, setTeamsFor, setRosterSpotsFor, managersTextByLeague, setManagersForLeague, pool, draftByLeague, onApplyKeepers, canEditKeepers, canEditEspnAccess }) {
   const [keeperLeague, setKeeperLeague] = useState("koi");
   return (
     <div style={{ display:"flex", flexDirection:"column", gap:16 }}>
-      <div style={panelStyle()}>
-        <div style={{ fontSize:11, fontWeight:700, letterSpacing:0.5, color:"#c9a227", marginBottom:10, textTransform:"uppercase" }}>
-          Tab Access — which boards each person can see
-        </div>
-        <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
-          {users.filter(u => u.id != null).map(u => {
-            const active = (u.allowedTabs && u.allowedTabs.length) ? u.allowedTabs : ALL_TABS;
-            return (
-              <div key={u.id} style={{ display:"flex", alignItems:"center", gap:16, flexWrap:"wrap" }}>
-                <div style={{ width:90, fontWeight:700 }}>{u.name}</div>
-                {ALL_TABS.map(t => (
-                  <label key={t} style={{ display:"flex", alignItems:"center", gap:5, fontSize:12 }}>
-                    <input type="checkbox" checked={active.includes(t)} onChange={()=>toggleUserTab(u, t)} />
-                    {TAB_LABELS_SHORT[t]}
-                  </label>
-                ))}
-              </div>
-            );
-          })}
-        </div>
-        <div style={{ fontSize:11, opacity:0.55, marginTop:10 }}>
-          At least one tab has to stay checked per person. If someone's current tab gets unchecked, they're
-          moved to their next allowed tab automatically the next time the app loads for them.
-        </div>
+      <div style={{ fontSize:12, opacity:0.65 }}>
+        Who can see this board at all, and which of its tabs — is now managed from the{" "}
+        <Link to="/admin" style={{ color:"#f0d97a" }}>Admin panel</Link> (gear icon on the landing page), not here.
       </div>
 
       {BOARD_TABS.map(lg => {
@@ -1403,7 +1340,7 @@ function SettingsTab({ users, toggleUserTab, teamsByLeague, rosterSpotsByLeague,
   );
 }
 
-function MethodologyTab({ weights, setWeight, replacement, setRep, tierParams, setTierParams, teams, rosterSpots, onReset, pool, playerImports, onApplyImport, onClearImport, currentUserName }) {
+function MethodologyTab({ weights, setWeight, replacement, setRep, tierParams, setTierParams, teams, rosterSpots, onReset, pool, playerImports, onApplyImport, onClearImport, isAdmin }) {
   const [section, setSection] = useState("import");
   const totalPool = teams * 200;
   const totalSpots = teams * rosterSpots;
@@ -1431,7 +1368,7 @@ function MethodologyTab({ weights, setWeight, replacement, setRep, tierParams, s
 
       {section === "import" && (
         <ImportPanel pool={pool} playerImports={playerImports} onApplyImport={onApplyImport} onClearImport={onClearImport}
-          canEdit={currentUserName === "Will"} />
+          canEdit={isAdmin} />
       )}
 
       {section === "scoring" && (

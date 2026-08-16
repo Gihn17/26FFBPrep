@@ -3,13 +3,13 @@ import path from "path";
 import fs from "fs";
 import { fileURLToPath } from "url";
 import { seedLeagues, getAllLeagues, getLeague } from "./leagues.js";
-import { db, getOrCreateUser, listUsers, setUserAllowedTabs } from "./db.js";
+import { db, getOrCreateUser } from "./db.js";
 import { getAdpPool, getAdpStatus, refreshAdpPool, startAdpScheduler } from "./adp.js";
 import { refreshLeagueHistory, getLeagueHistory, getWeekMatchups } from "./espn.js";
 import {
   bootstrapAdmin, attachUser, requireAuth, requireAdmin, requirePermission,
   verifyLogin, createSession, deleteSession, setSessionCookie, clearSessionCookie, getSessionTokenFromReq,
-  listAuthUsers, createAuthUser, setAuthUserPassword, setAuthUserRole, setAuthUserPermissions, deleteAuthUser,
+  listAuthUsers, createAuthUser, setAuthUserPassword, setAuthUserRole, setAuthUserPermissions, setAuthUserDraftTabs, deleteAuthUser,
 } from "./auth.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -104,8 +104,8 @@ app.get("/api/auth/users", requireAdmin, (req, res) => res.json(listAuthUsers())
 
 app.post("/api/auth/users", requireAdmin, (req, res) => {
   try {
-    const { username, password, role, permissions } = req.body || {};
-    res.json(createAuthUser(username, password, role, permissions));
+    const { username, password, role, permissions, draftTabs } = req.body || {};
+    res.json(createAuthUser(username, password, role, permissions, draftTabs));
   } catch (e) {
     res.status(400).json({ error: e.message });
   }
@@ -142,6 +142,19 @@ app.put("/api/auth/users/:id/permissions", requireAdmin, (req, res) => {
   }
 });
 
+// Which of the draft board's own tabs (Koi/Final Fantasy/Jordan/
+// Calculations) a restricted account with 'draft' access can see — the
+// real-auth replacement for the old free-text "Viewing as" profile's
+// per-profile allowed_tabs.
+app.put("/api/auth/users/:id/draft-tabs", requireAdmin, (req, res) => {
+  try {
+    setAuthUserDraftTabs(Number(req.params.id), req.body && req.body.draftTabs);
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(400).json({ error: e.message });
+  }
+});
+
 app.delete("/api/auth/users/:id", requireAdmin, (req, res) => {
   try {
     if (Number(req.params.id) === req.authUser.id) throw new Error("can't delete your own account while logged in as it");
@@ -152,43 +165,13 @@ app.delete("/api/auth/users/:id", requireAdmin, (req, res) => {
   }
 });
 
-// --- Draft-board profile users (Will/wife's saved research identity —
-// NOT login accounts, see server/db.js) — gated on the 'draft' area
-// permission, same as the rest of the board below, not hardcoded to admin
-// only — a restricted account granted draft access gets full parity with
-// an admin's draft-board experience, not a crippled version of it. ---
-app.get("/api/users", requirePermission("draft"), (req, res) => res.json(listUsers()));
-
-app.post("/api/users", requirePermission("draft"), (req, res) => {
-  try {
-    res.json(getOrCreateUser(req.body && req.body.name));
-  } catch (e) {
-    res.status(400).json({ error: e.message });
-  }
-});
-
-// Which board tabs a draft-profile user can see — unrelated to the
-// admin/restricted login role above, see db.js.
-app.put("/api/users/:id/tabs", requirePermission("draft"), (req, res) => {
-  try {
-    const id = Number(req.params.id);
-    if (!Number.isInteger(id)) return res.status(400).json({ error: "invalid user id" });
-    res.json(setUserAllowedTabs(id, req.body && req.body.tabs));
-  } catch (e) {
-    res.status(400).json({ error: e.message });
-  }
-});
-
 // --- Storage API (mirrors the shape App.jsx already expects from
 // window.storage) — single shared source of truth for the draft board,
-// projections, and league config. Deliberately NOT namespaced by "Viewing
-// as" (that used to split this per-person; backed out per request — one
-// person's CSV import or drafted-player mark should be visible to everyone
-// immediately, not siloed to their own copy). "Viewing as" now only drives
-// Tab Access and the Import panel's upload permission below — nothing
-// about which data gets read or written. The user_kv table still supports
-// per-user rows at the schema level; this just always resolves to "Will"'s
-// row rather than trusting the request. ---
+// projections, and league config. Deliberately NOT namespaced by identity
+// — one person's CSV import or drafted-player mark should be visible to
+// everyone immediately, not siloed to their own copy. The user_kv table
+// still supports per-user rows at the schema level; this just always
+// resolves to "Will"'s row rather than trusting the request. ---
 const router = express.Router();
 
 router.use((req, res, next) => {
@@ -235,16 +218,19 @@ app.use("/api/storage", requirePermission("draft"), router);
 
 // --- Personal notes API — per-user, unlike /api/storage above. A user's
 // own inline edit/addition on a player's note (board's expanded row, not
-// the CSV import panel) lives here, keyed by "Viewing as", so it survives
-// Will re-uploading the shared base notes later. Same user_kv table as
-// the storage router, just resolved per-request instead of fixed to
-// "Will" — kept as a separate router rather than a flag on the one above
-// so the two scopes (shared vs. personal) can't get crossed by accident. ---
+// the CSV import panel) lives here, keyed by the REAL logged-in account
+// (req.authUser.username, from the session cookie — never a client-
+// supplied value, which would've let anyone read/overwrite anyone else's
+// notes just by changing a query param), so it survives Will re-uploading
+// the shared base notes later. Same user_kv table as the storage router,
+// just resolved per-request instead of fixed to "Will" — kept as a
+// separate router rather than a flag on the one above so the two scopes
+// (shared vs. personal) can't get crossed by accident. ---
 const notesRouter = express.Router();
 
 notesRouter.use((req, res, next) => {
   try {
-    req.user = getOrCreateUser(req.query.user || "Will");
+    req.user = getOrCreateUser(req.authUser.username);
     next();
   } catch (e) {
     res.status(400).json({ error: e.message });

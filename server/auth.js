@@ -21,12 +21,22 @@
 // An admin implicitly has all three; `permissions` is only consulted for
 // a 'restricted' account.
 //
+// Within 'draft' there's a second, finer layer: DRAFT_TABS (same values as
+// db.js's VALID_TABS) controls which of the draft board's own internal
+// tabs (Koi / Final Fantasy / Jordan / Calculations) a restricted account
+// with 'draft' access actually sees — this replaces the old free-text
+// "Viewing as" profile picker and its per-profile allowed_tabs (db.js's
+// `users` table), which had no real login behind it at all. The real,
+// authenticated account IS the identity now; which tabs it can see is
+// just another permission, set from the same Admin panel as everything
+// else, not a separate picker.
+//
 // Passwords are hashed with Node's built-in scrypt (no new dependency) —
 // per-user random salt, timing-safe comparison. Sessions are opaque random
 // tokens in a DB table (not a stateless JWT), so revoking one is just a
 // DELETE — no separate blocklist to maintain.
 import crypto from "crypto";
-import { db } from "./db.js";
+import { db, VALID_TABS as DRAFT_TABS } from "./db.js";
 
 export const AREAS = ["draft", "gameday", "history"];
 
@@ -39,6 +49,8 @@ CREATE TABLE IF NOT EXISTS auth_users (
   role          TEXT NOT NULL DEFAULT 'restricted',  -- 'admin' | 'restricted'
   permissions   TEXT,                   -- comma-separated subset of AREAS; only
                                           -- meaningful for role='restricted'
+  draft_tabs    TEXT,                   -- comma-separated subset of DRAFT_TABS;
+                                          -- only meaningful when 'draft' is granted
   created_at    TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
@@ -57,6 +69,9 @@ const authUsersCols = db.prepare("PRAGMA table_info(auth_users)").all().map((c) 
 if (!authUsersCols.includes("permissions")) {
   db.exec("ALTER TABLE auth_users ADD COLUMN permissions TEXT");
 }
+if (!authUsersCols.includes("draft_tabs")) {
+  db.exec("ALTER TABLE auth_users ADD COLUMN draft_tabs TEXT");
+}
 
 const SESSION_DAYS = 30;
 const SCRYPT_KEYLEN = 64;
@@ -69,21 +84,29 @@ function normalizeUsername(u) {
   return String(u || "").trim().toLowerCase();
 }
 
-function parsePermissions(raw) {
+function parseList(raw, validValues) {
   if (!raw) return [];
-  return raw.split(",").map((a) => a.trim()).filter((a) => AREAS.includes(a));
+  return raw.split(",").map((a) => a.trim()).filter((a) => validValues.includes(a));
 }
-function serializePermissions(areas) {
-  if (!Array.isArray(areas) || !areas.length) return null;
-  const clean = [...new Set(areas.filter((a) => AREAS.includes(a)))];
+function serializeList(values, validValues) {
+  if (!Array.isArray(values) || !values.length) return null;
+  const clean = [...new Set(values.filter((a) => validValues.includes(a)))];
   return clean.length ? clean.join(",") : null;
 }
+const parsePermissions = (raw) => parseList(raw, AREAS);
+const serializePermissions = (areas) => serializeList(areas, AREAS);
+const parseDraftTabs = (raw) => parseList(raw, DRAFT_TABS);
+const serializeDraftTabs = (tabs) => serializeList(tabs, DRAFT_TABS);
 
 function toUserShape(row) {
-  return { id: row.id, username: row.username, role: row.role, permissions: parsePermissions(row.permissions) };
+  return {
+    id: row.id, username: row.username, role: row.role,
+    permissions: parsePermissions(row.permissions),
+    draftTabs: parseDraftTabs(row.draft_tabs),
+  };
 }
 
-export function createAuthUser(username, password, role = "restricted", permissions = []) {
+export function createAuthUser(username, password, role = "restricted", permissions = [], draftTabs = []) {
   username = normalizeUsername(username);
   if (!username) throw new Error("username required");
   if (!password || password.length < 4) throw new Error("password must be at least 4 characters");
@@ -91,13 +114,14 @@ export function createAuthUser(username, password, role = "restricted", permissi
   const salt = crypto.randomBytes(16).toString("hex");
   const hash = hashPassword(password, salt);
   const perms = serializePermissions(permissions);
-  const info = db.prepare("INSERT INTO auth_users (username, password_hash, password_salt, role, permissions) VALUES (?, ?, ?, ?, ?)")
-    .run(username, hash, salt, role, perms);
-  return toUserShape({ id: info.lastInsertRowid, username, role, permissions: perms });
+  const tabs = serializeDraftTabs(draftTabs);
+  const info = db.prepare("INSERT INTO auth_users (username, password_hash, password_salt, role, permissions, draft_tabs) VALUES (?, ?, ?, ?, ?, ?)")
+    .run(username, hash, salt, role, perms, tabs);
+  return toUserShape({ id: info.lastInsertRowid, username, role, permissions: perms, draft_tabs: tabs });
 }
 
 export function listAuthUsers() {
-  return db.prepare("SELECT id, username, role, permissions, created_at FROM auth_users ORDER BY id")
+  return db.prepare("SELECT id, username, role, permissions, draft_tabs, created_at FROM auth_users ORDER BY id")
     .all().map((row) => ({ ...toUserShape(row), created_at: row.created_at }));
 }
 
@@ -122,6 +146,15 @@ export function setAuthUserRole(id, role) {
 export function setAuthUserPermissions(id, areas) {
   const perms = serializePermissions(areas);
   const result = db.prepare("UPDATE auth_users SET permissions = ? WHERE id = ?").run(perms, id);
+  if (result.changes === 0) throw new Error("user not found");
+}
+
+/** Which of the draft board's own tabs (Koi/Final Fantasy/Jordan/
+ *  Calculations) a restricted account with 'draft' access can see. Only
+ *  meaningful for that combination; harmless to set on anyone else. */
+export function setAuthUserDraftTabs(id, tabs) {
+  const value = serializeDraftTabs(tabs);
+  const result = db.prepare("UPDATE auth_users SET draft_tabs = ? WHERE id = ?").run(value, id);
   if (result.changes === 0) throw new Error("user not found");
 }
 
@@ -159,7 +192,7 @@ export function deleteSession(token) {
 export function getUserBySession(token) {
   if (!token) return null;
   const row = db.prepare(`
-    SELECT u.id, u.username, u.role, u.permissions, s.expires_at
+    SELECT u.id, u.username, u.role, u.permissions, u.draft_tabs, s.expires_at
     FROM auth_sessions s JOIN auth_users u ON u.id = s.user_id
     WHERE s.token = ?
   `).get(token);

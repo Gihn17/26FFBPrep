@@ -9,6 +9,17 @@ const AREAS = [
   ["history", "League History"],
 ];
 
+// Sub-permission, only meaningful once 'draft' is granted — which of the
+// draft board's own internal tabs this account sees (same values as
+// db.js's VALID_TABS / App.jsx's ALL_TABS, minus "settings" — that one's
+// never independently grantable, same as it's always been admin-only).
+const DRAFT_TABS = [
+  ["koi", "Koi"],
+  ["final", "Final Fantasy"],
+  ["jordan", "Jordan"],
+  ["how", "Calculations"],
+];
+
 function AreaCheckboxes({ permissions, onChange, disabled }) {
   const toggle = (area) => {
     onChange(permissions.includes(area) ? permissions.filter(a => a !== area) : [...permissions, area]);
@@ -25,11 +36,28 @@ function AreaCheckboxes({ permissions, onChange, disabled }) {
   );
 }
 
+function DraftTabCheckboxes({ draftTabs, onChange, disabled }) {
+  const toggle = (tab) => {
+    onChange(draftTabs.includes(tab) ? draftTabs.filter(t => t !== tab) : [...draftTabs, tab]);
+  };
+  return (
+    <div style={{ display:"flex", gap:12, flexWrap:"wrap", paddingLeft:18, marginTop:4, borderLeft:"2px solid #2a2c20" }}>
+      {DRAFT_TABS.map(([key, label]) => (
+        <label key={key} style={{ display:"flex", alignItems:"center", gap:5, fontSize:11.5, opacity: disabled ? 0.4 : 0.85 }}>
+          <input type="checkbox" checked={draftTabs.includes(key)} disabled={disabled} onChange={()=>toggle(key)} />
+          {label}
+        </label>
+      ))}
+    </div>
+  );
+}
+
 function NewUserForm({ onCreate }) {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [role, setRole] = useState("restricted");
   const [permissions, setPermissions] = useState([]);
+  const [draftTabs, setDraftTabs] = useState([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
 
@@ -37,8 +65,8 @@ function NewUserForm({ onCreate }) {
     e.preventDefault();
     setBusy(true); setError(null);
     try {
-      await onCreate({ username, password, role, permissions });
-      setUsername(""); setPassword(""); setRole("restricted"); setPermissions([]);
+      await onCreate({ username, password, role, permissions, draftTabs });
+      setUsername(""); setPassword(""); setRole("restricted"); setPermissions([]); setDraftTabs([]);
     } catch (e) {
       setError(e.message);
     }
@@ -71,6 +99,9 @@ function NewUserForm({ onCreate }) {
         <label style={{ ...lbl(), gap:6 }}>
           Can see
           <AreaCheckboxes permissions={permissions} onChange={setPermissions} />
+          {permissions.includes("draft") && (
+            <DraftTabCheckboxes draftTabs={draftTabs} onChange={setDraftTabs} />
+          )}
         </label>
       )}
       {error && <div style={{ fontSize:12, color:"#e08a8a" }}>{error}</div>}
@@ -78,7 +109,7 @@ function NewUserForm({ onCreate }) {
   );
 }
 
-function UserRow({ u, isSelf, onSetRole, onSetPermissions, onResetPassword, onDelete }) {
+function UserRow({ u, isSelf, onSetRole, onSetPermissions, onSetDraftTabs, onResetPassword, onDelete }) {
   const [newPassword, setNewPassword] = useState("");
   return (
     <tr>
@@ -91,7 +122,12 @@ function UserRow({ u, isSelf, onSetRole, onSetPermissions, onResetPassword, onDe
           <option value="admin">Admin — full access</option>
         </select>
         {u.role === "restricted" && (
-          <AreaCheckboxes permissions={u.permissions} onChange={(perms)=>onSetPermissions(u.id, perms)} />
+          <>
+            <AreaCheckboxes permissions={u.permissions} onChange={(perms)=>onSetPermissions(u.id, perms)} />
+            {u.permissions.includes("draft") && (
+              <DraftTabCheckboxes draftTabs={u.draftTabs} onChange={(tabs)=>onSetDraftTabs(u.id, tabs)} />
+            )}
+          </>
         )}
       </td>
       <td style={{ padding:"8px 6px", borderBottom:"1px solid #1e2018", verticalAlign:"top" }}>
@@ -119,10 +155,10 @@ export default function Admin() {
   }, []);
   useEffect(load, [load]);
 
-  const createUser = async ({ username, password, role, permissions }) => {
+  const createUser = async ({ username, password, role, permissions, draftTabs }) => {
     const res = await fetch("/api/auth/users", {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ username, password, role, permissions }),
+      body: JSON.stringify({ username, password, role, permissions, draftTabs }),
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || "failed to create account");
@@ -142,6 +178,13 @@ export default function Admin() {
     setUsers(us => us.map(u => u.id === id ? { ...u, permissions } : u));
     await fetch(`/api/auth/users/${id}/permissions`, {
       method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ permissions }),
+    });
+  };
+
+  const setDraftTabs = async (id, draftTabs) => {
+    setUsers(us => us.map(u => u.id === id ? { ...u, draftTabs } : u));
+    await fetch(`/api/auth/users/${id}/draft-tabs`, {
+      method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ draftTabs }),
     });
   };
 
@@ -196,7 +239,8 @@ export default function Admin() {
                 <tbody>
                   {users.map(u => (
                     <UserRow key={u.id} u={u} isSelf={u.id === user?.id}
-                      onSetRole={setRole} onSetPermissions={setPermissions} onResetPassword={resetPassword} onDelete={deleteUser} />
+                      onSetRole={setRole} onSetPermissions={setPermissions} onSetDraftTabs={setDraftTabs}
+                      onResetPassword={resetPassword} onDelete={deleteUser} />
                   ))}
                 </tbody>
               </table>
