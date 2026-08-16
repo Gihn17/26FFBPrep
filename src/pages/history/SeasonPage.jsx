@@ -4,10 +4,15 @@ import { panelStyle, th, td } from "../../theme.jsx";
 import { useSeasonFilter, SeasonFilterBar } from "./SeasonFilter.jsx";
 import { computePlayoffProbabilities } from "./compute.js";
 
-// Below this many games played, a record's historical match pool is
-// dominated by small-sample noise (a 1-0 start matches almost every good
-// team's start) — don't show numbers that look precise but aren't yet.
-const MIN_GAMES_FOR_PROBABILITY = 6;
+// Below this many games played, don't show numbers that look precise but
+// aren't yet. Backtested against every completed Koi season (holding each
+// one out of its own historical pool): sample size is never actually the
+// constraint here (even Week 1 averages 84 historical comps) — it's
+// signal. Weeks 1-2 barely beat a coin flip (59%/65% accuracy predicting
+// the real playoff outcome); Week 3 jumps to 70% and Weeks 3-6 sit in the
+// same 70-75% band, so waiting all the way to Week 6 wasn't buying
+// anything a Week 3 gate doesn't already get.
+const MIN_GAMES_FOR_PROBABILITY = 3;
 
 const PROB_TOOLTIP = "Percentage of teams in a league's history that made the playoffs with the actual current record. Click to view more data.";
 
