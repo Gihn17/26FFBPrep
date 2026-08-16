@@ -141,10 +141,19 @@ export default function SeasonPage() {
           <div style={{ fontSize:32 }}>🏈</div>
           <div>
             <div style={{ fontSize:22, fontWeight:800 }}>Standings</div>
-            {isSingleSeason ? (
+            {isSingleSeason && singleSeason === mostRecentSeason ? (
+              // Viewing the current season specifically — "reigning champ"
+              // means whoever last actually won, which can be a prior
+              // season's champion while this one is still in progress.
               reigningChamp ? (
                 <div style={{ fontSize:13, opacity:0.85 }}>🏆 Reigning Champ - {reigningChamp.ownerName || reigningChamp.teamName} <span style={{opacity:0.6}}>({reigningChamp.season})</span></div>
               ) : <div style={{ fontSize:12.5, opacity:0.7 }}>No champion decided yet</div>
+            ) : isSingleSeason ? (
+              // Viewing a different single season via the filter — show
+              // THAT season's own champion, not the current reigning one.
+              seasonChampion ? (
+                <div style={{ fontSize:13, opacity:0.85 }}>🏆 {seasonChampion.ownerName || seasonChampion.teamName} <span style={{opacity:0.6}}>({singleSeason})</span></div>
+              ) : <div style={{ fontSize:12.5, opacity:0.7 }}>{singleSeason} — not finalized</div>
             ) : (
               <div style={{ fontSize:12.5, opacity:0.8 }}>{activeYears.length} seasons &middot; {franchiseCount} teams &middot; {gamesInScope} games</div>
             )}
