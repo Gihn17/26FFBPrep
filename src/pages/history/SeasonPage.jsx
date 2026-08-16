@@ -143,7 +143,7 @@ export default function SeasonPage() {
             <div style={{ fontSize:22, fontWeight:800 }}>Standings</div>
             {isSingleSeason ? (
               reigningChamp ? (
-                <div style={{ fontSize:13, opacity:0.85 }}>🏆 {reigningChamp.ownerName || reigningChamp.teamName} <span style={{opacity:0.6}}>({reigningChamp.season})</span></div>
+                <div style={{ fontSize:13, opacity:0.85 }}>🏆 Reigning Champ - {reigningChamp.ownerName || reigningChamp.teamName} <span style={{opacity:0.6}}>({reigningChamp.season})</span></div>
               ) : <div style={{ fontSize:12.5, opacity:0.7 }}>No champion decided yet</div>
             ) : (
               <div style={{ fontSize:12.5, opacity:0.8 }}>{activeYears.length} seasons &middot; {franchiseCount} teams &middot; {gamesInScope} games</div>
