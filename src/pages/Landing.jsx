@@ -28,7 +28,7 @@ export default function Landing() {
       <div style={{ maxWidth: 900, margin: "0 auto" }}>
         <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", gap:12 }}>
           <div>
-            <div style={{ fontSize:11, letterSpacing:3, color:"#c9a227", fontWeight:700 }}>BOWEN FFB</div>
+            <div style={{ fontSize:11, letterSpacing:3, color:"#c9a227", fontWeight:700 }}>Bowen FFB</div>
             <h1 style={{ margin:"2px 0 24px", fontSize:34, fontWeight:800, letterSpacing:0.5 }}>Fantasy HQ</h1>
           </div>
           <div style={{ display:"flex", alignItems:"center", gap:8 }}>

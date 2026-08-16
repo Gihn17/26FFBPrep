@@ -862,7 +862,7 @@ export default function DraftPrepApp() {
       <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-end", flexWrap:"wrap", gap:12, marginBottom:16 }}>
         <div>
           <Link to="/" style={{ fontSize:11, color:"#9c998e", textDecoration:"none" }}>&larr; Fantasy HQ</Link>
-          <div style={{ fontSize:11, letterSpacing:3, color:"#c9a227", fontWeight:700, marginTop:4 }}>BOWEN FFB</div>
+          <div style={{ fontSize:11, letterSpacing:3, color:"#c9a227", fontWeight:700, marginTop:4 }}>Bowen FFB</div>
           <h1 style={{ margin:"2px 0 0", fontSize:32, fontWeight:800, letterSpacing:0.5 }}>Draft Prep Board — 2026</h1>
         </div>
         <div style={{ display:"flex", gap:8, alignItems:"flex-end" }}>

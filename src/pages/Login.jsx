@@ -24,7 +24,7 @@ export default function Login() {
   return (
     <div style={{ ...pageShell(), display:"flex", alignItems:"center", justifyContent:"center" }}>
       <form onSubmit={onSubmit} style={{ ...panelStyle(), width:320, marginBottom:0 }}>
-        <div style={{ fontSize:11, letterSpacing:3, color:"#c9a227", fontWeight:700, textAlign:"center" }}>BOWEN FFB</div>
+        <div style={{ fontSize:11, letterSpacing:3, color:"#c9a227", fontWeight:700, textAlign:"center" }}>Bowen FFB</div>
         <h1 style={{ margin:"4px 0 20px", fontSize:22, fontWeight:800, textAlign:"center" }}>Sign in</h1>
 
         <label style={{ ...lbl(), marginBottom:12 }}>
