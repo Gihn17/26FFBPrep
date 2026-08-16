@@ -168,6 +168,8 @@ export default function LeagueHistory() {
     }
     return { winsA, winsB, ties, ptsA, ptsB };
   }, [h2hGames]);
+  const nameA = ownerOptions.find(o => o.guid === ownerA)?.name;
+  const nameB = ownerOptions.find(o => o.guid === ownerB)?.name;
 
   return (
     <div style={pageShell()}>
@@ -278,7 +280,9 @@ export default function LeagueHistory() {
               ) : (
                 <>
                   <div style={{ fontSize:13, marginBottom:10 }}>
-                    <b>{ownerOptions.find(o=>o.guid===ownerA)?.name}</b> leads/trails{" "}
+                    {h2hSummary.winsA > h2hSummary.winsB ? <><b>{nameA}</b> leads</>
+                      : h2hSummary.winsB > h2hSummary.winsA ? <><b>{nameB}</b> leads</>
+                      : "Series is tied"}{" "}
                     <b>{h2hSummary.winsA}-{h2hSummary.winsB}{h2hSummary.ties ? `-${h2hSummary.ties}` : ""}</b>
                     {" "}({h2hSummary.ptsA.toFixed(1)} - {h2hSummary.ptsB.toFixed(1)} points) across {h2hGames.length} game{h2hGames.length===1?"":"s"}.
                   </div>
@@ -287,22 +291,23 @@ export default function LeagueHistory() {
                       <thead>
                         <tr style={{ opacity:0.65, textAlign:"left" }}>
                           <th style={th()}>Season</th><th style={th()}>Week</th>
-                          <th style={th("left")}>{ownerOptions.find(o=>o.guid===ownerA)?.name}</th>
-                          <th style={th("left")}>{ownerOptions.find(o=>o.guid===ownerB)?.name}</th>
-                          <th style={th()}>Result</th>
+                          <th style={th("left")}>{nameA}</th>
+                          <th style={th("left")}>{nameB}</th>
+                          <th style={th("left")}>Winner</th>
                         </tr>
                       </thead>
                       <tbody>
                         {h2hGames.map((g, i) => {
                           const aWon = g.scoreA > g.scoreB;
                           const bWon = g.scoreB > g.scoreA;
+                          const winnerName = aWon ? nameA : bWon ? nameB : "Tie";
                           return (
                             <tr key={i}>
                               <td style={td()}>{g.season}</td>
                               <td style={td()}>{g.week}{g.playoffTier && g.playoffTier !== "NONE" ? " (playoffs)" : ""}</td>
                               <td style={{...td("left"), fontWeight: aWon ? 700 : 400, color: aWon ? "#7fd18f" : undefined}}>{g.teamNameA} — {g.scoreA.toFixed(1)}</td>
                               <td style={{...td("left"), fontWeight: bWon ? 700 : 400, color: bWon ? "#7fd18f" : undefined}}>{g.teamNameB} — {g.scoreB.toFixed(1)}</td>
-                              <td style={td()}>{aWon ? "A" : bWon ? "B" : "Tie"}</td>
+                              <td style={td("left")}>{winnerName}</td>
                             </tr>
                           );
                         })}
