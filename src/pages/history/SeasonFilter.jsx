@@ -6,8 +6,8 @@ import { btnStyle, inp } from "../../theme.jsx";
  *  History sub-page that needs to scope its data to a set of seasons
  *  (Season, Stats). Kept as one hook + one component so both pages stay
  *  in sync with the same filter behavior instead of drifting apart. */
-export function useSeasonFilter(seasons) {
-  const [filterMode, setFilterMode] = useState("all"); // "all" | "single" | "range"
+export function useSeasonFilter(seasons, { defaultMode = "all" } = {}) {
+  const [filterMode, setFilterMode] = useState(defaultMode); // "all" | "single" | "range"
   const [singleYear, setSingleYear] = useState(null);
   const [rangeFrom, setRangeFrom] = useState(null);
   const [rangeTo, setRangeTo] = useState(null);

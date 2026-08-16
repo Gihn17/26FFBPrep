@@ -487,6 +487,63 @@ export function computeFranchiseWeeklyStats(matchups) {
   return acc;
 }
 
+/** Last `n` results (chronological, oldest→newest) for every team-slot in
+ *  one season — the Season page's "Form" column. Keyed by espn_team_id
+ *  since it's always used within a single already-known season. */
+export function computeSeasonFormGuide(matchups, season, n = 5) {
+  const byTeam = new Map();
+  for (const m of matchups) {
+    if (m.season !== season || m.away_team_id == null || !isPlayed(m)) continue;
+    const homeResult = m.winner === "HOME" ? "W" : m.winner === "AWAY" ? "L" : "T";
+    const awayResult = m.winner === "AWAY" ? "W" : m.winner === "HOME" ? "L" : "T";
+    if (!byTeam.has(m.home_team_id)) byTeam.set(m.home_team_id, []);
+    if (!byTeam.has(m.away_team_id)) byTeam.set(m.away_team_id, []);
+    byTeam.get(m.home_team_id).push({ week: m.week, result: homeResult });
+    byTeam.get(m.away_team_id).push({ week: m.week, result: awayResult });
+  }
+  const out = new Map();
+  for (const [id, games] of byTeam) {
+    games.sort((a, b) => a.week - b.week);
+    out.set(id, games.slice(-n));
+  }
+  return out;
+}
+
+/** Standings for a set of seasons combined — one row per FRANCHISE (owner),
+ *  not per team-slot, with every counting stat summed across whichever
+ *  seasons in `activeYears` that owner actually played. This is what
+ *  drives the multi-season "aggregate" table; a single-season selection
+ *  uses the plain per-team-slot seasonRecords instead (a franchise concept
+ *  isn't needed when there's only one season in scope). */
+export function computeAggregateStandings(teams, seasonRecords, weeklyStats, activeYears) {
+  const byOwner = new Map();
+  for (const t of teams) {
+    if (!t.owner_guid || !activeYears.includes(t.season)) continue;
+    if (!byOwner.has(t.owner_guid)) {
+      byOwner.set(t.owner_guid, {
+        ownerGuid: t.owner_guid, ownerName: t.owner_name, teamName: t.team_name, lastYear: t.season,
+        seasons: 0, wins: 0, losses: 0, ties: 0, pointsFor: 0, pointsAgainst: 0,
+        expW: 0, expL: 0, allPlayW: 0, allPlayL: 0, weeklyHighs: 0,
+      });
+    }
+    const f = byOwner.get(t.owner_guid);
+    if (t.season >= f.lastYear) { f.lastYear = t.season; f.teamName = t.team_name; } // most recent name in range wins
+    const r = (seasonRecords[t.season] || []).find(r => r.ownerGuid === t.owner_guid);
+    if (r) {
+      f.seasons++;
+      f.wins += r.wins; f.losses += r.losses; f.ties += r.ties;
+      f.pointsFor += r.pointsFor; f.pointsAgainst += r.pointsAgainst;
+    }
+    const w = weeklyStats.get(teamKey(t.season, t.espn_team_id));
+    if (w) {
+      f.expW += w.expW; f.expL += w.expL;
+      f.allPlayW += w.allPlayW; f.allPlayL += w.allPlayL;
+      f.weeklyHighs += w.weeklyHighs;
+    }
+  }
+  return [...byOwner.values()].sort((a, b) => b.wins - a.wins || b.pointsFor - a.pointsFor);
+}
+
 // ============================================================
 // Season page — playoff probability for the in-progress season: "of every
 // team-season in this league's history that had the exact same record
