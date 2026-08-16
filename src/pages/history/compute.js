@@ -337,3 +337,55 @@ export function computeStreaks(teamIdx, matchups, activeYears, mode) {
     lossStreaks: lossStreaks.sort((a, b) => b.len - a.len),
   };
 }
+
+// ============================================================
+// Champs page — all-time championships/runner-ups ranking and playoff
+// participation, on top of the per-season champion/runner-up already in
+// seasonRecords.
+// ============================================================
+
+/** All-time championships + runner-up counts per owner — the "Dynasty
+ *  Rankings" list. Separate from computeCareerStats since that only
+ *  tracks championships, not runner-ups. */
+export function computeDynastyRankings(teams, seasonRecords) {
+  const byOwner = new Map();
+  for (const t of teams) {
+    if (!t.owner_guid) continue;
+    if (!byOwner.has(t.owner_guid)) byOwner.set(t.owner_guid, { ownerGuid: t.owner_guid, ownerName: t.owner_name, championships: 0, runnerUps: 0 });
+  }
+  for (const season of Object.keys(seasonRecords)) {
+    for (const r of seasonRecords[season]) {
+      const rec = byOwner.get(r.ownerGuid);
+      if (!rec) continue;
+      if (r.finalRank === 1) rec.championships++;
+      if (r.finalRank === 2) rec.runnerUps++;
+    }
+  }
+  return [...byOwner.values()].sort((a, b) => b.championships - a.championships || b.runnerUps - a.runnerUps);
+}
+
+/** Playoff appearances (distinct seasons with at least one real playoff
+ *  game) and playoff wins, per owner — counting ONLY the winners bracket.
+ *  The consolation ladders (WINNERS_CONSOLATION_LADDER,
+ *  LOSERS_CONSOLATION_LADDER) are placement games for teams that already
+ *  missed the actual playoffs, not "making the playoffs" themselves. */
+export function computePlayoffLegends(teamIdx, matchups) {
+  const apps = new Map(); // ownerGuid -> Set(season)
+  const wins = new Map(); // ownerGuid -> count
+  const names = new Map();
+  for (const m of matchups) {
+    if (m.playoff_tier !== "WINNERS_BRACKET" || m.away_team_id == null || !isPlayed(m)) continue;
+    const home = teamIdx.get(teamKey(m.season, m.home_team_id));
+    const away = teamIdx.get(teamKey(m.season, m.away_team_id));
+    for (const [team, won] of [[home, m.winner === "HOME"], [away, m.winner === "AWAY"]]) {
+      if (!team?.owner_guid) continue;
+      names.set(team.owner_guid, team.owner_name);
+      if (!apps.has(team.owner_guid)) apps.set(team.owner_guid, new Set());
+      apps.get(team.owner_guid).add(m.season);
+      if (won) wins.set(team.owner_guid, (wins.get(team.owner_guid) || 0) + 1);
+    }
+  }
+  const appsArr = [...apps.entries()].map(([guid, seasons]) => ({ ownerGuid: guid, name: names.get(guid), count: seasons.size })).sort((a, b) => b.count - a.count);
+  const winsArr = [...wins.entries()].map(([guid, count]) => ({ ownerGuid: guid, name: names.get(guid), count })).sort((a, b) => b.count - a.count);
+  return { apps: appsArr, wins: winsArr };
+}
