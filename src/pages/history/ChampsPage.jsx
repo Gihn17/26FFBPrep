@@ -28,7 +28,7 @@ function LegendCard({ title, color, value, label }) {
 }
 
 export default function ChampsPage() {
-  const { teams, teamIdx, matchups, seasonRecords, seasons } = useOutletContext();
+  const { teams, teamIdx, matchups, seasonRecords, seasons, currentLogos } = useOutletContext();
   const [showAllRankings, setShowAllRankings] = useState(false);
   const [showAllHistory, setShowAllHistory] = useState(false);
 
@@ -66,7 +66,7 @@ export default function ChampsPage() {
             width:70, height:70, borderRadius:"50%", border:"3px solid #f0d97a", margin:"0 auto 10px", position:"relative",
             display:"flex", alignItems:"center", justifyContent:"center",
           }}>
-            <TeamAvatar name={latestChamp.teamName} seed={latestChamp.ownerGuid || latestChamp.teamName} size={64} imageUrl={latestChamp.logo} />
+            <TeamAvatar name={latestChamp.teamName} seed={latestChamp.ownerGuid || latestChamp.teamName} size={64} imageUrl={currentLogos.get(latestChamp.ownerGuid)} />
             <div style={{
               position:"absolute", bottom:-4, right:-4, width:26, height:26, borderRadius:"50%",
               background:"#181910", border:"2px solid #f0d97a", display:"flex", alignItems:"center", justifyContent:"center", fontSize:13,

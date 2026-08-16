@@ -84,7 +84,7 @@ function PlayoffPill({ probability, sampleSize, expanded, onClick }) {
 
 
 export default function SeasonPage() {
-  const { teams, matchups, seasonRecords, seasons } = useOutletContext();
+  const { teams, matchups, seasonRecords, seasons, currentLogos } = useOutletContext();
   // Default to the current season, not All-Time — this page is meant to
   // answer "how's this year going," Stats/Teams pages are where All-Time
   // browsing lives.
@@ -185,7 +185,7 @@ export default function SeasonPage() {
                         <td style={{...td(), fontWeight: r.finalRank===1 ? 700 : 400, color: r.finalRank===1 ? "#f0d97a" : undefined}}>
                           {r.finalRank != null ? (r.finalRank===1 ? "🏆 1" : r.finalRank) : "—"}
                         </td>
-                        <TeamCell ownerGuid={r.ownerGuid} ownerName={r.ownerName} teamName={r.teamName} logo={r.logo} />
+                        <TeamCell ownerGuid={r.ownerGuid} ownerName={r.ownerName} teamName={r.teamName} logo={currentLogos.get(r.ownerGuid)} />
                         <td style={td()}>{r.wins}-{r.losses}{r.ties ? `-${r.ties}` : ""}</td>
                         <FormCells games={games} />
                         <td style={{...td(), opacity:0.75, fontStyle:"italic"}}>{w ? `${w.expW}-${w.expL}` : "—"}</td>

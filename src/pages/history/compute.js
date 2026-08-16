@@ -54,6 +54,25 @@ export function computeOwnerOptions(teams) {
   return [...seen.entries()].map(([guid, name]) => ({ guid, name })).sort((a, b) => a.name.localeCompare(b.name));
 }
 
+/** One logo per franchise (owner), not one per season — a manager's ESPN
+ *  logo can change (or lapse) year to year, and old ones are more likely
+ *  to be dead links (confirmed: tinypic.com, host of several pre-2018
+ *  logos, is gone entirely). Rather than show a different, more fragile
+ *  logo depending on which season happens to be on screen, every avatar
+ *  everywhere — including historical/season-scoped views — uses this same
+ *  single "most recent known logo" per owner. Falls back through earlier
+ *  seasons if the latest one on file has no logo set, rather than trusting
+ *  the literal latest season's value even when it's null. */
+export function computeCurrentLogos(teams) {
+  const latest = new Map(); // ownerGuid -> { season, logo }
+  for (const t of teams) {
+    if (!t.owner_guid || !t.logo) continue;
+    const cur = latest.get(t.owner_guid);
+    if (!cur || t.season >= cur.season) latest.set(t.owner_guid, { season: t.season, logo: t.logo });
+  }
+  return new Map([...latest.entries()].map(([guid, v]) => [guid, v.logo]));
+}
+
 /** Per-season W/L/T, points for/against, and each team's own high/low week —
  *  scoped to one season, keyed by the season's own team slot (a team's
  *  identity within a season, not yet resolved across seasons). Sorted by
@@ -66,7 +85,7 @@ export function computeSeasonRecords(teams, matchups) {
   const acc = new Map();
   for (const t of teams) {
     acc.set(teamKey(t.season, t.espn_team_id), {
-      season: t.season, teamName: t.team_name, ownerName: t.owner_name, ownerGuid: t.owner_guid, logo: t.logo,
+      season: t.season, teamName: t.team_name, ownerName: t.owner_name, ownerGuid: t.owner_guid,
       finalRank: t.final_rank || null,
       wins: 0, losses: 0, ties: 0, pointsFor: 0, pointsAgainst: 0, games: 0, high: null, low: null,
     });
@@ -258,8 +277,8 @@ export function computeBlowouts(teamIdx, matchups, activeYears) {
     games.push({
       season: m.season, week: m.week,
       winnerName: winner.owner_name || winner.team_name, loserName: loser.owner_name || loser.team_name,
-      winnerGuid: winner.owner_guid, winnerTeamName: winner.team_name, winnerLogo: winner.logo,
-      loserGuid: loser.owner_guid, loserTeamName: loser.team_name, loserLogo: loser.logo,
+      winnerGuid: winner.owner_guid, winnerTeamName: winner.team_name,
+      loserGuid: loser.owner_guid, loserTeamName: loser.team_name,
       winnerScore, loserScore, margin: winnerScore - loserScore,
     });
   }
@@ -286,8 +305,8 @@ export function computeLossWinExtremes(teamIdx, matchups, activeYears) {
     games.push({
       season: m.season, week: m.week,
       winnerName: winner.owner_name || winner.team_name, loserName: loser.owner_name || loser.team_name,
-      winnerGuid: winner.owner_guid, winnerTeamName: winner.team_name, winnerLogo: winner.logo,
-      loserGuid: loser.owner_guid, loserTeamName: loser.team_name, loserLogo: loser.logo,
+      winnerGuid: winner.owner_guid, winnerTeamName: winner.team_name,
+      loserGuid: loser.owner_guid, loserTeamName: loser.team_name,
       winnerScore, loserScore,
     });
   }
@@ -306,7 +325,7 @@ export function computeSeasonPPG(seasonRecords, activeYears) {
   for (const season of activeYears) {
     for (const r of (seasonRecords[season] || [])) {
       if (!r.games) continue;
-      rows.push({ season: r.season, name: r.ownerName || r.teamName, ownerGuid: r.ownerGuid, teamName: r.teamName, logo: r.logo, ppg: r.pointsFor / r.games, games: r.games });
+      rows.push({ season: r.season, name: r.ownerName || r.teamName, ownerGuid: r.ownerGuid, teamName: r.teamName, ppg: r.pointsFor / r.games, games: r.games });
     }
   }
   return {
@@ -347,8 +366,8 @@ function gamesByTeamSeason(teamIdx, matchups, activeYears) {
     const homeResult = m.winner === "HOME" ? "W" : m.winner === "AWAY" ? "L" : "T";
     const awayResult = m.winner === "AWAY" ? "W" : m.winner === "HOME" ? "L" : "T";
     const hKey = teamKey(m.season, m.home_team_id), aKey = teamKey(m.season, m.away_team_id);
-    if (!groups.has(hKey)) groups.set(hKey, { name: home.owner_name || home.team_name, ownerGuid: home.owner_guid, teamName: home.team_name, logo: home.logo, season: m.season, games: [] });
-    if (!groups.has(aKey)) groups.set(aKey, { name: away.owner_name || away.team_name, ownerGuid: away.owner_guid, teamName: away.team_name, logo: away.logo, season: m.season, games: [] });
+    if (!groups.has(hKey)) groups.set(hKey, { name: home.owner_name || home.team_name, ownerGuid: home.owner_guid, teamName: home.team_name, season: m.season, games: [] });
+    if (!groups.has(aKey)) groups.set(aKey, { name: away.owner_name || away.team_name, ownerGuid: away.owner_guid, teamName: away.team_name, season: m.season, games: [] });
     groups.get(hKey).games.push({ week: m.week, result: homeResult });
     groups.get(aKey).games.push({ week: m.week, result: awayResult });
   }
@@ -370,8 +389,8 @@ function gamesByOwner(teamIdx, matchups, activeYears) {
     if (!home?.owner_guid || !away?.owner_guid) continue;
     const homeResult = m.winner === "HOME" ? "W" : m.winner === "AWAY" ? "L" : "T";
     const awayResult = m.winner === "AWAY" ? "W" : m.winner === "HOME" ? "L" : "T";
-    if (!groups.has(home.owner_guid)) groups.set(home.owner_guid, { name: home.owner_name, ownerGuid: home.owner_guid, teamName: home.team_name, logo: home.logo, games: [] });
-    if (!groups.has(away.owner_guid)) groups.set(away.owner_guid, { name: away.owner_name, ownerGuid: away.owner_guid, teamName: away.team_name, logo: away.logo, games: [] });
+    if (!groups.has(home.owner_guid)) groups.set(home.owner_guid, { name: home.owner_name, ownerGuid: home.owner_guid, teamName: home.team_name, games: [] });
+    if (!groups.has(away.owner_guid)) groups.set(away.owner_guid, { name: away.owner_name, ownerGuid: away.owner_guid, teamName: away.team_name, games: [] });
     groups.get(home.owner_guid).games.push({ season: m.season, week: m.week, result: homeResult });
     groups.get(away.owner_guid).games.push({ season: m.season, week: m.week, result: awayResult });
   }
@@ -388,12 +407,12 @@ export function computeStreaks(teamIdx, matchups, activeYears, mode) {
   for (const g of groups.values()) {
     const { bestWin, bestWinRange, bestLoss, bestLossRange } = longestStreaksFromGames(g.games);
     if (bestWin > 0) winStreaks.push({
-      name: g.name, ownerGuid: g.ownerGuid, teamName: g.teamName, logo: g.logo, len: bestWin,
+      name: g.name, ownerGuid: g.ownerGuid, teamName: g.teamName, len: bestWin,
       startSeason: bestWinRange.start.season ?? g.season, endSeason: bestWinRange.end.season ?? g.season,
       startWeek: bestWinRange.start.week, endWeek: bestWinRange.end.week,
     });
     if (bestLoss > 0) lossStreaks.push({
-      name: g.name, ownerGuid: g.ownerGuid, teamName: g.teamName, logo: g.logo, len: bestLoss,
+      name: g.name, ownerGuid: g.ownerGuid, teamName: g.teamName, len: bestLoss,
       startSeason: bestLossRange.start.season ?? g.season, endSeason: bestLossRange.end.season ?? g.season,
       startWeek: bestLossRange.start.week, endWeek: bestLossRange.end.week,
     });
@@ -477,19 +496,20 @@ export function ownerSlug(guid) {
  *  finalized yet. */
 export function computeFranchises(teams, careerStats, dynastyRankings) {
   const runnerUpsByGuid = new Map(dynastyRankings.map(d => [d.ownerGuid, d.runnerUps]));
+  const currentLogos = computeCurrentLogos(teams);
   const latestSeason = Math.max(...teams.map(t => t.season));
   const byOwner = new Map();
   for (const t of teams) {
     if (!t.owner_guid) continue;
-    if (!byOwner.has(t.owner_guid)) byOwner.set(t.owner_guid, { estYear: t.season, lastYear: t.season, teamName: t.team_name, logo: t.logo });
+    if (!byOwner.has(t.owner_guid)) byOwner.set(t.owner_guid, { estYear: t.season, lastYear: t.season, teamName: t.team_name });
     const f = byOwner.get(t.owner_guid);
     if (t.season < f.estYear) f.estYear = t.season;
-    if (t.season >= f.lastYear) { f.lastYear = t.season; f.teamName = t.team_name; f.logo = t.logo; } // most recent season's name/logo wins
+    if (t.season >= f.lastYear) { f.lastYear = t.season; f.teamName = t.team_name; } // most recent season's name wins
   }
   return careerStats.map(c => {
     const f = byOwner.get(c.ownerGuid) || {};
     return {
-      ownerGuid: c.ownerGuid, ownerName: c.ownerName, teamName: f.teamName || c.ownerName, logo: f.logo || null,
+      ownerGuid: c.ownerGuid, ownerName: c.ownerName, teamName: f.teamName || c.ownerName, logo: currentLogos.get(c.ownerGuid) || null,
       estYear: f.estYear, lastYear: f.lastYear, active: f.lastYear === latestSeason,
       seasons: c.seasons, championships: c.championships, runnerUps: runnerUpsByGuid.get(c.ownerGuid) || 0,
       lastPlaceFinishes: c.lastPlaceFinishes,
@@ -582,18 +602,22 @@ export function computeSeasonFormGuide(matchups, season, n = 5) {
  *  uses the plain per-team-slot seasonRecords instead (a franchise concept
  *  isn't needed when there's only one season in scope). */
 export function computeAggregateStandings(teams, seasonRecords, weeklyStats, activeYears) {
+  // Uses the full `teams` array (not just the seasons in scope) so a
+  // custom year-range still shows each franchise's true current logo, not
+  // whatever they had during that older window.
+  const currentLogos = computeCurrentLogos(teams);
   const byOwner = new Map();
   for (const t of teams) {
     if (!t.owner_guid || !activeYears.includes(t.season)) continue;
     if (!byOwner.has(t.owner_guid)) {
       byOwner.set(t.owner_guid, {
-        ownerGuid: t.owner_guid, ownerName: t.owner_name, teamName: t.team_name, logo: t.logo, lastYear: t.season,
+        ownerGuid: t.owner_guid, ownerName: t.owner_name, teamName: t.team_name, logo: currentLogos.get(t.owner_guid) || null, lastYear: t.season,
         seasons: 0, wins: 0, losses: 0, ties: 0, pointsFor: 0, pointsAgainst: 0,
         expW: 0, expL: 0, allPlayW: 0, allPlayL: 0, weeklyHighs: 0,
       });
     }
     const f = byOwner.get(t.owner_guid);
-    if (t.season >= f.lastYear) { f.lastYear = t.season; f.teamName = t.team_name; f.logo = t.logo; } // most recent name/logo in range wins
+    if (t.season >= f.lastYear) { f.lastYear = t.season; f.teamName = t.team_name; } // most recent name in range wins
     const r = (seasonRecords[t.season] || []).find(r => r.ownerGuid === t.owner_guid);
     if (r) {
       f.seasons++;

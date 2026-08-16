@@ -15,11 +15,11 @@ const MEDAL_COLOR = ["#e0b93f", "#b9bcc4", "#c9793f"]; // gold / silver / bronze
  *  mode, the #1 spot is the smallest number), so a value-proportional bar
  *  would either be visually flat or make the actual record look shortest.
  *  Rank order alone is what the podium communicates. */
-function PodiumBar({ rank, row, color }) {
+function PodiumBar({ rank, row, color, currentLogos }) {
   const height = rank === 1 ? 128 : 106;
   return (
     <div style={{ display:"flex", flexDirection:"column", alignItems:"center", flex:"0 1 150px", minWidth:110 }}>
-      <TeamAvatar name={row.avatarName} seed={row.avatarGuid || row.avatarName} size={rank === 1 ? 64 : 54} imageUrl={row.avatarLogo} />
+      <TeamAvatar name={row.avatarName} seed={row.avatarGuid || row.avatarName} size={rank === 1 ? 64 : 54} imageUrl={currentLogos.get(row.avatarGuid)} />
       <div style={{ fontWeight:700, fontSize:13, marginTop:8, textAlign:"center" }}>{row.primary}</div>
       {row.secondary && <div style={{ fontSize:11, opacity:0.6, marginBottom:8, textAlign:"center" }}>{row.secondary}</div>}
       <div style={{
@@ -37,7 +37,7 @@ function PodiumBar({ rank, row, color }) {
 /** One stat leaderboard, redesigned as a 3-bar "podium" (2nd-1st-3rd, gold
  *  in the middle) for the top spots, with a toggle for the stat's two
  *  directions and a "Show Top 10" list underneath for ranks 4-10. */
-function StatBlock({ icon, iconColor, title, toggleOptions, activeToggle, onToggle, rows }) {
+function StatBlock({ icon, iconColor, title, toggleOptions, activeToggle, onToggle, rows, currentLogos }) {
   const [expanded, setExpanded] = useState(false);
   const top3 = rows.slice(0, 3);
   const rest = rows.slice(3, 10);
@@ -72,7 +72,7 @@ function StatBlock({ icon, iconColor, title, toggleOptions, activeToggle, onTogg
       ) : (
         <>
           <div style={{ display:"flex", justifyContent:"center", alignItems:"flex-end", gap:18, flexWrap:"wrap", marginBottom:16 }}>
-            {podiumOrder.map((row, i) => <PodiumBar key={i} rank={podiumRanks[i]} row={row} color={MEDAL_COLOR[podiumRanks[i]-1]} />)}
+            {podiumOrder.map((row, i) => <PodiumBar key={i} rank={podiumRanks[i]} row={row} color={MEDAL_COLOR[podiumRanks[i]-1]} currentLogos={currentLogos} />)}
           </div>
 
           {rest.length > 0 && (
@@ -82,7 +82,7 @@ function StatBlock({ icon, iconColor, title, toggleOptions, activeToggle, onTogg
                 <div key={i} style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"8px 10px", background:"#181910", borderRadius:6, marginBottom:6, fontSize:12.5 }}>
                   <div style={{ display:"flex", alignItems:"center", gap:10 }}>
                     <span style={{ opacity:0.5, width:16 }}>{i + 4}</span>
-                    <TeamAvatar name={r.avatarName} seed={r.avatarGuid || r.avatarName} size={22} imageUrl={r.avatarLogo} />
+                    <TeamAvatar name={r.avatarName} seed={r.avatarGuid || r.avatarName} size={22} imageUrl={currentLogos.get(r.avatarGuid)} />
                     <div>
                       {r.primary}
                       {r.secondary && <div style={{ fontSize:11, opacity:0.6 }}>{r.secondary}</div>}
@@ -102,7 +102,7 @@ function StatBlock({ icon, iconColor, title, toggleOptions, activeToggle, onTogg
   );
 }
 
-function ScoresTab({ teamIdx, matchups, seasonRecords, activeYears }) {
+function ScoresTab({ teamIdx, matchups, seasonRecords, activeYears, currentLogos }) {
   const [scoreView, setScoreView] = useState("high");
   const [ppgView, setPpgView] = useState("high");
 
@@ -110,33 +110,33 @@ function ScoresTab({ teamIdx, matchups, seasonRecords, activeYears }) {
   const scoreRows = useMemo(() => {
     const sorted = [...scoreEntries].sort((a, b) => scoreView === "high" ? b.score - a.score : a.score - b.score);
     return sorted.map(e => ({
-      primary: e.team.owner_name || e.team.team_name, avatarGuid: e.team.owner_guid, avatarName: e.team.team_name, avatarLogo: e.team.logo,
+      primary: e.team.owner_name || e.team.team_name, avatarGuid: e.team.owner_guid, avatarName: e.team.team_name,
       secondary: `${e.season} · Week ${e.week}`, value: e.score.toFixed(1),
     }));
   }, [scoreEntries, scoreView]);
 
   const ppg = useMemo(() => computeSeasonPPG(seasonRecords, activeYears), [seasonRecords, activeYears]);
   const ppgRows = useMemo(() => (ppgView === "high" ? ppg.highest : ppg.lowest).map(r => ({
-    primary: r.name, avatarGuid: r.ownerGuid, avatarName: r.teamName, avatarLogo: r.logo, secondary: `${r.season} · ${r.games} games`, value: r.ppg.toFixed(1),
+    primary: r.name, avatarGuid: r.ownerGuid, avatarName: r.teamName, secondary: `${r.season} · ${r.games} games`, value: r.ppg.toFixed(1),
   })), [ppg, ppgView]);
 
   return (
     <>
-      <StatBlock icon="💪" iconColor="#3f9e5e" title={scoreView === "high" ? "Most Points (game)" : "Least Points (game)"} rows={scoreRows}
+      <StatBlock icon="💪" iconColor="#3f9e5e" title={scoreView === "high" ? "Most Points (game)" : "Least Points (game)"} rows={scoreRows} currentLogos={currentLogos}
         toggleOptions={[["high","Juggernaut","💪"],["low","Featherweight","🪶"]]} activeToggle={scoreView} onToggle={setScoreView} />
-      <StatBlock icon="⚡" iconColor="#4f8fd1" title={ppgView === "high" ? "Most PPG" : "Least PPG"} rows={ppgRows}
+      <StatBlock icon="⚡" iconColor="#4f8fd1" title={ppgView === "high" ? "Most PPG" : "Least PPG"} rows={ppgRows} currentLogos={currentLogos}
         toggleOptions={[["high","Powerhouse","⚡"],["low","Gauntlet","🛡️"]]} activeToggle={ppgView} onToggle={setPpgView} />
     </>
   );
 }
 
-function MatchupsTab({ teamIdx, matchups, activeYears }) {
+function MatchupsTab({ teamIdx, matchups, activeYears, currentLogos }) {
   const [blowoutView, setBlowoutView] = useState("biggest");
   const [lossWinView, setLossWinView] = useState("heartbreak");
 
   const blowouts = useMemo(() => computeBlowouts(teamIdx, matchups, activeYears), [teamIdx, matchups, activeYears]);
   const blowoutRows = useMemo(() => (blowoutView === "biggest" ? blowouts.biggest : blowouts.closest).map(g => ({
-    primary: `${g.winnerName} def. ${g.loserName}`, avatarGuid: g.winnerGuid, avatarName: g.winnerTeamName, avatarLogo: g.winnerLogo,
+    primary: `${g.winnerName} def. ${g.loserName}`, avatarGuid: g.winnerGuid, avatarName: g.winnerTeamName,
     secondary: `${g.season} · Week ${g.week} · ${g.winnerScore.toFixed(1)} - ${g.loserScore.toFixed(1)}`,
     value: `+${g.margin.toFixed(1)}`,
   })), [blowouts, blowoutView]);
@@ -145,21 +145,21 @@ function MatchupsTab({ teamIdx, matchups, activeYears }) {
   const lossWinRows = useMemo(() => {
     if (lossWinView === "heartbreak") {
       return lossWin.heartbreak.map(g => ({
-        primary: g.loserName, avatarGuid: g.loserGuid, avatarName: g.loserTeamName, avatarLogo: g.loserLogo,
+        primary: g.loserName, avatarGuid: g.loserGuid, avatarName: g.loserTeamName,
         secondary: `lost to ${g.winnerName} · ${g.season} wk ${g.week}`, value: `${g.loserScore.toFixed(1)}`,
       }));
     }
     return lossWin.criminal.map(g => ({
-      primary: g.winnerName, avatarGuid: g.winnerGuid, avatarName: g.winnerTeamName, avatarLogo: g.winnerLogo,
+      primary: g.winnerName, avatarGuid: g.winnerGuid, avatarName: g.winnerTeamName,
       secondary: `beat ${g.loserName} · ${g.season} wk ${g.week}`, value: `${g.winnerScore.toFixed(1)}`,
     }));
   }, [lossWin, lossWinView]);
 
   return (
     <>
-      <StatBlock icon="◎" iconColor="#7fd18f" title={blowoutView === "biggest" ? "Biggest Blowouts" : "Biggest Nailbiter"} rows={blowoutRows}
+      <StatBlock icon="◎" iconColor="#7fd18f" title={blowoutView === "biggest" ? "Biggest Blowouts" : "Biggest Nailbiter"} rows={blowoutRows} currentLogos={currentLogos}
         toggleOptions={[["biggest","Cakewalk","🎂"],["closest","Nailbiter","🔍"]]} activeToggle={blowoutView} onToggle={setBlowoutView} />
-      <StatBlock icon="💔" iconColor="#8a63d1" title={lossWinView === "heartbreak" ? "Most Points in a Loss" : "Fewest Points in a Win"} rows={lossWinRows}
+      <StatBlock icon="💔" iconColor="#8a63d1" title={lossWinView === "heartbreak" ? "Most Points in a Loss" : "Fewest Points in a Win"} rows={lossWinRows} currentLogos={currentLogos}
         toggleOptions={[["heartbreak","Heartbreak","💔"],["criminal","Criminal","🕵️"]]} activeToggle={lossWinView} onToggle={setLossWinView} />
     </>
   );
@@ -171,30 +171,30 @@ function streakLabel(s) {
     : `${s.startSeason} Wk${s.startWeek} → ${s.endSeason} Wk${s.endWeek}`;
 }
 
-function StreaksTab({ teamIdx, matchups, activeYears }) {
+function StreaksTab({ teamIdx, matchups, activeYears, currentLogos }) {
   // Season-only — a streak that reset every year end used to also be
   // offered as "Overall" (chained across season boundaries by owner);
   // dropped per Will's call, so this is always the within-a-season kind.
   const winStreaks = useMemo(() => computeStreaks(teamIdx, matchups, activeYears, "season"), [teamIdx, matchups, activeYears]);
   const winRows = useMemo(() => winStreaks.winStreaks.map(s => ({
-    primary: s.name, avatarGuid: s.ownerGuid, avatarName: s.teamName, avatarLogo: s.logo, secondary: streakLabel(s), value: `${s.len}W`,
+    primary: s.name, avatarGuid: s.ownerGuid, avatarName: s.teamName, secondary: streakLabel(s), value: `${s.len}W`,
   })), [winStreaks]);
 
   const lossStreaks = useMemo(() => computeStreaks(teamIdx, matchups, activeYears, "season"), [teamIdx, matchups, activeYears]);
   const lossRows = useMemo(() => lossStreaks.lossStreaks.map(s => ({
-    primary: s.name, avatarGuid: s.ownerGuid, avatarName: s.teamName, avatarLogo: s.logo, secondary: streakLabel(s), value: `${s.len}L`,
+    primary: s.name, avatarGuid: s.ownerGuid, avatarName: s.teamName, secondary: streakLabel(s), value: `${s.len}L`,
   })), [lossStreaks]);
 
   return (
     <>
-      <StatBlock icon="🔥" iconColor="#7fd18f" title="Longest Winning Streaks" rows={winRows} />
-      <StatBlock icon="🥶" iconColor="#e08a8a" title="Longest Losing Streaks" rows={lossRows} />
+      <StatBlock icon="🔥" iconColor="#7fd18f" title="Longest Winning Streaks" rows={winRows} currentLogos={currentLogos} />
+      <StatBlock icon="🥶" iconColor="#e08a8a" title="Longest Losing Streaks" rows={lossRows} currentLogos={currentLogos} />
     </>
   );
 }
 
 export default function StatsPage() {
-  const { teamIdx, matchups, seasonRecords, seasons } = useOutletContext();
+  const { teamIdx, matchups, seasonRecords, seasons, currentLogos } = useOutletContext();
   const filter = useSeasonFilter(seasons);
   const { activeYears, filterMode } = filter;
   const [subTab, setSubTab] = useState("scores");
@@ -230,9 +230,9 @@ export default function StatsPage() {
         ))}
       </div>
 
-      {subTab === "scores" && <ScoresTab teamIdx={teamIdx} matchups={matchups} seasonRecords={seasonRecords} activeYears={activeYears} />}
-      {subTab === "matchups" && <MatchupsTab teamIdx={teamIdx} matchups={matchups} activeYears={activeYears} />}
-      {subTab === "streaks" && <StreaksTab teamIdx={teamIdx} matchups={matchups} activeYears={activeYears} />}
+      {subTab === "scores" && <ScoresTab teamIdx={teamIdx} matchups={matchups} seasonRecords={seasonRecords} activeYears={activeYears} currentLogos={currentLogos} />}
+      {subTab === "matchups" && <MatchupsTab teamIdx={teamIdx} matchups={matchups} activeYears={activeYears} currentLogos={currentLogos} />}
+      {subTab === "streaks" && <StreaksTab teamIdx={teamIdx} matchups={matchups} activeYears={activeYears} currentLogos={currentLogos} />}
     </>
   );
 }

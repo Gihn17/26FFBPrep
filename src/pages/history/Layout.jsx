@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { Link, NavLink, Outlet } from "react-router-dom";
 import { pageShell, panelStyle, btnStyle } from "../../theme.jsx";
-import { buildTeamIndex, computeSeasonRecords, computeOwnerOptions, applyOwnershipCorrections } from "./compute.js";
+import { buildTeamIndex, computeSeasonRecords, computeOwnerOptions, computeCurrentLogos, applyOwnershipCorrections } from "./compute.js";
 
 const LEAGUE = "koi"; // only league with an ESPN id on file so far — same code path once Jordan/Final have one
 
@@ -11,7 +11,6 @@ const TABS = [
   ["h2h", "H2H"],
   ["champs", "Champs"],
   ["teams", "Teams"],
-  ["analytics", "Analytics"],
 ];
 
 /** Loads {teams, matchups} once, derives the shared shapes every sub-page
@@ -54,8 +53,13 @@ export default function HistoryLayout() {
   const seasonRecords = useMemo(() => computeSeasonRecords(teams, matchups), [teams, matchups]);
   const seasons = useMemo(() => [...new Set(teams.map(t => t.season))].sort((a, b) => b - a), [teams]); // newest first
   const ownerOptions = useMemo(() => computeOwnerOptions(teams), [teams]);
+  // One logo per franchise, always their most current — every page uses
+  // this instead of trusting whatever a per-season row happens to carry,
+  // so historical views don't show a different (and more likely dead)
+  // logo than the team's real current one.
+  const currentLogos = useMemo(() => computeCurrentLogos(teams), [teams]);
 
-  const context = { league: LEAGUE, teams, matchups, teamIdx, seasonRecords, seasons, ownerOptions, loaded, canEdit };
+  const context = { league: LEAGUE, teams, matchups, teamIdx, seasonRecords, seasons, ownerOptions, currentLogos, loaded, canEdit };
 
   return (
     <div style={pageShell()}>

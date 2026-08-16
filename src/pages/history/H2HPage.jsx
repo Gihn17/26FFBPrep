@@ -52,13 +52,13 @@ function WeekPicker({ seasons, matchups, season, week, onChange, latest }) {
   );
 }
 
-function TeamBlock({ team, record, align }) {
+function TeamBlock({ team, record, align, logo }) {
   const name = team?.owner_name || team?.team_name || "—";
   const hot = record?.streakType === "W" && record.streakLen >= HOT_STREAK_MIN;
   return (
     <Link to={team?.owner_guid ? `/league-koi/teams/${ownerSlug(team.owner_guid)}` : "#"}
       style={{ display:"flex", alignItems:"center", gap:10, textDecoration:"none", color:"inherit", flexDirection: align==="right" ? "row-reverse" : "row", flex:"1 1 0", minWidth:0 }}>
-      <TeamAvatar name={team?.team_name} seed={team?.owner_guid || team?.team_name} size={40} imageUrl={team?.logo} />
+      <TeamAvatar name={team?.team_name} seed={team?.owner_guid || team?.team_name} size={40} imageUrl={logo} />
       <div style={{ textAlign: align === "right" ? "right" : "left", minWidth:0 }}>
         <div style={{ fontWeight:700, fontSize:14.5, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{name}</div>
         <div style={{ fontSize:11.5, opacity:0.6 }}>
@@ -70,13 +70,13 @@ function TeamBlock({ team, record, align }) {
   );
 }
 
-function MatchupCard({ g }) {
+function MatchupCard({ g, currentLogos }) {
   const [expanded, setExpanded] = useState(false);
   const homeWon = g.homeScore > g.awayScore, awayWon = g.awayScore > g.homeScore;
   return (
     <div style={{ ...panelStyle(), marginBottom:10 }}>
       <div style={{ display:"flex", alignItems:"center", gap:16, flexWrap:"wrap" }}>
-        <TeamBlock team={g.homeTeam} record={g.homeRecord} align="left" />
+        <TeamBlock team={g.homeTeam} record={g.homeRecord} align="left" logo={currentLogos.get(g.homeTeam?.owner_guid)} />
         <div style={{ textAlign:"center", flex:"0 0 140px" }}>
           <div style={{ fontSize:10.5, opacity:0.5, letterSpacing:1, marginBottom:2 }}>FINAL</div>
           <div style={{ fontSize:20, fontWeight:800 }}>
@@ -97,7 +97,7 @@ function MatchupCard({ g }) {
             </div>
           )}
         </div>
-        <TeamBlock team={g.awayTeam} record={g.awayRecord} align="right" />
+        <TeamBlock team={g.awayTeam} record={g.awayRecord} align="right" logo={currentLogos.get(g.awayTeam?.owner_guid)} />
         {g.h2h && g.h2h.allGames.length > 1 && (
           <button onClick={()=>setExpanded(e=>!e)} style={{ background:"none", border:"none", color:"#9c998e", cursor:"pointer", fontSize:14, padding:4 }}>
             {expanded ? "▲" : "▼"}
@@ -136,7 +136,7 @@ function MatchupCard({ g }) {
   );
 }
 
-function WeekView({ teamIdx, matchups, teams, seasons }) {
+function WeekView({ teamIdx, matchups, teams, seasons, currentLogos }) {
   const latest = useMemo(() => computeLatestPlayedWeek(teams, matchups), [teams, matchups]);
   const [season, setSeason] = useState(latest?.season);
   const [week, setWeek] = useState(latest?.week);
@@ -162,14 +162,14 @@ function WeekView({ teamIdx, matchups, teams, seasons }) {
       {slate.length === 0 ? (
         <div style={panelStyle()}>No games played that week.</div>
       ) : (
-        slate.map((g, i) => <MatchupCard key={i} g={g} />)
+        slate.map((g, i) => <MatchupCard key={i} g={g} currentLogos={currentLogos} />)
       )}
     </>
   );
 }
 
 export default function H2HPage() {
-  const { teams, matchups, teamIdx, ownerOptions, seasons } = useOutletContext();
+  const { teams, matchups, teamIdx, ownerOptions, seasons, currentLogos } = useOutletContext();
   const [mode, setMode] = useState("week");
   const [ownerA, setOwnerA] = useState("");
   const [ownerB, setOwnerB] = useState("");
@@ -198,7 +198,7 @@ export default function H2HPage() {
       </div>
 
       {mode === "week" ? (
-        <WeekView teamIdx={teamIdx} matchups={matchups} teams={teams} seasons={seasons} />
+        <WeekView teamIdx={teamIdx} matchups={matchups} teams={teams} seasons={seasons} currentLogos={currentLogos} />
       ) : (
         <div style={panelStyle()}>
           <div style={{ fontSize:11, fontWeight:700, letterSpacing:0.5, color:"#c9a227", marginBottom:10, textTransform:"uppercase" }}>
