@@ -1,0 +1,171 @@
+// ESPN Fantasy Football client — League History backfill (server/db.js's
+// history_teams/history_matchups tables) and live Game Day scores, both for
+// ESPN-hosted leagues (Koi now; Jordan once its league ID is on file).
+//
+// Endpoint verified directly against the live API (not assumed from docs):
+//   https://lm-api-reads.fantasy.espn.com/apis/v3/games/ffl/seasons/{year}/segments/0/leagues/{leagueId}?view=mTeam&view=mMatchupScore
+// This host works with ZERO auth for recent seasons of a public league.
+// Older seasons can 401 even on a public league — ESPN requires espn_s2/SWID
+// cookies for those regardless of the league's current privacy setting.
+// Seasons before ESPN's 2018 platform migration 404 outright; that league ID
+// scheme doesn't reach back further, nothing to recover there.
+import { db, getOrCreateUser } from "./db.js";
+
+const ESPN_HOST = "https://lm-api-reads.fantasy.espn.com/apis/v3/games/ffl";
+
+db.exec(`
+CREATE TABLE IF NOT EXISTS history_teams (
+  id            INTEGER PRIMARY KEY AUTOINCREMENT,
+  league_id     TEXT NOT NULL REFERENCES leagues(id),
+  season        INTEGER NOT NULL,
+  espn_team_id  INTEGER NOT NULL,   -- per-season team slot id (can be reassigned year to year)
+  team_name     TEXT,
+  owner_guid    TEXT,               -- ESPN's primaryOwner GUID — stable across seasons/renames,
+                                      -- the real join key for all-time (cross-season) stats
+  owner_name    TEXT,
+  UNIQUE(league_id, season, espn_team_id)
+);
+
+CREATE TABLE IF NOT EXISTS history_matchups (
+  id            INTEGER PRIMARY KEY AUTOINCREMENT,
+  league_id     TEXT NOT NULL REFERENCES leagues(id),
+  season        INTEGER NOT NULL,
+  week          INTEGER NOT NULL,
+  playoff_tier  TEXT,               -- 'NONE' | 'WINNERS_BRACKET' | 'LOSERS_CONSOLATION_LADDER' | ...
+  home_team_id  INTEGER NOT NULL,   -- espn_team_id, scoped to (league_id, season)
+  away_team_id  INTEGER,            -- null for a bye
+  home_score    REAL,
+  away_score    REAL,
+  winner        TEXT,               -- 'HOME' | 'AWAY' | 'TIE' | 'UNDECIDED'
+  UNIQUE(league_id, season, week, home_team_id, away_team_id)
+);
+`);
+
+/** Cookies live in the same shared user_kv store as everything else (see
+ *  server/index.js's storage router) — set once via the Settings tab, read
+ *  here directly from the DB rather than round-tripping through HTTP.
+ *  Absent/incomplete cookies just means "public data only" — never an error. */
+function getEspnCookies() {
+  try {
+    const will = getOrCreateUser("Will");
+    const row = db.prepare("SELECT value FROM user_kv WHERE user_id = ? AND key = ?").get(will.id, "espn-cookies");
+    if (!row) return null;
+    const parsed = JSON.parse(row.value);
+    return (parsed.espn_s2 && parsed.swid) ? parsed : null;
+  } catch (e) {
+    return null;
+  }
+}
+
+/** Single season fetch. Returns {status, data} rather than throwing on
+ *  401/404 — those are expected, normal outcomes here (season needs cookies
+ *  we don't have, or predates the league/platform), not failures. */
+async function fetchSeason(leagueId, year) {
+  const cookies = getEspnCookies();
+  const headers = {};
+  if (cookies) headers.Cookie = `espn_s2=${cookies.espn_s2}; SWID=${cookies.swid}`;
+  const url = `${ESPN_HOST}/seasons/${year}/segments/0/leagues/${leagueId}?view=mTeam&view=mMatchupScore`;
+  const res = await fetch(url, { headers });
+  if (res.status === 401 || res.status === 404) return { status: res.status, data: null };
+  if (!res.ok) throw new Error(`ESPN API returned HTTP ${res.status} for season ${year}`);
+  return { status: 200, data: await res.json() };
+}
+
+function upsertSeason(leagueId, year, data) {
+  const memberName = new Map((data.members || []).map(m => [m.id, [m.firstName, m.lastName].filter(Boolean).join(" ") || m.displayName]));
+  const upsertTeam = db.prepare(`
+    INSERT INTO history_teams (league_id, season, espn_team_id, team_name, owner_guid, owner_name)
+    VALUES (@league_id, @season, @espn_team_id, @team_name, @owner_guid, @owner_name)
+    ON CONFLICT(league_id, season, espn_team_id) DO UPDATE SET
+      team_name=excluded.team_name, owner_guid=excluded.owner_guid, owner_name=excluded.owner_name
+  `);
+  const upsertMatchup = db.prepare(`
+    INSERT INTO history_matchups (league_id, season, week, playoff_tier, home_team_id, away_team_id, home_score, away_score, winner)
+    VALUES (@league_id, @season, @week, @playoff_tier, @home_team_id, @away_team_id, @home_score, @away_score, @winner)
+    ON CONFLICT(league_id, season, week, home_team_id, away_team_id) DO UPDATE SET
+      home_score=excluded.home_score, away_score=excluded.away_score, winner=excluded.winner, playoff_tier=excluded.playoff_tier
+  `);
+  const txn = db.transaction(() => {
+    for (const t of data.teams || []) {
+      const ownerGuid = t.primaryOwner || (t.owners && t.owners[0]) || null;
+      upsertTeam.run({
+        league_id: leagueId, season: year, espn_team_id: t.id,
+        team_name: t.name || null, owner_guid: ownerGuid,
+        owner_name: ownerGuid ? (memberName.get(ownerGuid) || null) : null,
+      });
+    }
+    for (const m of data.schedule || []) {
+      if (!m.home) continue; // shouldn't happen, but don't let a malformed entry crash the whole import
+      upsertMatchup.run({
+        league_id: leagueId, season: year, week: m.matchupPeriodId,
+        playoff_tier: m.playoffTierType || "NONE",
+        home_team_id: m.home.teamId,
+        away_team_id: m.away ? m.away.teamId : null,
+        home_score: m.home.totalPoints ?? null,
+        away_score: m.away ? (m.away.totalPoints ?? null) : null,
+        winner: m.winner || "UNDECIDED",
+      });
+    }
+  });
+  txn();
+}
+
+/** Loops seasons, upserting whatever's reachable. Never aborts the whole
+ *  run because one season needs auth we don't have or predates the league —
+ *  those are recorded in `skipped`, not thrown.
+ *
+ *  leagueId: our internal id ('koi'/'jordan') — what history_teams/
+ *  history_matchups are keyed by, matching the leagues table's FK shape.
+ *  espnLeagueId: ESPN's own numeric league id, used only for the API URL —
+ *  these are NOT the same value and must not be conflated. */
+export async function refreshLeagueHistory(leagueId, espnLeagueId, startYear, endYear) {
+  const imported = [];
+  const skipped = [];
+  for (let year = startYear; year <= endYear; year++) {
+    try {
+      const { status, data } = await fetchSeason(espnLeagueId, year);
+      if (status === 401) { skipped.push({ year, reason: "needs ESPN auth cookies (set them in Settings)" }); continue; }
+      if (status === 404) { skipped.push({ year, reason: "not found (pre-2018 platform migration, or league didn't exist yet)" }); continue; }
+      upsertSeason(leagueId, year, data);
+      imported.push(year);
+    } catch (e) {
+      skipped.push({ year, reason: e.message });
+    }
+  }
+  return { imported, skipped };
+}
+
+export function getLeagueHistory(leagueId) {
+  const teams = db.prepare("SELECT * FROM history_teams WHERE league_id = ? ORDER BY season, espn_team_id").all(leagueId);
+  const matchups = db.prepare("SELECT * FROM history_matchups WHERE league_id = ? ORDER BY season, week").all(leagueId);
+  return { teams, matchups };
+}
+
+/** Current season's matchups for a given week (default: whatever ESPN says
+ *  the league's current scoring period is) — used by the Game Day tracker.
+ *  totalPointsLive (when present) reflects in-progress game stats; falls
+ *  back to totalPoints when a week's games are settled or haven't started.
+ *  espnLeagueId: ESPN's numeric league id (this function doesn't touch the
+ *  DB, so there's no internal id involved here, unlike refreshLeagueHistory). */
+export async function getWeekMatchups(espnLeagueId, week) {
+  const year = new Date().getFullYear();
+  const { status, data } = await fetchSeason(espnLeagueId, year);
+  if (status !== 200) return { status, matchups: [] };
+  const targetWeek = week || data.scoringPeriodId;
+  const teamById = new Map((data.teams || []).map(t => [t.id, t.name]));
+  const matchups = (data.schedule || [])
+    .filter(m => m.matchupPeriodId === targetWeek)
+    .map(m => ({
+      week: targetWeek,
+      home: m.home ? {
+        teamId: m.home.teamId, teamName: teamById.get(m.home.teamId) || `Team ${m.home.teamId}`,
+        points: m.home.totalPointsLive ?? m.home.totalPoints ?? 0,
+      } : null,
+      away: m.away ? {
+        teamId: m.away.teamId, teamName: teamById.get(m.away.teamId) || `Team ${m.away.teamId}`,
+        points: m.away.totalPointsLive ?? m.away.totalPoints ?? 0,
+      } : null,
+      winner: m.winner || "UNDECIDED",
+    }));
+  return { status: 200, week: targetWeek, matchups };
+}

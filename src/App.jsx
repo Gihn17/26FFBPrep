@@ -1,4 +1,8 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
+import {
+  OUTLOOK_STYLE, POS_COLORS, LEAGUE_LABELS, btnStyle, panelStyle, lbl, lblSmall,
+  pText, inp, ta, th, td, SortTh, badgeSup,
+} from "./theme.jsx";
 
 /* ============================================================
    DEFAULT ADJUSTABLE PARAMETERS
@@ -360,15 +364,6 @@ function reconcileSleeperPicks(picks, index, currentDraft, managerNameFor, nameB
 }
 
 
-const OUTLOOK_STYLE = {
-  green:  { bg:"#1c3a2a", border:"#3f9e5e", label:"Green — go get him" },
-  yellow: { bg:"#3a3418", border:"#c9a227", label:"Yellow — proceed with caution" },
-  red:    { bg:"#3a1f1f", border:"#c0453f", label:"Red — stay away" },
-  pink:   { bg:"#3a1f30", border:"#d162a4", label:"Pink — late flyer" },
-  purple: { bg:"#241a3a", border:"#8a63d1", label:"Purple — ignore" },
-};
-const POS_COLORS = { QB:"#d162a4", RB:"#3f9e5e", WR:"#4f8fd1", TE:"#c9a227", K:"#9a9a9a", DEF:"#c0453f" };
-const LEAGUE_LABELS = { koi:"Koi", final:"Final Fantasy", jordan:"Jordan" };
 // The three actual draft boards — used to gate board-only UI (Export CSV,
 // Reset Draft, the drafted/spent counter, Sleeper sync) and to fall back
 // "league" to a real board whenever the active tab isn't one (how/settings).
@@ -959,6 +954,7 @@ export default function DraftPrepApp() {
           pool={pool} draftByLeague={draftByLeague}
           onApplyKeepers={(lg, patchMap, newManagers) => { mergePicksForLeague(lg, patchMap); addManagersForLeague(lg, newManagers); }}
           canEditKeepers={currentUserName === "Will"}
+          canEditEspnAccess={currentUserName === "Will"}
         />
       ) : (
         <>
@@ -1306,7 +1302,7 @@ function SleeperSyncPanel({ sourceLeagueId, pool, draft, onMergePicks, onAddMana
    settings), deliberately separate from the draft/research board
    so opening it never shifts or clutters that view.
    ============================================================ */
-function SettingsTab({ users, toggleUserTab, teamsByLeague, rosterSpotsByLeague, setTeamsFor, setRosterSpotsFor, managersTextByLeague, setManagersForLeague, pool, draftByLeague, onApplyKeepers, canEditKeepers }) {
+function SettingsTab({ users, toggleUserTab, teamsByLeague, rosterSpotsByLeague, setTeamsFor, setRosterSpotsFor, managersTextByLeague, setManagersForLeague, pool, draftByLeague, onApplyKeepers, canEditKeepers, canEditEspnAccess }) {
   const [keeperLeague, setKeeperLeague] = useState("koi");
   return (
     <div style={{ display:"flex", flexDirection:"column", gap:16 }}>
@@ -1388,6 +1384,13 @@ function SettingsTab({ users, toggleUserTab, teamsByLeague, rosterSpotsByLeague,
           pool={pool} draftByLeague={draftByLeague}
           onApplyKeepers={onApplyKeepers} canEdit={canEditKeepers}
         />
+      </div>
+
+      <div style={panelStyle()}>
+        <div style={{ fontSize:11, fontWeight:700, letterSpacing:0.5, color:"#c9a227", marginBottom:10, textTransform:"uppercase" }}>
+          ESPN Access — for League History and Game Day (Koi, and Jordan once its league ID is on file)
+        </div>
+        <EspnAccessPanel canEdit={canEditEspnAccess} />
       </div>
 
       <div style={{ fontSize:12, opacity:0.65, lineHeight:1.5 }}>
@@ -1683,6 +1686,73 @@ function KeeperImportPanel({ league, setLeague, pool, draftByLeague, onApplyKeep
   );
 }
 
+/* ============================================================
+   ESPN ACCESS — espn_s2/SWID cookies for League History (server/espn.js)
+   and the ESPN side of Game Day. Stored via the same shared /api/storage
+   mechanism as everything else in this app (window.storage — always
+   resolves to a single shared record, see storagePolyfill.js), read
+   directly by the server for its own outbound ESPN calls. Only ever
+   needed for seasons ESPN gates behind auth even on a public league
+   (verified: 2018-2023 for Koi) — recent seasons work with nothing set.
+   ============================================================ */
+function EspnAccessPanel({ canEdit }) {
+  const [espnS2, setEspnS2] = useState("");
+  const [swid, setSwid] = useState("");
+  const [hasStored, setHasStored] = useState(false);
+  const [saved, setSaved] = useState(false);
+
+  useEffect(() => {
+    window.storage.get("espn-cookies").then(res => {
+      if (!res || !res.value) return;
+      try {
+        const parsed = JSON.parse(res.value);
+        setHasStored(!!(parsed.espn_s2 && parsed.swid));
+      } catch (e) { /* ignore */ }
+    });
+  }, []);
+
+  const save = () => {
+    if (!espnS2.trim() || !swid.trim()) return;
+    window.storage.set("espn-cookies", JSON.stringify({ espn_s2: espnS2.trim(), swid: swid.trim() })).then(() => {
+      setHasStored(true);
+      setSaved(true);
+      setEspnS2(""); setSwid("");
+    });
+  };
+
+  return (
+    <div>
+      <p style={pText()}>
+        These are your ESPN session cookies (<code>espn_s2</code> and <code>SWID</code>) — grab them from your
+        browser's dev tools (Application/Storage → Cookies → espn.com) while logged into ESPN. Only needed for
+        older seasons; recent Koi history and live scores already work without them since the league is
+        currently public.
+      </p>
+      <div style={{ fontSize:12, marginBottom:12 }}>
+        Status: <b style={{ color: hasStored ? "#7fd18f" : "#9c998e" }}>{hasStored ? "Cookies are set" : "Not set"}</b>
+      </div>
+      {!canEdit ? (
+        <div style={{ ...pText(), background:"#181910", border:"1px solid #2a2c20", borderRadius:8, padding:12, marginBottom:0 }}>
+          Only <b style={{color:"#f0d97a"}}>Will</b> can set these.
+        </div>
+      ) : (
+        <div style={{ display:"flex", gap:12, flexWrap:"wrap", alignItems:"flex-end" }}>
+          <label style={lbl()}>espn_s2
+            <input type="password" value={espnS2} onChange={e=>{ setEspnS2(e.target.value); setSaved(false); }}
+              placeholder={hasStored ? "•••••••• (set — paste to replace)" : "paste value"} style={inp(320)} />
+          </label>
+          <label style={lbl()}>SWID
+            <input type="password" value={swid} onChange={e=>{ setSwid(e.target.value); setSaved(false); }}
+              placeholder={hasStored ? "•••••••• (set — paste to replace)" : "{XXXXXXXX-XXXX-...}"} style={inp(220)} />
+          </label>
+          <button onClick={save} disabled={!espnS2.trim() || !swid.trim()} style={btnStyle("#20211a","#c9a227")}>Save</button>
+          {saved && <span style={{ fontSize:12, color:"#7fd18f" }}>Saved.</span>}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function ImportPanel({ pool, playerImports, onApplyImport, onClearImport, canEdit }) {
   const [batches, setBatches] = useState([]); // {id, label, headers, data, map:{...}}
   const [pasteText, setPasteText] = useState("");
@@ -1962,45 +2032,5 @@ function ColMap({ label, value, set, headers, compact }) {
 
 
 
-function btnStyle(bg="#20211a", border="#c9a227") {
-  return { padding:"8px 14px", borderRadius:8, border:`1px solid ${border}`, background:bg, color:"#e9e6dd", fontSize:13, fontWeight:600 };
-}
-function panelStyle() {
-  return { background:"#181910", border:"1px solid #2a2c20", borderRadius:10, padding:14, marginBottom:14 };
-}
-function lbl() {
-  return { display:"flex", flexDirection:"column", gap:4, fontSize:11, opacity:0.75 };
-}
-function lblSmall(color) {
-  return { fontSize:11, fontWeight:700, color, marginBottom:4, textTransform:"uppercase", letterSpacing:0.5 };
-}
-function pText() {
-  return { fontSize:12.5, opacity:0.8, lineHeight:1.6, maxWidth:900, marginBottom:14 };
-}
-function inp(w) {
-  return { width:w, background:"#0f100b", border:"1px solid #33362a", borderRadius:6, color:"#e9e6dd", padding:"6px 8px", fontSize:13 };
-}
-function ta() {
-  return { width:"100%", background:"#0f100b", border:"1px solid #33362a", borderRadius:6, color:"#e9e6dd", padding:"8px", fontSize:13, resize:"vertical" };
-}
-function SortTh({ label, col, sortKey, sortDir, onSort, align }) {
-  const active = sortKey === col;
-  return (
-    <th style={{ ...th(align), cursor:"pointer", userSelect:"none", color: active ? "#f0d97a" : undefined }}
-        onClick={()=>onSort(col)}>
-      {label}
-      <span style={{ display:"inline-block", width:12, opacity: active ? 1 : 0.25, marginLeft:2 }}>
-        {active ? (sortDir === "asc" ? "▲" : "▼") : "▾"}
-      </span>
-    </th>
-  );
-}
-function th(align="center") {
-  return { padding:"10px 8px", textAlign:align, borderBottom:"1px solid #2a2c20" };
-}
-function td(align="center") {
-  return { padding:"7px 8px", textAlign:align, borderBottom:"1px solid #1e2018", fontSize:13 };
-}
-function badgeSup() {
-  return { marginLeft:4, fontSize:9, fontWeight:800, color:"#7fd1c9", letterSpacing:0.5 };
-}
+// btnStyle/panelStyle/lbl/lblSmall/pText/inp/ta/th/td/SortTh/badgeSup now
+// live in ./theme.jsx (shared with the other pages — landing/gameday/history).

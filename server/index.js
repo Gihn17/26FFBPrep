@@ -2,9 +2,10 @@ import express from "express";
 import path from "path";
 import fs from "fs";
 import { fileURLToPath } from "url";
-import { seedLeagues, getAllLeagues } from "./leagues.js";
+import { seedLeagues, getAllLeagues, getLeague } from "./leagues.js";
 import { db, getOrCreateUser, listUsers, setUserAllowedTabs } from "./db.js";
 import { getAdpPool, getAdpStatus, refreshAdpPool, startAdpScheduler } from "./adp.js";
+import { refreshLeagueHistory, getLeagueHistory, getWeekMatchups } from "./espn.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -188,6 +189,49 @@ app.get("/api/health", (req, res) => res.json({ ok: true, dataFile: DATA_FILE })
 
 // --- League config (teams/roster spots/replacement levels, per league) ---
 app.get("/api/leagues", (req, res) => res.json(getAllLeagues()));
+
+// --- League History (ESPN leagues only — Koi now, Jordan once its ESPN
+// league id is on file). See server/espn.js. ---
+app.get("/api/history/:league", (req, res) => {
+  res.json(getLeagueHistory(req.params.league));
+});
+
+app.post("/api/history/:league/refresh", async (req, res) => {
+  const league = getLeague(req.params.league);
+  if (!league || league.source_platform !== "espn" || !league.source_league_id) {
+    return res.status(400).json({ error: `${req.params.league} has no ESPN league id on file yet` });
+  }
+  const currentYear = new Date().getFullYear();
+  // Verified directly against the live API: this league's data doesn't
+  // reach past 2018 (ESPN's fantasy platform migration) regardless of
+  // auth — no point trying earlier years.
+  const startYear = Number(req.body?.startYear) || 2018;
+  const endYear = Number(req.body?.endYear) || currentYear;
+  try {
+    const result = await refreshLeagueHistory(req.params.league, league.source_league_id, startYear, endYear);
+    res.json(result);
+  } catch (e) {
+    res.status(502).json({ error: e.message });
+  }
+});
+
+// --- Game Day live scores — ESPN leagues only (Final Fantasy/Sleeper is
+// fetched directly client-side, same as the draft-day Sleeper sync; no
+// server proxy needed since Sleeper's API is already public). ---
+app.get("/api/gameday/:league", async (req, res) => {
+  const league = getLeague(req.params.league);
+  if (!league || league.source_platform !== "espn" || !league.source_league_id) {
+    return res.status(400).json({ error: `${req.params.league} isn't an ESPN league with a league id on file — Final Fantasy uses Sleeper directly` });
+  }
+  const week = req.query.week ? Number(req.query.week) : null;
+  try {
+    const result = await getWeekMatchups(league.source_league_id, week);
+    if (result.status === 401) return res.status(401).json({ error: "ESPN needs auth cookies for this — set them in Settings" });
+    res.json(result);
+  } catch (e) {
+    res.status(502).json({ error: e.message });
+  }
+});
 
 // --- Serve the built frontend ---
 const distDir = path.join(__dirname, "..", "dist");
