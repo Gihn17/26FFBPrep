@@ -6,6 +6,11 @@ import { seedLeagues, getAllLeagues, getLeague } from "./leagues.js";
 import { db, getOrCreateUser, listUsers, setUserAllowedTabs } from "./db.js";
 import { getAdpPool, getAdpStatus, refreshAdpPool, startAdpScheduler } from "./adp.js";
 import { refreshLeagueHistory, getLeagueHistory, getWeekMatchups } from "./espn.js";
+import {
+  bootstrapAdmin, attachUser, requireAuth, requireAdmin,
+  verifyLogin, createSession, deleteSession, setSessionCookie, clearSessionCookie, getSessionTokenFromReq,
+  listAuthUsers, createAuthUser, setAuthUserPassword, setAuthUserRole, deleteAuthUser,
+} from "./auth.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -29,6 +34,10 @@ function loadStore() {
 // Seeds/refreshes the leagues table from LEAGUE_DEFAULTS. Idempotent
 // upsert by id, safe to run on every boot.
 seedLeagues();
+
+// Creates the first admin account (random password, printed once to the
+// log) on a totally fresh install — no-op after that. See server/auth.js.
+bootstrapAdmin();
 
 // Pulls the live ADP pool on boot, then every 24h — see server/adp.js.
 startAdpScheduler();
@@ -54,11 +63,88 @@ startAdpScheduler();
 
 const app = express();
 app.use(express.json({ limit: "15mb" })); // draft boards + CSV imports can add up
+app.use(attachUser); // attaches req.authUser if there's a valid session cookie; never blocks by itself
 
-// --- Users (no real auth — a name is enough, see server/db.js) ---
-app.get("/api/users", (req, res) => res.json(listUsers()));
+// --- Real auth — see server/auth.js. Login/logout/me stay public (you
+// need to hit them to log in at all); everything else below is gated by
+// requireAuth (any logged-in user — Game Day/League History) or
+// requireAdmin (Will only — the draft board and account management). ---
+app.post("/api/auth/login", (req, res) => {
+  const { username, password } = req.body || {};
+  const user = verifyLogin(username, password);
+  if (!user) return res.status(401).json({ error: "wrong username or password" });
+  const { token } = createSession(user.id);
+  setSessionCookie(req, res, token);
+  res.json({ user });
+});
 
-app.post("/api/users", (req, res) => {
+app.post("/api/auth/logout", (req, res) => {
+  deleteSession(getSessionTokenFromReq(req));
+  clearSessionCookie(res);
+  res.json({ ok: true });
+});
+
+app.get("/api/auth/me", (req, res) => {
+  if (!req.authUser) return res.status(401).json({ error: "not logged in" });
+  res.json({ user: req.authUser });
+});
+
+app.put("/api/auth/me/password", requireAuth, (req, res) => {
+  try {
+    setAuthUserPassword(req.authUser.id, req.body && req.body.password);
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(400).json({ error: e.message });
+  }
+});
+
+// --- Account management (admin only) — create/edit/remove the accounts
+// that can log in at all, and what role (admin/restricted) each has. ---
+app.get("/api/auth/users", requireAdmin, (req, res) => res.json(listAuthUsers()));
+
+app.post("/api/auth/users", requireAdmin, (req, res) => {
+  try {
+    const { username, password, role } = req.body || {};
+    res.json(createAuthUser(username, password, role));
+  } catch (e) {
+    res.status(400).json({ error: e.message });
+  }
+});
+
+app.put("/api/auth/users/:id/password", requireAdmin, (req, res) => {
+  try {
+    setAuthUserPassword(Number(req.params.id), req.body && req.body.password);
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(400).json({ error: e.message });
+  }
+});
+
+app.put("/api/auth/users/:id/role", requireAdmin, (req, res) => {
+  try {
+    setAuthUserRole(Number(req.params.id), req.body && req.body.role);
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(400).json({ error: e.message });
+  }
+});
+
+app.delete("/api/auth/users/:id", requireAdmin, (req, res) => {
+  try {
+    if (Number(req.params.id) === req.authUser.id) throw new Error("can't delete your own account while logged in as it");
+    deleteAuthUser(Number(req.params.id));
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(400).json({ error: e.message });
+  }
+});
+
+// --- Draft-board profile users (Will/wife's saved research identity —
+// NOT login accounts, see server/db.js) — admin-only now that this is on
+// the internet; a restricted account has no business touching these. ---
+app.get("/api/users", requireAdmin, (req, res) => res.json(listUsers()));
+
+app.post("/api/users", requireAdmin, (req, res) => {
   try {
     res.json(getOrCreateUser(req.body && req.body.name));
   } catch (e) {
@@ -66,10 +152,9 @@ app.post("/api/users", (req, res) => {
   }
 });
 
-// Which board tabs a user can see — null/omitted "tabs" means "all tabs".
-// No real auth (see db.js) — anyone can change anyone's access, same as
-// anyone can already switch "Viewing as" to anyone.
-app.put("/api/users/:id/tabs", (req, res) => {
+// Which board tabs a draft-profile user can see — unrelated to the
+// admin/restricted login role above, see db.js.
+app.put("/api/users/:id/tabs", requireAdmin, (req, res) => {
   try {
     const id = Number(req.params.id);
     if (!Number.isInteger(id)) return res.status(400).json({ error: "invalid user id" });
@@ -131,7 +216,7 @@ router.delete("/:key", (req, res) => {
   res.json({ key: req.params.key, deleted: true });
 });
 
-app.use("/api/storage", router);
+app.use("/api/storage", requireAdmin, router);
 
 // --- Personal notes API — per-user, unlike /api/storage above. A user's
 // own inline edit/addition on a player's note (board's expanded row, not
@@ -170,13 +255,14 @@ notesRouter.put("/:key", (req, res) => {
   res.json({ key: req.params.key, value });
 });
 
-app.use("/api/notes", notesRouter);
+app.use("/api/notes", requireAdmin, notesRouter);
 
 // --- Live player pool (name/pos/team/bye/ADP), cached from Fantasy Football
-// Calculator and refreshed daily — see server/adp.js. ---
-app.get("/api/players", (req, res) => res.json(getAdpPool()));
-app.get("/api/players/status", (req, res) => res.json(getAdpStatus()));
-app.post("/api/players/refresh", async (req, res) => {
+// Calculator and refreshed daily — see server/adp.js. Draft-prep-only data,
+// admin-only like the rest of the board. ---
+app.get("/api/players", requireAdmin, (req, res) => res.json(getAdpPool()));
+app.get("/api/players/status", requireAdmin, (req, res) => res.json(getAdpStatus()));
+app.post("/api/players/refresh", requireAdmin, async (req, res) => {
   try {
     const count = await refreshAdpPool();
     res.json({ ok: true, count });
@@ -187,16 +273,18 @@ app.post("/api/players/refresh", async (req, res) => {
 
 app.get("/api/health", (req, res) => res.json({ ok: true, dataFile: DATA_FILE }));
 
-// --- League config (teams/roster spots/replacement levels, per league) ---
-app.get("/api/leagues", (req, res) => res.json(getAllLeagues()));
+// --- League config (teams/roster spots/replacement levels, per league) —
+// any logged-in user, since Game Day (restricted-accessible) needs it. ---
+app.get("/api/leagues", requireAuth, (req, res) => res.json(getAllLeagues()));
 
 // --- League History (ESPN leagues only — Koi now, Jordan once its ESPN
-// league id is on file). See server/espn.js. ---
-app.get("/api/history/:league", (req, res) => {
+// league id is on file). See server/espn.js. Any logged-in user can read
+// it; only admin can trigger a refresh against ESPN. ---
+app.get("/api/history/:league", requireAuth, (req, res) => {
   res.json(getLeagueHistory(req.params.league));
 });
 
-app.post("/api/history/:league/refresh", async (req, res) => {
+app.post("/api/history/:league/refresh", requireAdmin, async (req, res) => {
   const league = getLeague(req.params.league);
   if (!league || league.source_platform !== "espn" || !league.source_league_id) {
     return res.status(400).json({ error: `${req.params.league} has no ESPN league id on file yet` });
@@ -220,8 +308,10 @@ app.post("/api/history/:league/refresh", async (req, res) => {
 
 // --- Game Day live scores — ESPN leagues only (Final Fantasy/Sleeper is
 // fetched directly client-side, same as the draft-day Sleeper sync; no
-// server proxy needed since Sleeper's API is already public). ---
-app.get("/api/gameday/:league", async (req, res) => {
+// server proxy needed since Sleeper's API is already public). Any
+// logged-in user — this is one of the two things a restricted account
+// can see. ---
+app.get("/api/gameday/:league", requireAuth, async (req, res) => {
   const league = getLeague(req.params.league);
   if (!league || league.source_platform !== "espn" || !league.source_league_id) {
     return res.status(400).json({ error: `${req.params.league} isn't an ESPN league with a league id on file — Final Fantasy uses Sleeper directly` });
@@ -238,8 +328,8 @@ app.get("/api/gameday/:league", async (req, res) => {
 
 // --- Serve the built frontend ---
 const distDir = path.join(__dirname, "..", "dist");
-app.use(express.static(distDir));
-app.get("*", (req, res) => {
+app.use("/ffb", express.static(distDir));
+app.get("/ffb*", (req, res) => {
   res.sendFile(path.join(distDir, "index.html"));
 });
 
