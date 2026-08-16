@@ -56,11 +56,27 @@ export default function H2HPage() {
       ) : (
         <>
           <div style={{ fontSize:13, marginBottom:10 }}>
-            {h2hSummary.winsA > h2hSummary.winsB ? <><b>{nameA}</b> leads</>
-              : h2hSummary.winsB > h2hSummary.winsA ? <><b>{nameB}</b> leads</>
-              : "Series is tied"}{" "}
-            <b>{h2hSummary.winsA}-{h2hSummary.winsB}{h2hSummary.ties ? `-${h2hSummary.ties}` : ""}</b>
-            {" "}({h2hSummary.ptsA.toFixed(1)} - {h2hSummary.ptsB.toFixed(1)} points) across {h2hGames.length} game{h2hGames.length===1?"":"s"}.
+            {(() => {
+              // "X leads N-M" needs N (the leader's number) first, regardless
+              // of which dropdown (A/B) the leader happens to be in — was
+              // always printing winsA-winsB in fixed column order, which
+              // read as nonsense ("Will Bowen leads 9-10") whenever the
+              // leader was in column B.
+              const aLeads = h2hSummary.winsA > h2hSummary.winsB;
+              const bLeads = h2hSummary.winsB > h2hSummary.winsA;
+              const leaderName = aLeads ? nameA : bLeads ? nameB : null;
+              const leaderWins = aLeads ? h2hSummary.winsA : h2hSummary.winsB;
+              const trailerWins = aLeads ? h2hSummary.winsB : h2hSummary.winsA;
+              const leaderPts = aLeads ? h2hSummary.ptsA : h2hSummary.ptsB;
+              const trailerPts = aLeads ? h2hSummary.ptsB : h2hSummary.ptsA;
+              return (
+                <>
+                  {leaderName ? <><b>{leaderName}</b> leads</> : "Series is tied"}{" "}
+                  <b>{leaderWins}-{trailerWins}{h2hSummary.ties ? `-${h2hSummary.ties}` : ""}</b>
+                  {" "}({leaderPts.toFixed(1)} - {trailerPts.toFixed(1)} points) across {h2hGames.length} game{h2hGames.length===1?"":"s"}.
+                </>
+              );
+            })()}
           </div>
           <div style={{ overflowX:"auto" }}>
             <table style={{ width:"100%", fontSize:12.5 }}>
