@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from "react";
 import { Link, useOutletContext } from "react-router-dom";
-import { panelStyle, btnStyle, inp, th, td } from "../../theme.jsx";
-import { useSeasonFilter } from "./SeasonFilter.jsx";
+import { panelStyle, th, td } from "../../theme.jsx";
+import { useSeasonFilter, SeasonPillFilter } from "./SeasonFilter.jsx";
 import {
   computePlayoffProbabilities, computeSeasonFormGuide, computeAggregateStandings,
   computeFranchiseWeeklyStats, teamKey, ownerSlug,
@@ -82,41 +82,6 @@ function PlayoffPill({ probability, sampleSize, expanded, onClick }) {
   );
 }
 
-function CustomPopover({ seasons, filter }) {
-  const [open, setOpen] = useState(false);
-  const { filterMode, setFilterMode, singleYear, setSingleYear, rangeFrom, setRangeFrom, rangeTo, setRangeTo, mostRecentSeason } = filter;
-  const isActive = filterMode === "range" || (filterMode === "single" && singleYear !== mostRecentSeason);
-  return (
-    <div style={{ position:"relative" }}>
-      <button onClick={()=>setOpen(o=>!o)} style={isActive ? btnStyle("#2a2a18","#c9a227") : btnStyle("rgba(255,255,255,0.1)","rgba(255,255,255,0.3)")}>
-        Custom {open ? "▲" : "▼"}
-      </button>
-      {open && (
-        <div style={{ position:"absolute", top:"110%", right:0, zIndex:10, background:"#181910",
-          border:"1px solid #33362a", borderRadius:10, padding:14, width:230, boxShadow:"0 8px 24px rgba(0,0,0,0.4)" }}>
-          <div style={{ fontSize:11, opacity:0.6, marginBottom:6 }}>Single Season</div>
-          <select value={singleYear ?? ""} onChange={e=>{ setSingleYear(Number(e.target.value)); setFilterMode("single"); setOpen(false); }}
-            style={{...inp("100%"), marginBottom:14}}>
-            {seasons.map(s => <option key={s} value={s}>{s}</option>)}
-          </select>
-          <div style={{ fontSize:11, opacity:0.6, marginBottom:6 }}>Year Range</div>
-          <div style={{ display:"flex", gap:6, alignItems:"center", marginBottom:10 }}>
-            <select value={rangeFrom ?? ""} onChange={e=>setRangeFrom(Number(e.target.value))} style={inp(85)}>
-              {[...seasons].reverse().map(s => <option key={s} value={s}>{s}</option>)}
-            </select>
-            <span style={{opacity:0.5, fontSize:12}}>to</span>
-            <select value={rangeTo ?? ""} onChange={e=>setRangeTo(Number(e.target.value))} style={inp(85)}>
-              {[...seasons].reverse().map(s => <option key={s} value={s}>{s}</option>)}
-            </select>
-          </div>
-          <button onClick={()=>{ setFilterMode("range"); setOpen(false); }} style={{...btnStyle("#20211a","#c9a227"), width:"100%"}}>
-            Apply
-          </button>
-        </div>
-      )}
-    </div>
-  );
-}
 
 export default function SeasonPage() {
   const { teams, matchups, seasonRecords, seasons } = useOutletContext();
@@ -124,7 +89,7 @@ export default function SeasonPage() {
   // answer "how's this year going," Stats/Teams pages are where All-Time
   // browsing lives.
   const filter = useSeasonFilter(seasons, { defaultMode: "single" });
-  const { filterMode, setFilterMode, singleYear, setSingleYear, mostRecentSeason, activeYears } = filter;
+  const { filterMode, mostRecentSeason, activeYears } = filter;
   const [expandedKey, setExpandedKey] = useState(null);
 
   const isSingleSeason = activeYears.length === 1;
@@ -185,16 +150,7 @@ export default function SeasonPage() {
             )}
           </div>
         </div>
-        <div style={{ display:"flex", gap:6, flexWrap:"wrap" }}>
-          <button onClick={()=>{ setFilterMode("single"); setSingleYear(mostRecentSeason); }}
-            style={(filterMode==="single" && singleYear===mostRecentSeason) ? btnStyle("#2a2a18","#c9a227") : btnStyle("rgba(255,255,255,0.1)","rgba(255,255,255,0.3)")}>
-            {mostRecentSeason}
-          </button>
-          <button onClick={()=>setFilterMode("all")} style={filterMode==="all" ? btnStyle("#2a2a18","#c9a227") : btnStyle("rgba(255,255,255,0.1)","rgba(255,255,255,0.3)")}>
-            All Time
-          </button>
-          <CustomPopover seasons={seasons} filter={filter} />
-        </div>
+        <SeasonPillFilter seasons={seasons} filter={filter} />
       </div>
 
       {isSingleSeason ? (

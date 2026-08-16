@@ -258,6 +258,8 @@ export function computeBlowouts(teamIdx, matchups, activeYears) {
     games.push({
       season: m.season, week: m.week,
       winnerName: winner.owner_name || winner.team_name, loserName: loser.owner_name || loser.team_name,
+      winnerGuid: winner.owner_guid, winnerTeamName: winner.team_name,
+      loserGuid: loser.owner_guid, loserTeamName: loser.team_name,
       winnerScore, loserScore, margin: winnerScore - loserScore,
     });
   }
@@ -284,6 +286,8 @@ export function computeLossWinExtremes(teamIdx, matchups, activeYears) {
     games.push({
       season: m.season, week: m.week,
       winnerName: winner.owner_name || winner.team_name, loserName: loser.owner_name || loser.team_name,
+      winnerGuid: winner.owner_guid, winnerTeamName: winner.team_name,
+      loserGuid: loser.owner_guid, loserTeamName: loser.team_name,
       winnerScore, loserScore,
     });
   }
@@ -302,7 +306,7 @@ export function computeSeasonPPG(seasonRecords, activeYears) {
   for (const season of activeYears) {
     for (const r of (seasonRecords[season] || [])) {
       if (!r.games) continue;
-      rows.push({ season: r.season, name: r.ownerName || r.teamName, ppg: r.pointsFor / r.games, games: r.games });
+      rows.push({ season: r.season, name: r.ownerName || r.teamName, ownerGuid: r.ownerGuid, teamName: r.teamName, ppg: r.pointsFor / r.games, games: r.games });
     }
   }
   return {
@@ -343,8 +347,8 @@ function gamesByTeamSeason(teamIdx, matchups, activeYears) {
     const homeResult = m.winner === "HOME" ? "W" : m.winner === "AWAY" ? "L" : "T";
     const awayResult = m.winner === "AWAY" ? "W" : m.winner === "HOME" ? "L" : "T";
     const hKey = teamKey(m.season, m.home_team_id), aKey = teamKey(m.season, m.away_team_id);
-    if (!groups.has(hKey)) groups.set(hKey, { name: home.owner_name || home.team_name, season: m.season, games: [] });
-    if (!groups.has(aKey)) groups.set(aKey, { name: away.owner_name || away.team_name, season: m.season, games: [] });
+    if (!groups.has(hKey)) groups.set(hKey, { name: home.owner_name || home.team_name, ownerGuid: home.owner_guid, teamName: home.team_name, season: m.season, games: [] });
+    if (!groups.has(aKey)) groups.set(aKey, { name: away.owner_name || away.team_name, ownerGuid: away.owner_guid, teamName: away.team_name, season: m.season, games: [] });
     groups.get(hKey).games.push({ week: m.week, result: homeResult });
     groups.get(aKey).games.push({ week: m.week, result: awayResult });
   }
@@ -366,8 +370,8 @@ function gamesByOwner(teamIdx, matchups, activeYears) {
     if (!home?.owner_guid || !away?.owner_guid) continue;
     const homeResult = m.winner === "HOME" ? "W" : m.winner === "AWAY" ? "L" : "T";
     const awayResult = m.winner === "AWAY" ? "W" : m.winner === "HOME" ? "L" : "T";
-    if (!groups.has(home.owner_guid)) groups.set(home.owner_guid, { name: home.owner_name, games: [] });
-    if (!groups.has(away.owner_guid)) groups.set(away.owner_guid, { name: away.owner_name, games: [] });
+    if (!groups.has(home.owner_guid)) groups.set(home.owner_guid, { name: home.owner_name, ownerGuid: home.owner_guid, teamName: home.team_name, games: [] });
+    if (!groups.has(away.owner_guid)) groups.set(away.owner_guid, { name: away.owner_name, ownerGuid: away.owner_guid, teamName: away.team_name, games: [] });
     groups.get(home.owner_guid).games.push({ season: m.season, week: m.week, result: homeResult });
     groups.get(away.owner_guid).games.push({ season: m.season, week: m.week, result: awayResult });
   }
@@ -384,12 +388,12 @@ export function computeStreaks(teamIdx, matchups, activeYears, mode) {
   for (const g of groups.values()) {
     const { bestWin, bestWinRange, bestLoss, bestLossRange } = longestStreaksFromGames(g.games);
     if (bestWin > 0) winStreaks.push({
-      name: g.name, len: bestWin,
+      name: g.name, ownerGuid: g.ownerGuid, teamName: g.teamName, len: bestWin,
       startSeason: bestWinRange.start.season ?? g.season, endSeason: bestWinRange.end.season ?? g.season,
       startWeek: bestWinRange.start.week, endWeek: bestWinRange.end.week,
     });
     if (bestLoss > 0) lossStreaks.push({
-      name: g.name, len: bestLoss,
+      name: g.name, ownerGuid: g.ownerGuid, teamName: g.teamName, len: bestLoss,
       startSeason: bestLossRange.start.season ?? g.season, endSeason: bestLossRange.end.season ?? g.season,
       startWeek: bestLossRange.start.week, endWeek: bestLossRange.end.week,
     });
