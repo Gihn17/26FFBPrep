@@ -122,9 +122,9 @@ function ScoresTab({ teamIdx, matchups, seasonRecords, activeYears }) {
 
   return (
     <>
-      <StatBlock icon="💪" iconColor="#3f9e5e" title="Most Points (game)" rows={scoreRows}
+      <StatBlock icon="💪" iconColor="#3f9e5e" title={scoreView === "high" ? "Most Points (game)" : "Least Points (game)"} rows={scoreRows}
         toggleOptions={[["high","Juggernaut","💪"],["low","Featherweight","🪶"]]} activeToggle={scoreView} onToggle={setScoreView} />
-      <StatBlock icon="⚡" iconColor="#4f8fd1" title="Most PPG" rows={ppgRows}
+      <StatBlock icon="⚡" iconColor="#4f8fd1" title={ppgView === "high" ? "Most PPG" : "Least PPG"} rows={ppgRows}
         toggleOptions={[["high","Powerhouse","⚡"],["low","Gauntlet","🛡️"]]} activeToggle={ppgView} onToggle={setPpgView} />
     </>
   );
@@ -157,7 +157,7 @@ function MatchupsTab({ teamIdx, matchups, activeYears }) {
 
   return (
     <>
-      <StatBlock icon="◎" iconColor="#7fd18f" title="Biggest Blowouts" rows={blowoutRows}
+      <StatBlock icon="◎" iconColor="#7fd18f" title={blowoutView === "biggest" ? "Biggest Blowouts" : "Biggest Nailbiter"} rows={blowoutRows}
         toggleOptions={[["biggest","Cakewalk","🎂"],["closest","Nailbiter","🔍"]]} activeToggle={blowoutView} onToggle={setBlowoutView} />
       <StatBlock icon="💔" iconColor="#8a63d1" title={lossWinView === "heartbreak" ? "Most Points in a Loss" : "Fewest Points in a Win"} rows={lossWinRows}
         toggleOptions={[["heartbreak","Heartbreak","💔"],["criminal","Criminal","🕵️"]]} activeToggle={lossWinView} onToggle={setLossWinView} />
@@ -172,25 +172,23 @@ function streakLabel(s) {
 }
 
 function StreaksTab({ teamIdx, matchups, activeYears }) {
-  const [winMode, setWinMode] = useState("season");
-  const [lossMode, setLossMode] = useState("season");
-
-  const winStreaks = useMemo(() => computeStreaks(teamIdx, matchups, activeYears, winMode), [teamIdx, matchups, activeYears, winMode]);
+  // Season-only — a streak that reset every year end used to also be
+  // offered as "Overall" (chained across season boundaries by owner);
+  // dropped per Will's call, so this is always the within-a-season kind.
+  const winStreaks = useMemo(() => computeStreaks(teamIdx, matchups, activeYears, "season"), [teamIdx, matchups, activeYears]);
   const winRows = useMemo(() => winStreaks.winStreaks.map(s => ({
     primary: s.name, avatarGuid: s.ownerGuid, avatarName: s.teamName, secondary: streakLabel(s), value: `${s.len}W`,
   })), [winStreaks]);
 
-  const lossStreaks = useMemo(() => computeStreaks(teamIdx, matchups, activeYears, lossMode), [teamIdx, matchups, activeYears, lossMode]);
+  const lossStreaks = useMemo(() => computeStreaks(teamIdx, matchups, activeYears, "season"), [teamIdx, matchups, activeYears]);
   const lossRows = useMemo(() => lossStreaks.lossStreaks.map(s => ({
     primary: s.name, avatarGuid: s.ownerGuid, avatarName: s.teamName, secondary: streakLabel(s), value: `${s.len}L`,
   })), [lossStreaks]);
 
   return (
     <>
-      <StatBlock icon="🔥" iconColor="#7fd18f" title="Longest Winning Streaks" rows={winRows}
-        toggleOptions={[["season","Season","📅"],["overall","Overall","♾️"]]} activeToggle={winMode} onToggle={setWinMode} />
-      <StatBlock icon="🥶" iconColor="#e08a8a" title="Longest Losing Streaks" rows={lossRows}
-        toggleOptions={[["season","Season","📅"],["overall","Overall","♾️"]]} activeToggle={lossMode} onToggle={setLossMode} />
+      <StatBlock icon="🔥" iconColor="#7fd18f" title="Longest Winning Streaks" rows={winRows} />
+      <StatBlock icon="🥶" iconColor="#e08a8a" title="Longest Losing Streaks" rows={lossRows} />
     </>
   );
 }
