@@ -28,6 +28,32 @@ export function applyOwnershipCorrections(league, teams) {
   });
 }
 
+/** Per-league display-name shortening, applied at load time (same pattern
+ *  as applyOwnershipCorrections, and chained right after it) so every
+ *  downstream computation and page just sees the short name already —
+ *  nothing has to know this override exists. Default: first name only.
+ *  Explicit overrides for cases the default doesn't fit (Forrest Duba
+ *  reads as just "Duba", not "Forrest," per Will's call). ESPN's data has
+ *  an inconsistent double space in "Forrest  Duba" some seasons — matched
+ *  here by normalizing whitespace first rather than listing both variants. */
+const DISPLAY_NAME_OVERRIDES = {
+  koi: { "Forrest Duba": "Duba" },
+};
+
+function firstNameOf(fullName) {
+  return fullName.trim().split(/\s+/)[0];
+}
+
+export function applyDisplayNames(league, teams) {
+  const overrides = DISPLAY_NAME_OVERRIDES[league] || {};
+  return teams.map(t => {
+    if (!t.owner_name) return t;
+    const normalized = t.owner_name.trim().replace(/\s+/g, " ");
+    const shortName = overrides[normalized] || firstNameOf(normalized);
+    return { ...t, owner_name: shortName };
+  });
+}
+
 export function teamKey(season, espnTeamId) { return `${season}|${espnTeamId}`; }
 
 export function buildTeamIndex(teams) {
