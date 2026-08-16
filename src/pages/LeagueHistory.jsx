@@ -12,6 +12,16 @@ function buildTeamIndex(teams) {
   return idx;
 }
 
+/** ESPN pre-populates a season's full schedule with 0-0 placeholder scores
+ *  before those weeks are actually played (confirmed: 84 such rows, all in
+ *  the current in-progress season). A real fantasy matchup essentially
+ *  never ends 0-0, so treat that as "not yet played," not a legitimate
+ *  result — otherwise it shows up as a fake "lowest score ever" and pads
+ *  every record with games that haven't happened. */
+function isPlayed(m) {
+  return m.home_score != null && m.away_score != null && !(m.home_score === 0 && m.away_score === 0);
+}
+
 /** Per-season W/L/T, points for/against, and each team's own high/low week —
  *  scoped to one season, keyed by the season's own team slot (a team's
  *  identity within a season, not yet resolved across seasons). */
@@ -24,7 +34,7 @@ function computeSeasonRecords(teams, matchups) {
     });
   }
   for (const m of matchups) {
-    if (m.away_team_id == null || m.home_score == null || m.away_score == null) continue; // bye or not yet played
+    if (m.away_team_id == null || !isPlayed(m)) continue; // bye or not yet played
     const home = acc.get(teamKey(m.season, m.home_team_id));
     const away = acc.get(teamKey(m.season, m.away_team_id));
     if (!home || !away) continue;
@@ -43,51 +53,47 @@ function computeSeasonRecords(teams, matchups) {
   return bySeason;
 }
 
-/** Head-to-head, keyed by owner GUID pair (not team slot) so it's correct
- *  across seasons even if a team's name/id changed — both a per-season
- *  breakdown and an all-time roll-up. */
-function computeHeadToHead(teamIdx, matchups) {
-  const allTime = new Map();
-  const perSeason = new Map();
+/** Unique owners across all seasons — for the two head-to-head dropdowns. */
+function computeOwnerOptions(teams) {
+  const seen = new Map();
+  for (const t of teams) if (t.owner_guid && !seen.has(t.owner_guid)) seen.set(t.owner_guid, t.owner_name || t.owner_guid);
+  return [...seen.entries()].map(([guid, name]) => ({ guid, name })).sort((a, b) => a.name.localeCompare(b.name));
+}
+
+/** Every individual matchup between two specific owners — by GUID, not team
+ *  slot, so it's correct across seasons even if a team's name/id changed.
+ *  Deliberately NOT aggregated: one row per game, most recent first, so a
+ *  season with two head-to-head meetings (division rematch) shows as two
+ *  rows instead of getting folded into one combined total. */
+function computeH2HGames(teamIdx, matchups, guidA, guidB) {
+  if (!guidA || !guidB || guidA === guidB) return [];
+  const games = [];
   for (const m of matchups) {
-    if (m.away_team_id == null || m.home_score == null || m.away_score == null) continue;
+    if (m.away_team_id == null || !isPlayed(m)) continue;
     const home = teamIdx.get(teamKey(m.season, m.home_team_id));
     const away = teamIdx.get(teamKey(m.season, m.away_team_id));
-    if (!home?.owner_guid || !away?.owner_guid || home.owner_guid === away.owner_guid) continue;
-    const pairKey = [home.owner_guid, away.owner_guid].sort().join("::");
-    const apply = (map) => {
-      let rec = map.get(pairKey);
-      if (!rec) {
-        rec = { ownerA: home.owner_guid, ownerB: away.owner_guid, nameA: home.owner_name, nameB: away.owner_name,
-                games: 0, winsA: 0, winsB: 0, ties: 0, ptsA: 0, ptsB: 0 };
-        map.set(pairKey, rec);
-      }
-      const homeIsA = home.owner_guid === rec.ownerA;
-      rec.games++;
-      rec.ptsA += homeIsA ? m.home_score : m.away_score;
-      rec.ptsB += homeIsA ? m.away_score : m.home_score;
-      if (m.winner === "TIE") rec.ties++;
-      else {
-        const winnerGuid = m.winner === "HOME" ? home.owner_guid : away.owner_guid;
-        if (winnerGuid === rec.ownerA) rec.winsA++; else rec.winsB++;
-      }
-    };
-    apply(allTime);
-    if (!perSeason.has(m.season)) perSeason.set(m.season, new Map());
-    apply(perSeason.get(m.season));
+    if (!home?.owner_guid || !away?.owner_guid) continue;
+    const guids = [home.owner_guid, away.owner_guid];
+    if (!guids.includes(guidA) || !guids.includes(guidB)) continue;
+    const aIsHome = home.owner_guid === guidA;
+    games.push({
+      season: m.season, week: m.week, playoffTier: m.playoff_tier,
+      teamNameA: aIsHome ? home.team_name : away.team_name,
+      teamNameB: aIsHome ? away.team_name : home.team_name,
+      scoreA: aIsHome ? m.home_score : m.away_score,
+      scoreB: aIsHome ? m.away_score : m.home_score,
+    });
   }
-  return {
-    allTime: [...allTime.values()].sort((a, b) => b.games - a.games),
-    perSeason: Object.fromEntries([...perSeason.entries()].map(([s, map]) => [s, [...map.values()]])),
-  };
+  return games.sort((x, y) => y.season - x.season || y.week - x.week);
 }
 
 /** Highest/lowest single-week scores, both per-season and all-time. */
 function computeExtremes(teamIdx, matchups) {
   const entries = [];
   for (const m of matchups) {
-    if (m.home_score != null) entries.push({ season: m.season, week: m.week, key: teamKey(m.season, m.home_team_id), score: m.home_score });
-    if (m.away_team_id != null && m.away_score != null) entries.push({ season: m.season, week: m.week, key: teamKey(m.season, m.away_team_id), score: m.away_score });
+    if (!isPlayed(m)) continue;
+    entries.push({ season: m.season, week: m.week, key: teamKey(m.season, m.home_team_id), score: m.home_score });
+    if (m.away_team_id != null) entries.push({ season: m.season, week: m.week, key: teamKey(m.season, m.away_team_id), score: m.away_score });
   }
   const named = entries.map(e => ({ ...e, team: teamIdx.get(e.key) })).filter(e => e.team);
   const allTimeHigh = [...named].sort((a, b) => b.score - a.score).slice(0, 10);
@@ -109,6 +115,8 @@ export default function LeagueHistory() {
   const [refreshResult, setRefreshResult] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
   const [season, setSeason] = useState("all");
+  const [ownerA, setOwnerA] = useState("");
+  const [ownerB, setOwnerB] = useState("");
 
   const currentUserName = (typeof localStorage !== "undefined" && localStorage.getItem("ffb-user")) || "Will";
   const canEdit = currentUserName === "Will";
@@ -138,11 +146,28 @@ export default function LeagueHistory() {
 
   const teamIdx = useMemo(() => buildTeamIndex(teams), [teams]);
   const seasonRecords = useMemo(() => computeSeasonRecords(teams, matchups), [teams, matchups]);
-  const headToHead = useMemo(() => computeHeadToHead(teamIdx, matchups), [teamIdx, matchups]);
   const extremes = useMemo(() => computeExtremes(teamIdx, matchups), [teamIdx, matchups]);
   const seasons = useMemo(() => [...new Set(teams.map(t => t.season))].sort((a, b) => b - a), [teams]);
+  const ownerOptions = useMemo(() => computeOwnerOptions(teams), [teams]);
 
-  const h2hRows = season === "all" ? headToHead.allTime : (headToHead.perSeason[season] || []);
+  // Default to the first two owners once loaded, so the page shows
+  // something rather than two blank dropdowns.
+  useEffect(() => {
+    if (ownerOptions.length >= 2 && !ownerA && !ownerB) {
+      setOwnerA(ownerOptions[0].guid);
+      setOwnerB(ownerOptions[1].guid);
+    }
+  }, [ownerOptions, ownerA, ownerB]);
+
+  const h2hGames = useMemo(() => computeH2HGames(teamIdx, matchups, ownerA, ownerB), [teamIdx, matchups, ownerA, ownerB]);
+  const h2hSummary = useMemo(() => {
+    let winsA = 0, winsB = 0, ties = 0, ptsA = 0, ptsB = 0;
+    for (const g of h2hGames) {
+      ptsA += g.scoreA; ptsB += g.scoreB;
+      if (g.scoreA > g.scoreB) winsA++; else if (g.scoreB > g.scoreA) winsB++; else ties++;
+    }
+    return { winsA, winsB, ties, ptsA, ptsB };
+  }, [h2hGames]);
 
   return (
     <div style={pageShell()}>
@@ -229,30 +254,63 @@ export default function LeagueHistory() {
 
             <div style={panelStyle()}>
               <div style={{ fontSize:11, fontWeight:700, letterSpacing:0.5, color:"#c9a227", marginBottom:10, textTransform:"uppercase" }}>
-                Head-to-Head {season === "all" ? "(All-Time)" : `(${season})`}
+                Head-to-Head
               </div>
-              <div style={{ overflowX:"auto" }}>
-                <table style={{ width:"100%", fontSize:12.5 }}>
-                  <thead>
-                    <tr style={{ opacity:0.65, textAlign:"left" }}>
-                      <th style={th("left")}>Matchup</th><th style={th()}>Games</th><th style={th()}>Record</th><th style={th()}>Points</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {h2hRows.map((r, i) => (
-                      <tr key={i}>
-                        <td style={td("left")}>{r.nameA || "?"} vs {r.nameB || "?"}</td>
-                        <td style={td()}>{r.games}</td>
-                        <td style={td()}>{r.winsA}-{r.winsB}{r.ties ? `-${r.ties}` : ""}</td>
-                        <td style={td()}>{r.ptsA.toFixed(1)} - {r.ptsB.toFixed(1)}</td>
-                      </tr>
-                    ))}
-                    {h2hRows.length === 0 && (
-                      <tr><td style={td("left")} colSpan={4}>No matchups for this scope yet.</td></tr>
-                    )}
-                  </tbody>
-                </table>
+              <div style={{ display:"flex", gap:16, alignItems:"flex-end", flexWrap:"wrap", marginBottom:12 }}>
+                <label style={{ display:"flex", flexDirection:"column", gap:4, fontSize:11, opacity:0.75 }}>
+                  Team A
+                  <select value={ownerA} onChange={e=>setOwnerA(e.target.value)} style={{...btnStyle(), cursor:"pointer"}}>
+                    {ownerOptions.map(o => <option key={o.guid} value={o.guid}>{o.name}</option>)}
+                  </select>
+                </label>
+                <label style={{ display:"flex", flexDirection:"column", gap:4, fontSize:11, opacity:0.75 }}>
+                  Team B
+                  <select value={ownerB} onChange={e=>setOwnerB(e.target.value)} style={{...btnStyle(), cursor:"pointer"}}>
+                    {ownerOptions.map(o => <option key={o.guid} value={o.guid}>{o.name}</option>)}
+                  </select>
+                </label>
               </div>
+
+              {ownerA === ownerB ? (
+                <div style={{ fontSize:12.5, opacity:0.7 }}>Pick two different teams to compare.</div>
+              ) : h2hGames.length === 0 ? (
+                <div style={{ fontSize:12.5, opacity:0.7 }}>These two have never played each other.</div>
+              ) : (
+                <>
+                  <div style={{ fontSize:13, marginBottom:10 }}>
+                    <b>{ownerOptions.find(o=>o.guid===ownerA)?.name}</b> leads/trails{" "}
+                    <b>{h2hSummary.winsA}-{h2hSummary.winsB}{h2hSummary.ties ? `-${h2hSummary.ties}` : ""}</b>
+                    {" "}({h2hSummary.ptsA.toFixed(1)} - {h2hSummary.ptsB.toFixed(1)} points) across {h2hGames.length} game{h2hGames.length===1?"":"s"}.
+                  </div>
+                  <div style={{ overflowX:"auto" }}>
+                    <table style={{ width:"100%", fontSize:12.5 }}>
+                      <thead>
+                        <tr style={{ opacity:0.65, textAlign:"left" }}>
+                          <th style={th()}>Season</th><th style={th()}>Week</th>
+                          <th style={th("left")}>{ownerOptions.find(o=>o.guid===ownerA)?.name}</th>
+                          <th style={th("left")}>{ownerOptions.find(o=>o.guid===ownerB)?.name}</th>
+                          <th style={th()}>Result</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {h2hGames.map((g, i) => {
+                          const aWon = g.scoreA > g.scoreB;
+                          const bWon = g.scoreB > g.scoreA;
+                          return (
+                            <tr key={i}>
+                              <td style={td()}>{g.season}</td>
+                              <td style={td()}>{g.week}{g.playoffTier && g.playoffTier !== "NONE" ? " (playoffs)" : ""}</td>
+                              <td style={{...td("left"), fontWeight: aWon ? 700 : 400, color: aWon ? "#7fd18f" : undefined}}>{g.teamNameA} — {g.scoreA.toFixed(1)}</td>
+                              <td style={{...td("left"), fontWeight: bWon ? 700 : 400, color: bWon ? "#7fd18f" : undefined}}>{g.teamNameB} — {g.scoreB.toFixed(1)}</td>
+                              <td style={td()}>{aWon ? "A" : bWon ? "B" : "Tie"}</td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </>
+              )}
             </div>
 
             <div style={panelStyle()}>
