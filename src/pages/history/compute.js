@@ -2,6 +2,32 @@
 // (Season, H2H, Champs, Teams). All operate on the raw {teams, matchups}
 // payload from GET /api/history/:league — nothing here calls the network.
 
+/** Manual corrections for cases where ESPN's owner_guid doesn't match who
+ *  actually managed that team that season — e.g. an ESPN account later
+ *  reused by a different real person. This isn't something the API can
+ *  tell us; Will confirmed it by hand. Season-scoped views (Season Records,
+ *  the Champs season-by-season table) show the corrected name; owner_guid
+ *  is cleared for the record, so every aggregation function's existing
+ *  "skip records with no owner_guid" check naturally excludes it from
+ *  career stats, the Teams/Champs leaderboards, and H2H — no separate
+ *  exclusion list to keep in sync with those. */
+const OWNERSHIP_CORRECTIONS = [
+  // 2011 Koi "Team FUMS" (espn_team_id 10) is linked to Dan Bennett's
+  // account, but Will Dose actually ran that team that season.
+  { league: "koi", season: 2011, espnTeamId: 10, correctedName: "Will Dose" },
+];
+
+/** Apply OWNERSHIP_CORRECTIONS to a raw teams array. Called once, right
+ *  after loading, so every page/computation downstream sees the corrected
+ *  data without needing to know the correction exists. */
+export function applyOwnershipCorrections(league, teams) {
+  return teams.map(t => {
+    const fix = OWNERSHIP_CORRECTIONS.find(c => c.league === league && c.season === t.season && c.espnTeamId === t.espn_team_id);
+    if (!fix) return t;
+    return { ...t, owner_name: fix.correctedName, owner_guid: null };
+  });
+}
+
 export function teamKey(season, espnTeamId) { return `${season}|${espnTeamId}`; }
 
 export function buildTeamIndex(teams) {

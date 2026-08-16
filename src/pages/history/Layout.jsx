@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { Link, NavLink, Outlet } from "react-router-dom";
 import { pageShell, panelStyle, btnStyle } from "../../theme.jsx";
-import { buildTeamIndex, computeSeasonRecords, computeOwnerOptions } from "./compute.js";
+import { buildTeamIndex, computeSeasonRecords, computeOwnerOptions, applyOwnershipCorrections } from "./compute.js";
 
 const LEAGUE = "koi"; // only league with an ESPN id on file so far — same code path once Jordan/Final have one
 
@@ -29,7 +29,7 @@ export default function HistoryLayout() {
 
   const load = () => {
     fetch(`/api/history/${LEAGUE}`).then(r => r.json()).then(d => {
-      setTeams(d.teams || []);
+      setTeams(applyOwnershipCorrections(LEAGUE, d.teams || []));
       setMatchups(d.matchups || []);
       setLoaded(true);
     }).catch(() => setLoaded(true));
