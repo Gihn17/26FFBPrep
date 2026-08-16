@@ -88,7 +88,7 @@ export default function SeasonPage() {
                           Playoff % <span style={{ fontSize:10, opacity:0.6 }}>ⓘ</span>
                           {!withProbability && (
                             <div style={{ fontSize:9, fontWeight:400, opacity:0.6, marginTop:2, textTransform:"none" }}>
-                              from Wk {MIN_GAMES_FOR_PROBABILITY}
+                              avail week {MIN_GAMES_FOR_PROBABILITY}
                             </div>
                           )}
                         </th>
