@@ -6,13 +6,16 @@ import { computePlayoffProbabilities } from "./compute.js";
 
 // Below this many games played, don't show numbers that look precise but
 // aren't yet. Backtested against every completed Koi season (holding each
-// one out of its own historical pool): sample size is never actually the
-// constraint here (even Week 1 averages 84 historical comps) — it's
-// signal. Weeks 1-2 barely beat a coin flip (59%/65% accuracy predicting
-// the real playoff outcome); Week 3 jumps to 70% and Weeks 3-6 sit in the
-// same 70-75% band, so waiting all the way to Week 6 wasn't buying
-// anything a Week 3 gate doesn't already get.
-const MIN_GAMES_FOR_PROBABILITY = 3;
+// one out of its own historical pool), scored on Brier score (0=perfect,
+// 0.25=coin-flip — more sensitive than plain right/wrong, since it grades
+// calibration, not just direction) rather than raw accuracy, whose
+// confidence interval at this sample size (~178 team-seasons) is wide
+// enough to make Weeks 3-6 look equivalent when they aren't: Week 3 scores
+// 0.220 (barely better than a coin flip), Week 4 0.206, Week 5 0.183 (the
+// real jump), Week 6 0.168 (best, but only a small further gain over 5).
+// Week 5 gets most of the available reliability without waiting the extra
+// week Week 6 costs.
+const MIN_GAMES_FOR_PROBABILITY = 5;
 
 const PROB_TOOLTIP = "Percentage of teams in a league's history that made the playoffs with the actual current record. Click to view more data.";
 
@@ -51,7 +54,7 @@ export default function SeasonPage() {
 
       {mostRecentInProgress && !showProbability && activeYears.includes(mostRecentSeason) && (
         <div style={{ ...panelStyle(), fontSize:12.5, opacity:0.7 }}>
-          Playoff probability will show once {mostRecentSeason} reaches Week {MIN_GAMES_FOR_PROBABILITY} — too early for the record-matching sample to mean much right now.
+          Playoff probability will show once {mostRecentSeason} reaches Week {MIN_GAMES_FOR_PROBABILITY} — too early in the season for it to be reliable yet.
         </div>
       )}
 
