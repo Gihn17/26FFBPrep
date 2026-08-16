@@ -389,3 +389,155 @@ export function computePlayoffLegends(teamIdx, matchups) {
   const winsArr = [...wins.entries()].map(([guid, count]) => ({ ownerGuid: guid, name: names.get(guid), count })).sort((a, b) => b.count - a.count);
   return { apps: appsArr, wins: winsArr };
 }
+
+// ============================================================
+// Teams page — one card/page per franchise (owner_guid), not per
+// season-team-slot, so a team's whole history lives at one URL even
+// across name changes. Reuses computeCareerStats/computeDynastyRankings/
+// computePlayoffLegends rather than re-deriving totals a second way.
+// ============================================================
+
+/** Route-safe id for an owner GUID — ESPN's GUIDs come wrapped in curly
+ *  braces ("{46DA...}") which are awkward in a URL path; strip them since
+ *  the remaining hex is already unique on its own. */
+export function ownerSlug(guid) {
+  return (guid || "").replace(/[{}]/g, "");
+}
+
+/** One row per franchise for the Teams grid: latest team name, the owner's
+ *  first/most recent season (est./active), and the trophy/medal/last-place
+ *  counts the card badges are built from. `active` = fielded a team in the
+ *  most recent season on file, regardless of whether that season is
+ *  finalized yet. */
+export function computeFranchises(teams, careerStats, dynastyRankings) {
+  const runnerUpsByGuid = new Map(dynastyRankings.map(d => [d.ownerGuid, d.runnerUps]));
+  const latestSeason = Math.max(...teams.map(t => t.season));
+  const byOwner = new Map();
+  for (const t of teams) {
+    if (!t.owner_guid) continue;
+    if (!byOwner.has(t.owner_guid)) byOwner.set(t.owner_guid, { estYear: t.season, lastYear: t.season, teamName: t.team_name });
+    const f = byOwner.get(t.owner_guid);
+    if (t.season < f.estYear) f.estYear = t.season;
+    if (t.season >= f.lastYear) { f.lastYear = t.season; f.teamName = t.team_name; } // most recent season's name wins
+  }
+  return careerStats.map(c => {
+    const f = byOwner.get(c.ownerGuid) || {};
+    return {
+      ownerGuid: c.ownerGuid, ownerName: c.ownerName, teamName: f.teamName || c.ownerName,
+      estYear: f.estYear, lastYear: f.lastYear, active: f.lastYear === latestSeason,
+      seasons: c.seasons, championships: c.championships, runnerUps: runnerUpsByGuid.get(c.ownerGuid) || 0,
+      lastPlaceFinishes: c.lastPlaceFinishes,
+    };
+  });
+}
+
+// ============================================================
+// Team detail page — Season History table's Expected/Overall/WW columns,
+// and per-franchise "Team Records" cards (the same Juggernaut/Cakewalk/
+// Powerhouse/streak stats the Stats page shows league-wide, scoped down
+// to one owner's games).
+// ============================================================
+
+/** Per-(season,week) all-play and median-expected results for every team
+ *  slot, keyed by teamKey. Two different "how good was this record really"
+ *  measures, both standard in fantasy analytics:
+ *   - all-play: treat every OTHER score that same week as a hypothetical
+ *     opponent — how many of those would this score have beaten?
+ *   - expected (median): a single win if the score beat the week's
+ *     median, a single loss if it didn't (same game-count as the real
+ *     schedule, unlike all-play).
+ *  weeklyHighs counts weeks this team had the single best score in the
+ *  league (ties for the top score all count). Byes (a lone team with no
+ *  opponent that week) still contribute their score to the pool so
+ *  everyone else's all-play/median comparison is complete, they just don't
+ *  generate a real matchup of their own. */
+export function computeFranchiseWeeklyStats(matchups) {
+  const weekScores = new Map(); // "season|week" -> [{key, score}]
+  for (const m of matchups) {
+    if (!isPlayed(m)) continue;
+    const wk = `${m.season}|${m.week}`;
+    if (!weekScores.has(wk)) weekScores.set(wk, []);
+    weekScores.get(wk).push({ key: teamKey(m.season, m.home_team_id), score: m.home_score });
+    if (m.away_team_id != null) weekScores.get(wk).push({ key: teamKey(m.season, m.away_team_id), score: m.away_score });
+  }
+  const acc = new Map();
+  const get = (key) => {
+    if (!acc.has(key)) acc.set(key, { allPlayW: 0, allPlayL: 0, allPlayT: 0, expW: 0, expL: 0, expT: 0, weeklyHighs: 0 });
+    return acc.get(key);
+  };
+  for (const entries of weekScores.values()) {
+    const sorted = [...entries.map(e => e.score)].sort((a, b) => a - b);
+    const mid = sorted.length / 2;
+    const median = Number.isInteger(mid) ? (sorted[mid - 1] + sorted[mid]) / 2 : sorted[Math.floor(mid)];
+    const maxScore = Math.max(...sorted);
+    for (const e of entries) {
+      const rec = get(e.key);
+      for (const other of entries) {
+        if (other === e) continue;
+        if (e.score > other.score) rec.allPlayW++;
+        else if (e.score < other.score) rec.allPlayL++;
+        else rec.allPlayT++;
+      }
+      if (e.score > median) rec.expW++;
+      else if (e.score < median) rec.expL++;
+      else rec.expT++;
+      if (e.score === maxScore) rec.weeklyHighs++;
+    }
+  }
+  return acc;
+}
+
+/** The 8 "Team Records" cards on a franchise's page — the Stats page's
+ *  Juggernaut/Featherweight/Cakewalk/Nailbiter/Powerhouse/Slacker/streak
+ *  stats, scoped to just this owner's games instead of the whole league. */
+export function computeTeamRecords(teamIdx, matchups, seasonRecords, ownerGuid) {
+  const scores = computeScoreEntries(teamIdx, matchups).filter(e => e.team.owner_guid === ownerGuid);
+  const juggernaut = [...scores].sort((a, b) => b.score - a.score)[0] || null;
+  const featherweight = [...scores].sort((a, b) => a.score - b.score)[0] || null;
+
+  const games = [];
+  for (const m of matchups) {
+    if (m.away_team_id == null || !isPlayed(m) || m.winner === "TIE") continue;
+    const home = teamIdx.get(teamKey(m.season, m.home_team_id));
+    const away = teamIdx.get(teamKey(m.season, m.away_team_id));
+    if (!home || !away || (home.owner_guid !== ownerGuid && away.owner_guid !== ownerGuid)) continue;
+    const homeWon = m.winner === "HOME";
+    const winner = homeWon ? home : away, loser = homeWon ? away : home;
+    const winnerScore = homeWon ? m.home_score : m.away_score, loserScore = homeWon ? m.away_score : m.home_score;
+    games.push({
+      season: m.season, week: m.week, won: winner.owner_guid === ownerGuid,
+      winnerName: winner.owner_name || winner.team_name, loserName: loser.owner_name || loser.team_name,
+      winnerScore, loserScore, margin: winnerScore - loserScore,
+    });
+  }
+  const wins = games.filter(g => g.won);
+  const cakewalk = [...wins].sort((a, b) => b.margin - a.margin)[0] || null; // biggest win
+  const nailbiter = [...games].sort((a, b) => a.margin - b.margin)[0] || null; // closest game either way
+
+  const ppgRows = [];
+  for (const season of Object.keys(seasonRecords)) {
+    const r = seasonRecords[season].find(r => r.ownerGuid === ownerGuid);
+    if (r?.games) ppgRows.push({ season: r.season, ppg: r.pointsFor / r.games, games: r.games });
+  }
+  const powerhouse = [...ppgRows].sort((a, b) => b.ppg - a.ppg)[0] || null;
+  const slacker = [...ppgRows].sort((a, b) => a.ppg - b.ppg)[0] || null;
+
+  const ownerGames = [];
+  for (const m of matchups) {
+    if (m.away_team_id == null || !isPlayed(m)) continue;
+    const home = teamIdx.get(teamKey(m.season, m.home_team_id));
+    const away = teamIdx.get(teamKey(m.season, m.away_team_id));
+    const mine = home?.owner_guid === ownerGuid ? home : away?.owner_guid === ownerGuid ? away : null;
+    if (!mine) continue;
+    const won = m.winner === "HOME" ? mine === home : m.winner === "AWAY" ? mine === away : null;
+    ownerGames.push({ season: m.season, week: m.week, result: won == null ? "T" : won ? "W" : "L" });
+  }
+  ownerGames.sort((a, b) => a.season - b.season || a.week - b.week);
+  const { bestWin, bestWinRange, bestLoss, bestLossRange } = longestStreaksFromGames(ownerGames);
+
+  return {
+    juggernaut, featherweight, cakewalk, nailbiter, powerhouse, slacker,
+    victoryLap: bestWin > 0 ? { len: bestWin, range: bestWinRange } : null,
+    dumpsterFire: bestLoss > 0 ? { len: bestLoss, range: bestLossRange } : null,
+  };
+}

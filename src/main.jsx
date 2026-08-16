@@ -11,6 +11,7 @@ import StatsPage from "./pages/history/StatsPage.jsx";
 import H2HPage from "./pages/history/H2HPage.jsx";
 import ChampsPage from "./pages/history/ChampsPage.jsx";
 import TeamsPage from "./pages/history/TeamsPage.jsx";
+import TeamDetailPage from "./pages/history/TeamDetailPage.jsx";
 import AnalyticsPage from "./pages/history/AnalyticsPage.jsx";
 
 ReactDOM.createRoot(document.getElementById("root")).render(
@@ -29,6 +30,7 @@ ReactDOM.createRoot(document.getElementById("root")).render(
           <Route path="h2h" element={<H2HPage />} />
           <Route path="champs" element={<ChampsPage />} />
           <Route path="teams" element={<TeamsPage />} />
+          <Route path="teams/:slug" element={<TeamDetailPage />} />
           <Route path="analytics" element={<AnalyticsPage />} />
         </Route>
       </Routes>

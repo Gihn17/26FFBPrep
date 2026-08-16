@@ -1,50 +1,71 @@
-import React, { useMemo } from "react";
-import { useOutletContext } from "react-router-dom";
-import { panelStyle, th, td } from "../../theme.jsx";
-import { computeCareerStats } from "./compute.js";
+import React, { useMemo, useState } from "react";
+import { Link, useOutletContext } from "react-router-dom";
+import { panelStyle, btnStyle } from "../../theme.jsx";
+import { computeCareerStats, computeDynastyRankings, computeFranchises, ownerSlug } from "./compute.js";
+import TeamAvatar from "./Avatar.jsx";
+
+function medalRow(f) {
+  const parts = [];
+  for (let i = 0; i < f.championships; i++) parts.push("🏆");
+  for (let i = 0; i < f.runnerUps; i++) parts.push("🥈");
+  for (let i = 0; i < f.lastPlaceFinishes; i++) parts.push("💩");
+  return parts;
+}
+
+function TeamCard({ f, dim }) {
+  return (
+    <Link to={`/league-koi/teams/${ownerSlug(f.ownerGuid)}`} style={{ textDecoration:"none", color:"inherit" }}>
+      <div style={{
+        ...panelStyle(), marginBottom:0, textAlign:"center", padding:"20px 14px",
+        opacity: dim ? 0.6 : 1, transition:"transform .1s, border-color .1s", cursor:"pointer",
+      }}>
+        <div style={{ display:"flex", justifyContent:"center", marginBottom:10 }}>
+          <TeamAvatar name={f.teamName} seed={f.ownerGuid} size={64} />
+        </div>
+        <div style={{ fontWeight:700, fontSize:14.5 }}>{f.teamName}</div>
+        <div style={{ fontSize:12, opacity:0.7, marginBottom:8 }}>{f.ownerName}{dim ? " · inactive" : ""}</div>
+        <div style={{ fontSize:14, letterSpacing:1, minHeight:18 }}>{medalRow(f).join(" ") || " "}</div>
+      </div>
+    </Link>
+  );
+}
 
 export default function TeamsPage() {
   const { teams, seasonRecords } = useOutletContext();
+  const [showInactive, setShowInactive] = useState(false);
+
   const careerStats = useMemo(() => computeCareerStats(teams, seasonRecords), [teams, seasonRecords]);
+  const dynastyRankings = useMemo(() => computeDynastyRankings(teams, seasonRecords), [teams, seasonRecords]);
+  const franchises = useMemo(() => computeFranchises(teams, careerStats, dynastyRankings), [teams, careerStats, dynastyRankings]);
+
+  const active = franchises.filter(f => f.active).sort((a, b) => b.lastYear - a.lastYear || a.ownerName.localeCompare(b.ownerName));
+  const inactive = franchises.filter(f => !f.active).sort((a, b) => b.lastYear - a.lastYear);
 
   return (
-    <div style={panelStyle()}>
-      <div style={{ fontSize:11, fontWeight:700, letterSpacing:0.5, color:"#c9a227", marginBottom:10, textTransform:"uppercase" }}>
-        All-Time Team Records
+    <>
+      <div style={{ ...panelStyle(), display:"flex", justifyContent:"space-between", alignItems:"center", flexWrap:"wrap", gap:12 }}>
+        <div style={{ display:"flex", alignItems:"center", gap:14 }}>
+          <div style={{ fontSize:32 }}>🏈</div>
+          <div>
+            <div style={{ fontSize:20, fontWeight:800 }}>Teams</div>
+            <div style={{ fontSize:12.5, opacity:0.7 }}>{active.length} Active &middot; {franchises.length} All-Time</div>
+          </div>
+        </div>
+        {inactive.length > 0 && (
+          <button onClick={()=>setShowInactive(s=>!s)} style={btnStyle()}>
+            {showInactive ? "Hide Inactive" : `Show Inactive (${inactive.length})`}
+          </button>
+        )}
       </div>
-      <div style={{ overflowX:"auto" }}>
-        <table style={{ width:"100%", fontSize:12.5, whiteSpace:"nowrap" }}>
-          <thead>
-            <tr style={{ opacity:0.65, textAlign:"left" }}>
-              <th style={th("left")}>Owner</th><th style={th()}>Seasons</th>
-              <th style={th()}>W</th><th style={th()}>L</th><th style={th()}>T</th><th style={th()}>Win %</th>
-              <th style={th()}>Pts For</th><th style={th()}>Pts Against</th>
-              <th style={th()}>Titles</th><th style={th()}>Best</th><th style={th()}>Worst</th>
-            </tr>
-          </thead>
-          <tbody>
-            {careerStats.map(c => {
-              const games = c.wins + c.losses + c.ties;
-              const winPct = games ? (c.wins + c.ties * 0.5) / games : 0;
-              return (
-                <tr key={c.ownerGuid}>
-                  <td style={td("left")}>{c.ownerName}</td>
-                  <td style={td()}>{c.seasons}</td>
-                  <td style={td()}>{c.wins}</td><td style={td()}>{c.losses}</td><td style={td()}>{c.ties}</td>
-                  <td style={td()}>{(winPct * 100).toFixed(1)}%</td>
-                  <td style={td()}>{c.pointsFor.toFixed(1)}</td>
-                  <td style={td()}>{c.pointsAgainst.toFixed(1)}</td>
-                  <td style={{...td(), color: c.championships ? "#f0d97a" : undefined, fontWeight: c.championships ? 700 : 400}}>
-                    {c.championships || "—"}
-                  </td>
-                  <td style={td()}>{c.bestRank ?? "—"}</td>
-                  <td style={td()}>{c.worstRank ?? "—"}</td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
+
+      <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill, minmax(210px, 1fr))", gap:14, marginBottom:12 }}>
+        {active.map(f => <TeamCard key={f.ownerGuid} f={f} />)}
+        {showInactive && inactive.map(f => <TeamCard key={f.ownerGuid} f={f} dim />)}
       </div>
-    </div>
+
+      <div style={{ textAlign:"center", fontSize:12, opacity:0.55 }}>
+        Click on a team to view their complete history and statistics
+      </div>
+    </>
   );
 }
