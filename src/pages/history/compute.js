@@ -170,3 +170,170 @@ export function computeCareerStats(teams, seasonRecords) {
   }
   return [...byOwner.values()].sort((a, b) => b.championships - a.championships || b.wins - a.wins);
 }
+
+// ============================================================
+// Stats page — Matchups (blowouts / narrow wins, loss-with-most-points /
+// win-with-fewest), Scores (single-game and season-PPG extremes), and
+// Streaks (longest win/loss runs, within a season or chained across
+// seasons by owner). All scoped to whatever `activeYears` the caller's
+// season filter currently has selected.
+// ============================================================
+
+/** Every played matchup's winning margin, sorted both directions —
+ *  "Cakewalk" (biggest blowouts) and "Nailbiter" (closest games,
+ *  including ties at margin 0). */
+export function computeBlowouts(teamIdx, matchups, activeYears) {
+  const games = [];
+  for (const m of matchups) {
+    if (m.away_team_id == null || !isPlayed(m) || !activeYears.includes(m.season) || m.winner === "TIE") continue;
+    const home = teamIdx.get(teamKey(m.season, m.home_team_id));
+    const away = teamIdx.get(teamKey(m.season, m.away_team_id));
+    if (!home || !away) continue;
+    const homeWon = m.winner === "HOME";
+    const winner = homeWon ? home : away, loser = homeWon ? away : home;
+    const winnerScore = homeWon ? m.home_score : m.away_score;
+    const loserScore = homeWon ? m.away_score : m.home_score;
+    games.push({
+      season: m.season, week: m.week,
+      winnerName: winner.owner_name || winner.team_name, loserName: loser.owner_name || loser.team_name,
+      winnerScore, loserScore, margin: winnerScore - loserScore,
+    });
+  }
+  return {
+    biggest: [...games].sort((a, b) => b.margin - a.margin),
+    closest: [...games].sort((a, b) => a.margin - b.margin),
+  };
+}
+
+/** The losing team's score in every game they still lost ("Heartbreak" —
+ *  scored well and still lost), and the winning team's score in every game
+ *  they still won ("Criminal" — barely showed up and still won). */
+export function computeLossWinExtremes(teamIdx, matchups, activeYears) {
+  const games = [];
+  for (const m of matchups) {
+    if (m.away_team_id == null || !isPlayed(m) || !activeYears.includes(m.season) || m.winner === "TIE") continue;
+    const home = teamIdx.get(teamKey(m.season, m.home_team_id));
+    const away = teamIdx.get(teamKey(m.season, m.away_team_id));
+    if (!home || !away) continue;
+    const homeWon = m.winner === "HOME";
+    const winner = homeWon ? home : away, loser = homeWon ? away : home;
+    const winnerScore = homeWon ? m.home_score : m.away_score;
+    const loserScore = homeWon ? m.away_score : m.home_score;
+    games.push({
+      season: m.season, week: m.week,
+      winnerName: winner.owner_name || winner.team_name, loserName: loser.owner_name || loser.team_name,
+      winnerScore, loserScore,
+    });
+  }
+  return {
+    heartbreak: [...games].sort((a, b) => b.loserScore - a.loserScore),
+    criminal: [...games].sort((a, b) => a.winnerScore - b.winnerScore),
+  };
+}
+
+/** Season-long points-per-game, both directions — "Powerhouse" (highest
+ *  scoring seasons) and "Gauntlet" (lowest). Uses seasonRecords (already
+ *  has pointsFor/games per team-season) rather than re-deriving from raw
+ *  matchups. */
+export function computeSeasonPPG(seasonRecords, activeYears) {
+  const rows = [];
+  for (const season of activeYears) {
+    for (const r of (seasonRecords[season] || [])) {
+      if (!r.games) continue;
+      rows.push({ season: r.season, name: r.ownerName || r.teamName, ppg: r.pointsFor / r.games, games: r.games });
+    }
+  }
+  return {
+    highest: [...rows].sort((a, b) => b.ppg - a.ppg),
+    lowest: [...rows].sort((a, b) => a.ppg - b.ppg),
+  };
+}
+
+/** Walks an already-chronologically-sorted list of {result: 'W'|'L'|'T'}
+ *  games and finds the longest win run and longest loss run. A tie breaks
+ *  both kinds of streak (it's neither a win nor a loss) without itself
+ *  starting a new counted streak. */
+function longestStreaksFromGames(games) {
+  let bestWin = 0, bestWinRange = null, bestLoss = 0, bestLossRange = null;
+  let curType = null, curLen = 0, curStartIdx = 0;
+  for (let i = 0; i < games.length; i++) {
+    const g = games[i];
+    curLen = (g.result === curType) ? curLen + 1 : 1;
+    if (g.result !== curType) { curType = g.result; curStartIdx = i; }
+    if (curType === "W" && curLen > bestWin) { bestWin = curLen; bestWinRange = { start: games[curStartIdx], end: g }; }
+    if (curType === "L" && curLen > bestLoss) { bestLoss = curLen; bestLossRange = { start: games[curStartIdx], end: g }; }
+  }
+  return { bestWin, bestWinRange, bestLoss, bestLossRange };
+}
+
+/** Games grouped by (season, team slot) — streaks that reset at the start
+ *  of every season. Ownership-corrected records (see
+ *  OWNERSHIP_CORRECTIONS — no owner_guid) still show up here, same as
+ *  Season Records, since this is season-scoped and doesn't need cross-
+ *  season identity. */
+function gamesByTeamSeason(teamIdx, matchups, activeYears) {
+  const groups = new Map();
+  for (const m of matchups) {
+    if (m.away_team_id == null || !isPlayed(m) || !activeYears.includes(m.season)) continue;
+    const home = teamIdx.get(teamKey(m.season, m.home_team_id));
+    const away = teamIdx.get(teamKey(m.season, m.away_team_id));
+    if (!home || !away) continue;
+    const homeResult = m.winner === "HOME" ? "W" : m.winner === "AWAY" ? "L" : "T";
+    const awayResult = m.winner === "AWAY" ? "W" : m.winner === "HOME" ? "L" : "T";
+    const hKey = teamKey(m.season, m.home_team_id), aKey = teamKey(m.season, m.away_team_id);
+    if (!groups.has(hKey)) groups.set(hKey, { name: home.owner_name || home.team_name, season: m.season, games: [] });
+    if (!groups.has(aKey)) groups.set(aKey, { name: away.owner_name || away.team_name, season: m.season, games: [] });
+    groups.get(hKey).games.push({ week: m.week, result: homeResult });
+    groups.get(aKey).games.push({ week: m.week, result: awayResult });
+  }
+  for (const g of groups.values()) g.games.sort((a, b) => a.week - b.week);
+  return groups;
+}
+
+/** Games grouped by owner GUID, chained across every season in scope in
+ *  chronological order — streaks that can span a season boundary (last 3
+ *  wins of one year + first 5 of the next = an 8-game overall streak).
+ *  Ownership-corrected records are excluded (no owner_guid), same as every
+ *  other cross-season aggregation in this file. */
+function gamesByOwner(teamIdx, matchups, activeYears) {
+  const groups = new Map();
+  for (const m of matchups) {
+    if (m.away_team_id == null || !isPlayed(m) || !activeYears.includes(m.season)) continue;
+    const home = teamIdx.get(teamKey(m.season, m.home_team_id));
+    const away = teamIdx.get(teamKey(m.season, m.away_team_id));
+    if (!home?.owner_guid || !away?.owner_guid) continue;
+    const homeResult = m.winner === "HOME" ? "W" : m.winner === "AWAY" ? "L" : "T";
+    const awayResult = m.winner === "AWAY" ? "W" : m.winner === "HOME" ? "L" : "T";
+    if (!groups.has(home.owner_guid)) groups.set(home.owner_guid, { name: home.owner_name, games: [] });
+    if (!groups.has(away.owner_guid)) groups.set(away.owner_guid, { name: away.owner_name, games: [] });
+    groups.get(home.owner_guid).games.push({ season: m.season, week: m.week, result: homeResult });
+    groups.get(away.owner_guid).games.push({ season: m.season, week: m.week, result: awayResult });
+  }
+  for (const g of groups.values()) g.games.sort((a, b) => a.season - b.season || a.week - b.week);
+  return groups;
+}
+
+/** mode: "season" (resets every year) | "overall" (chained across years by
+ *  owner). Returns the longest win streak and longest loss streak per
+ *  team/owner, each with the season/week range it happened over. */
+export function computeStreaks(teamIdx, matchups, activeYears, mode) {
+  const groups = mode === "overall" ? gamesByOwner(teamIdx, matchups, activeYears) : gamesByTeamSeason(teamIdx, matchups, activeYears);
+  const winStreaks = [], lossStreaks = [];
+  for (const g of groups.values()) {
+    const { bestWin, bestWinRange, bestLoss, bestLossRange } = longestStreaksFromGames(g.games);
+    if (bestWin > 0) winStreaks.push({
+      name: g.name, len: bestWin,
+      startSeason: bestWinRange.start.season ?? g.season, endSeason: bestWinRange.end.season ?? g.season,
+      startWeek: bestWinRange.start.week, endWeek: bestWinRange.end.week,
+    });
+    if (bestLoss > 0) lossStreaks.push({
+      name: g.name, len: bestLoss,
+      startSeason: bestLossRange.start.season ?? g.season, endSeason: bestLossRange.end.season ?? g.season,
+      startWeek: bestLossRange.start.week, endWeek: bestLossRange.end.week,
+    });
+  }
+  return {
+    winStreaks: winStreaks.sort((a, b) => b.len - a.len),
+    lossStreaks: lossStreaks.sort((a, b) => b.len - a.len),
+  };
+}
