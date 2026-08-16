@@ -25,11 +25,11 @@ ReactDOM.createRoot(document.getElementById("root")).render(
           <Route path="/login" element={<Login />} />
           <Route path="/" element={<RequireAuth><Landing /></RequireAuth>} />
           <Route path="/admin" element={<RequireAuth role="admin"><Admin /></RequireAuth>} />
-          <Route path="/draft" element={<RequireAuth role="admin"><DraftPrepApp /></RequireAuth>} />
-          <Route path="/gameday" element={<RequireAuth><GameDay /></RequireAuth>} />
+          <Route path="/draft" element={<RequireAuth permission="draft"><DraftPrepApp /></RequireAuth>} />
+          <Route path="/gameday" element={<RequireAuth permission="gameday"><GameDay /></RequireAuth>} />
           {/* Only Koi has an ESPN league id on file so far — /league-koi is
               literal, not a :leagueId param, until Final/Jordan get one too. */}
-          <Route path="/league-koi" element={<RequireAuth><HistoryLayout /></RequireAuth>}>
+          <Route path="/league-koi" element={<RequireAuth permission="history"><HistoryLayout /></RequireAuth>}>
             <Route index element={<Navigate to="season" replace />} />
             <Route path="season" element={<SeasonPage />} />
             <Route path="stats" element={<StatsPage />} />

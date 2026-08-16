@@ -7,9 +7,9 @@ import { db, getOrCreateUser, listUsers, setUserAllowedTabs } from "./db.js";
 import { getAdpPool, getAdpStatus, refreshAdpPool, startAdpScheduler } from "./adp.js";
 import { refreshLeagueHistory, getLeagueHistory, getWeekMatchups } from "./espn.js";
 import {
-  bootstrapAdmin, attachUser, requireAuth, requireAdmin,
+  bootstrapAdmin, attachUser, requireAuth, requireAdmin, requirePermission,
   verifyLogin, createSession, deleteSession, setSessionCookie, clearSessionCookie, getSessionTokenFromReq,
-  listAuthUsers, createAuthUser, setAuthUserPassword, setAuthUserRole, deleteAuthUser,
+  listAuthUsers, createAuthUser, setAuthUserPassword, setAuthUserRole, setAuthUserPermissions, deleteAuthUser,
 } from "./auth.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -104,8 +104,8 @@ app.get("/api/auth/users", requireAdmin, (req, res) => res.json(listAuthUsers())
 
 app.post("/api/auth/users", requireAdmin, (req, res) => {
   try {
-    const { username, password, role } = req.body || {};
-    res.json(createAuthUser(username, password, role));
+    const { username, password, role, permissions } = req.body || {};
+    res.json(createAuthUser(username, password, role, permissions));
   } catch (e) {
     res.status(400).json({ error: e.message });
   }
@@ -129,6 +129,19 @@ app.put("/api/auth/users/:id/role", requireAdmin, (req, res) => {
   }
 });
 
+// Which of the 3 top-level areas (draft/gameday/history) a restricted
+// account can see — ignored in practice for an admin (they see
+// everything), but still settable so it's ready if their role ever
+// changes back.
+app.put("/api/auth/users/:id/permissions", requireAdmin, (req, res) => {
+  try {
+    setAuthUserPermissions(Number(req.params.id), req.body && req.body.permissions);
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(400).json({ error: e.message });
+  }
+});
+
 app.delete("/api/auth/users/:id", requireAdmin, (req, res) => {
   try {
     if (Number(req.params.id) === req.authUser.id) throw new Error("can't delete your own account while logged in as it");
@@ -140,11 +153,13 @@ app.delete("/api/auth/users/:id", requireAdmin, (req, res) => {
 });
 
 // --- Draft-board profile users (Will/wife's saved research identity —
-// NOT login accounts, see server/db.js) — admin-only now that this is on
-// the internet; a restricted account has no business touching these. ---
-app.get("/api/users", requireAdmin, (req, res) => res.json(listUsers()));
+// NOT login accounts, see server/db.js) — gated on the 'draft' area
+// permission, same as the rest of the board below, not hardcoded to admin
+// only — a restricted account granted draft access gets full parity with
+// an admin's draft-board experience, not a crippled version of it. ---
+app.get("/api/users", requirePermission("draft"), (req, res) => res.json(listUsers()));
 
-app.post("/api/users", requireAdmin, (req, res) => {
+app.post("/api/users", requirePermission("draft"), (req, res) => {
   try {
     res.json(getOrCreateUser(req.body && req.body.name));
   } catch (e) {
@@ -154,7 +169,7 @@ app.post("/api/users", requireAdmin, (req, res) => {
 
 // Which board tabs a draft-profile user can see — unrelated to the
 // admin/restricted login role above, see db.js.
-app.put("/api/users/:id/tabs", requireAdmin, (req, res) => {
+app.put("/api/users/:id/tabs", requirePermission("draft"), (req, res) => {
   try {
     const id = Number(req.params.id);
     if (!Number.isInteger(id)) return res.status(400).json({ error: "invalid user id" });
@@ -216,7 +231,7 @@ router.delete("/:key", (req, res) => {
   res.json({ key: req.params.key, deleted: true });
 });
 
-app.use("/api/storage", requireAdmin, router);
+app.use("/api/storage", requirePermission("draft"), router);
 
 // --- Personal notes API — per-user, unlike /api/storage above. A user's
 // own inline edit/addition on a player's note (board's expanded row, not
@@ -255,14 +270,14 @@ notesRouter.put("/:key", (req, res) => {
   res.json({ key: req.params.key, value });
 });
 
-app.use("/api/notes", requireAdmin, notesRouter);
+app.use("/api/notes", requirePermission("draft"), notesRouter);
 
 // --- Live player pool (name/pos/team/bye/ADP), cached from Fantasy Football
-// Calculator and refreshed daily — see server/adp.js. Draft-prep-only data,
-// admin-only like the rest of the board. ---
-app.get("/api/players", requireAdmin, (req, res) => res.json(getAdpPool()));
-app.get("/api/players/status", requireAdmin, (req, res) => res.json(getAdpStatus()));
-app.post("/api/players/refresh", requireAdmin, async (req, res) => {
+// Calculator and refreshed daily — see server/adp.js. Draft-prep-only
+// data, gated the same way as the rest of the board. ---
+app.get("/api/players", requirePermission("draft"), (req, res) => res.json(getAdpPool()));
+app.get("/api/players/status", requirePermission("draft"), (req, res) => res.json(getAdpStatus()));
+app.post("/api/players/refresh", requirePermission("draft"), async (req, res) => {
   try {
     const count = await refreshAdpPool();
     res.json({ ok: true, count });
@@ -278,9 +293,10 @@ app.get("/api/health", (req, res) => res.json({ ok: true, dataFile: DATA_FILE })
 app.get("/api/leagues", requireAuth, (req, res) => res.json(getAllLeagues()));
 
 // --- League History (ESPN leagues only — Koi now, Jordan once its ESPN
-// league id is on file). See server/espn.js. Any logged-in user can read
-// it; only admin can trigger a refresh against ESPN. ---
-app.get("/api/history/:league", requireAuth, (req, res) => {
+// league id is on file). See server/espn.js. Gated on the 'history' area;
+// only admin can trigger a refresh against ESPN regardless of permissions
+// (that's a write against an external API + cookies, not just a view). ---
+app.get("/api/history/:league", requirePermission("history"), (req, res) => {
   res.json(getLeagueHistory(req.params.league));
 });
 
@@ -308,10 +324,9 @@ app.post("/api/history/:league/refresh", requireAdmin, async (req, res) => {
 
 // --- Game Day live scores — ESPN leagues only (Final Fantasy/Sleeper is
 // fetched directly client-side, same as the draft-day Sleeper sync; no
-// server proxy needed since Sleeper's API is already public). Any
-// logged-in user — this is one of the two things a restricted account
-// can see. ---
-app.get("/api/gameday/:league", requireAuth, async (req, res) => {
+// server proxy needed since Sleeper's API is already public). Gated on
+// the 'gameday' area permission. ---
+app.get("/api/gameday/:league", requirePermission("gameday"), async (req, res) => {
   const league = getLeague(req.params.league);
   if (!league || league.source_platform !== "espn" || !league.source_league_id) {
     return res.status(400).json({ error: `${req.params.league} isn't an ESPN league with a league id on file — Final Fantasy uses Sleeper directly` });

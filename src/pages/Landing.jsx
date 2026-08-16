@@ -5,23 +5,23 @@ import { useAuth } from "../AuthContext.jsx";
 
 const TOOLS = [
   {
-    to: "/draft", emoji: "📋", title: "Draft Prep", adminOnly: true,
+    to: "/draft", emoji: "📋", title: "Draft Prep", area: "draft",
     desc: "Player pool, VBD/tiers/auction values, live draft-day board for Koi, Final Fantasy, and Jordan.",
   },
   {
-    to: "/gameday", emoji: "📊", title: "Game Day",
+    to: "/gameday", emoji: "📊", title: "Game Day", area: "gameday",
     desc: "Live matchup scores for the current week, per league — updates while games are being played.",
     note: "🚧 Under construction — still being refined.",
   },
   {
-    to: "/league-koi/season", emoji: "📚", title: "League History",
+    to: "/league-koi/season", emoji: "📚", title: "League History", area: "history",
     desc: "Season records, matchup log, head-to-head, and high/low weekly scores — starting with Koi.",
   },
 ];
 
 export default function Landing() {
   const { user, logout } = useAuth();
-  const visibleTools = TOOLS.filter(t => !t.adminOnly || user?.role === "admin");
+  const visibleTools = TOOLS.filter(t => user?.role === "admin" || user?.permissions.includes(t.area));
 
   return (
     <div style={pageShell()}>

@@ -3,12 +3,33 @@ import { Link } from "react-router-dom";
 import { pageShell, panelStyle, btnStyle, inp, lbl } from "../theme.jsx";
 import { useAuth } from "../AuthContext.jsx";
 
-const ROLE_LABEL = { admin: "Admin — full access", restricted: "Restricted — Game Day + League History only" };
+const AREAS = [
+  ["draft", "Draft Prep"],
+  ["gameday", "Game Day"],
+  ["history", "League History"],
+];
+
+function AreaCheckboxes({ permissions, onChange, disabled }) {
+  const toggle = (area) => {
+    onChange(permissions.includes(area) ? permissions.filter(a => a !== area) : [...permissions, area]);
+  };
+  return (
+    <div style={{ display:"flex", gap:12, flexWrap:"wrap" }}>
+      {AREAS.map(([key, label]) => (
+        <label key={key} style={{ display:"flex", alignItems:"center", gap:5, fontSize:12, opacity: disabled ? 0.4 : 1 }}>
+          <input type="checkbox" checked={permissions.includes(key)} disabled={disabled} onChange={()=>toggle(key)} />
+          {label}
+        </label>
+      ))}
+    </div>
+  );
+}
 
 function NewUserForm({ onCreate }) {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [role, setRole] = useState("restricted");
+  const [permissions, setPermissions] = useState([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
 
@@ -16,8 +37,8 @@ function NewUserForm({ onCreate }) {
     e.preventDefault();
     setBusy(true); setError(null);
     try {
-      await onCreate({ username, password, role });
-      setUsername(""); setPassword(""); setRole("restricted");
+      await onCreate({ username, password, role, permissions });
+      setUsername(""); setPassword(""); setRole("restricted"); setPermissions([]);
     } catch (e) {
       setError(e.message);
     }
@@ -25,51 +46,62 @@ function NewUserForm({ onCreate }) {
   };
 
   return (
-    <form onSubmit={submit} style={{ display:"flex", gap:10, alignItems:"flex-end", flexWrap:"wrap" }}>
-      <label style={lbl()}>
-        Username
-        <input value={username} onChange={e=>setUsername(e.target.value)} autoCapitalize="none" style={inp(160)} />
-      </label>
-      <label style={lbl()}>
-        Password
-        <input type="text" value={password} onChange={e=>setPassword(e.target.value)} style={inp(160)} placeholder="min. 4 characters" />
-      </label>
-      <label style={lbl()}>
-        Access
-        <select value={role} onChange={e=>setRole(e.target.value)} style={inp(220)}>
-          <option value="restricted">{ROLE_LABEL.restricted}</option>
-          <option value="admin">{ROLE_LABEL.admin}</option>
-        </select>
-      </label>
-      <button type="submit" disabled={busy || !username || !password} style={btnStyle("#2a2a18","#c9a227")}>
-        Add account
-      </button>
-      {error && <div style={{ fontSize:12, color:"#e08a8a", width:"100%" }}>{error}</div>}
+    <form onSubmit={submit} style={{ display:"flex", flexDirection:"column", gap:10 }}>
+      <div style={{ display:"flex", gap:10, alignItems:"flex-end", flexWrap:"wrap" }}>
+        <label style={lbl()}>
+          Username
+          <input value={username} onChange={e=>setUsername(e.target.value)} autoCapitalize="none" style={inp(160)} />
+        </label>
+        <label style={lbl()}>
+          Password
+          <input type="text" value={password} onChange={e=>setPassword(e.target.value)} style={inp(160)} placeholder="min. 4 characters" />
+        </label>
+        <label style={lbl()}>
+          Role
+          <select value={role} onChange={e=>setRole(e.target.value)} style={inp(180)}>
+            <option value="restricted">Restricted</option>
+            <option value="admin">Admin — full access</option>
+          </select>
+        </label>
+        <button type="submit" disabled={busy || !username || !password} style={btnStyle("#2a2a18","#c9a227")}>
+          Add account
+        </button>
+      </div>
+      {role === "restricted" && (
+        <label style={{ ...lbl(), gap:6 }}>
+          Can see
+          <AreaCheckboxes permissions={permissions} onChange={setPermissions} />
+        </label>
+      )}
+      {error && <div style={{ fontSize:12, color:"#e08a8a" }}>{error}</div>}
     </form>
   );
 }
 
-function UserRow({ u, isSelf, onSetRole, onResetPassword, onDelete }) {
+function UserRow({ u, isSelf, onSetRole, onSetPermissions, onResetPassword, onDelete }) {
   const [newPassword, setNewPassword] = useState("");
   return (
     <tr>
-      <td style={{ padding:"8px 6px", borderBottom:"1px solid #1e2018" }}>
+      <td style={{ padding:"8px 6px", borderBottom:"1px solid #1e2018", verticalAlign:"top" }}>
         {u.username}{isSelf && <span style={{ opacity:0.5, fontSize:11 }}> (you)</span>}
       </td>
-      <td style={{ padding:"8px 6px", borderBottom:"1px solid #1e2018" }}>
-        <select value={u.role} onChange={e=>onSetRole(u.id, e.target.value)} disabled={isSelf} style={inp(220)}>
-          <option value="restricted">{ROLE_LABEL.restricted}</option>
-          <option value="admin">{ROLE_LABEL.admin}</option>
+      <td style={{ padding:"8px 6px", borderBottom:"1px solid #1e2018", verticalAlign:"top" }}>
+        <select value={u.role} onChange={e=>onSetRole(u.id, e.target.value)} disabled={isSelf} style={{...inp(150), marginBottom:6}}>
+          <option value="restricted">Restricted</option>
+          <option value="admin">Admin — full access</option>
         </select>
+        {u.role === "restricted" && (
+          <AreaCheckboxes permissions={u.permissions} onChange={(perms)=>onSetPermissions(u.id, perms)} />
+        )}
       </td>
-      <td style={{ padding:"8px 6px", borderBottom:"1px solid #1e2018" }}>
+      <td style={{ padding:"8px 6px", borderBottom:"1px solid #1e2018", verticalAlign:"top" }}>
         <div style={{ display:"flex", gap:6 }}>
           <input type="text" value={newPassword} onChange={e=>setNewPassword(e.target.value)} placeholder="new password" style={inp(130)} />
           <button onClick={()=>{ if (newPassword) { onResetPassword(u.id, newPassword); setNewPassword(""); } }}
             disabled={!newPassword} style={btnStyle()}>Reset</button>
         </div>
       </td>
-      <td style={{ padding:"8px 6px", borderBottom:"1px solid #1e2018", textAlign:"right" }}>
+      <td style={{ padding:"8px 6px", borderBottom:"1px solid #1e2018", textAlign:"right", verticalAlign:"top" }}>
         <button onClick={()=>onDelete(u.id)} disabled={isSelf} style={btnStyle("#3a1f1f","#c0453f")}>Delete</button>
       </td>
     </tr>
@@ -87,10 +119,10 @@ export default function Admin() {
   }, []);
   useEffect(load, [load]);
 
-  const createUser = async ({ username, password, role }) => {
+  const createUser = async ({ username, password, role, permissions }) => {
     const res = await fetch("/api/auth/users", {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ username, password, role }),
+      body: JSON.stringify({ username, password, role, permissions }),
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || "failed to create account");
@@ -102,6 +134,15 @@ export default function Admin() {
       method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ role }),
     });
     load();
+  };
+
+  const setPermissions = async (id, permissions) => {
+    // Optimistic update — checkbox clicks should feel instant, not wait
+    // on a round-trip before the box visibly toggles.
+    setUsers(us => us.map(u => u.id === id ? { ...u, permissions } : u));
+    await fetch(`/api/auth/users/${id}/permissions`, {
+      method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ permissions }),
+    });
   };
 
   const resetPassword = async (id, password) => {
@@ -136,7 +177,9 @@ export default function Admin() {
             Accounts
           </div>
           <div style={{ fontSize:12, opacity:0.65, marginBottom:14 }}>
-            Admin accounts see everything, including the draft board. Restricted accounts only ever see Game Day and League History — enforced on the server, not just hidden in the UI.
+            Admin accounts see everything. Restricted accounts only ever see the areas checked below for
+            them — enforced on the server, not just hidden in the UI, so checking a box is the only thing
+            that grants access to it.
           </div>
 
           {loaded && (
@@ -145,7 +188,7 @@ export default function Admin() {
                 <thead>
                   <tr style={{ opacity:0.65, textAlign:"left" }}>
                     <th style={{ padding:"6px" }}>Username</th>
-                    <th style={{ padding:"6px" }}>Access</th>
+                    <th style={{ padding:"6px" }}>Role &amp; access</th>
                     <th style={{ padding:"6px" }}>Reset password</th>
                     <th style={{ padding:"6px" }}></th>
                   </tr>
@@ -153,7 +196,7 @@ export default function Admin() {
                 <tbody>
                   {users.map(u => (
                     <UserRow key={u.id} u={u} isSelf={u.id === user?.id}
-                      onSetRole={setRole} onResetPassword={resetPassword} onDelete={deleteUser} />
+                      onSetRole={setRole} onSetPermissions={setPermissions} onResetPassword={resetPassword} onDelete={deleteUser} />
                   ))}
                 </tbody>
               </table>

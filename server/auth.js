@@ -2,13 +2,24 @@
 // server has full access," which stopped being acceptable the moment this
 // app was exposed to the internet for friends to use.
 //
-// Two roles:
-//   - 'admin'      full access to every page and API (just Will).
-//   - 'restricted' Game Day + League History only, enforced server-side
-//                  (not just hidden client-side) — /api/storage, /api/notes,
-//                  /api/players, the legacy /api/users draft-profile
-//                  endpoints, and the account-management endpoints below
-//                  are all admin-only.
+// role:
+//   - 'admin'      full access to every page and API, PLUS account
+//                  management (creating/editing/removing other accounts).
+//                  That last part is deliberately never grantable as a
+//                  plain permission below — "can see the draft board" and
+//                  "can create other logins" are different trust levels
+//                  and shouldn't get conflated just because it'd be
+//                  convenient to have one fewer checkbox.
+//   - 'restricted' sees only whichever AREAS (below) they've been granted.
+//
+// AREAS — independently grantable, not a fixed bundle (Will asked for
+// this explicitly after the first pass only offered "everything" or
+// "Game Day + League History" as one lump):
+//   - 'draft'     the draft prep board
+//   - 'gameday'   live scores
+//   - 'history'   League History
+// An admin implicitly has all three; `permissions` is only consulted for
+// a 'restricted' account.
 //
 // Passwords are hashed with Node's built-in scrypt (no new dependency) —
 // per-user random salt, timing-safe comparison. Sessions are opaque random
@@ -17,6 +28,8 @@
 import crypto from "crypto";
 import { db } from "./db.js";
 
+export const AREAS = ["draft", "gameday", "history"];
+
 db.exec(`
 CREATE TABLE IF NOT EXISTS auth_users (
   id            INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -24,6 +37,8 @@ CREATE TABLE IF NOT EXISTS auth_users (
   password_hash TEXT NOT NULL,
   password_salt TEXT NOT NULL,
   role          TEXT NOT NULL DEFAULT 'restricted',  -- 'admin' | 'restricted'
+  permissions   TEXT,                   -- comma-separated subset of AREAS; only
+                                          -- meaningful for role='restricted'
   created_at    TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
@@ -34,6 +49,14 @@ CREATE TABLE IF NOT EXISTS auth_sessions (
   created_at  TEXT NOT NULL DEFAULT (datetime('now'))
 );
 `);
+
+// Migration: CREATE TABLE IF NOT EXISTS above doesn't add columns to an
+// auth_users table that already existed before per-area permissions were
+// introduced — add it here if missing, safe to run on every boot.
+const authUsersCols = db.prepare("PRAGMA table_info(auth_users)").all().map((c) => c.name);
+if (!authUsersCols.includes("permissions")) {
+  db.exec("ALTER TABLE auth_users ADD COLUMN permissions TEXT");
+}
 
 const SESSION_DAYS = 30;
 const SCRYPT_KEYLEN = 64;
@@ -46,20 +69,36 @@ function normalizeUsername(u) {
   return String(u || "").trim().toLowerCase();
 }
 
-export function createAuthUser(username, password, role = "restricted") {
+function parsePermissions(raw) {
+  if (!raw) return [];
+  return raw.split(",").map((a) => a.trim()).filter((a) => AREAS.includes(a));
+}
+function serializePermissions(areas) {
+  if (!Array.isArray(areas) || !areas.length) return null;
+  const clean = [...new Set(areas.filter((a) => AREAS.includes(a)))];
+  return clean.length ? clean.join(",") : null;
+}
+
+function toUserShape(row) {
+  return { id: row.id, username: row.username, role: row.role, permissions: parsePermissions(row.permissions) };
+}
+
+export function createAuthUser(username, password, role = "restricted", permissions = []) {
   username = normalizeUsername(username);
   if (!username) throw new Error("username required");
   if (!password || password.length < 4) throw new Error("password must be at least 4 characters");
   if (role !== "admin" && role !== "restricted") throw new Error("role must be 'admin' or 'restricted'");
   const salt = crypto.randomBytes(16).toString("hex");
   const hash = hashPassword(password, salt);
-  const info = db.prepare("INSERT INTO auth_users (username, password_hash, password_salt, role) VALUES (?, ?, ?, ?)")
-    .run(username, hash, salt, role);
-  return { id: info.lastInsertRowid, username, role };
+  const perms = serializePermissions(permissions);
+  const info = db.prepare("INSERT INTO auth_users (username, password_hash, password_salt, role, permissions) VALUES (?, ?, ?, ?, ?)")
+    .run(username, hash, salt, role, perms);
+  return toUserShape({ id: info.lastInsertRowid, username, role, permissions: perms });
 }
 
 export function listAuthUsers() {
-  return db.prepare("SELECT id, username, role, created_at FROM auth_users ORDER BY id").all();
+  return db.prepare("SELECT id, username, role, permissions, created_at FROM auth_users ORDER BY id")
+    .all().map((row) => ({ ...toUserShape(row), created_at: row.created_at }));
 }
 
 export function setAuthUserPassword(id, password) {
@@ -73,6 +112,16 @@ export function setAuthUserPassword(id, password) {
 export function setAuthUserRole(id, role) {
   if (role !== "admin" && role !== "restricted") throw new Error("role must be 'admin' or 'restricted'");
   const result = db.prepare("UPDATE auth_users SET role = ? WHERE id = ?").run(role, id);
+  if (result.changes === 0) throw new Error("user not found");
+}
+
+/** areas: array of AREAS keys this restricted account can see. Ignored in
+ *  practice for an admin account (they already see everything), but still
+ *  stored as given — no special-casing needed if their role ever changes
+ *  back to restricted later. */
+export function setAuthUserPermissions(id, areas) {
+  const perms = serializePermissions(areas);
+  const result = db.prepare("UPDATE auth_users SET permissions = ? WHERE id = ?").run(perms, id);
   if (result.changes === 0) throw new Error("user not found");
 }
 
@@ -93,7 +142,7 @@ export function verifyLogin(username, password) {
   const candidate = hashPassword(password || "", user.password_salt);
   const a = Buffer.from(candidate, "hex"), b = Buffer.from(user.password_hash, "hex");
   if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) return null;
-  return { id: user.id, username: user.username, role: user.role };
+  return toUserShape(user);
 }
 
 export function createSession(userId) {
@@ -110,7 +159,7 @@ export function deleteSession(token) {
 export function getUserBySession(token) {
   if (!token) return null;
   const row = db.prepare(`
-    SELECT u.id, u.username, u.role, s.expires_at
+    SELECT u.id, u.username, u.role, u.permissions, s.expires_at
     FROM auth_sessions s JOIN auth_users u ON u.id = s.user_id
     WHERE s.token = ?
   `).get(token);
@@ -119,7 +168,7 @@ export function getUserBySession(token) {
     db.prepare("DELETE FROM auth_sessions WHERE token = ?").run(token);
     return null;
   }
-  return { id: row.id, username: row.username, role: row.role };
+  return toUserShape(row);
 }
 
 // --- Cookie handling (manual — avoids adding a dependency for a handful
@@ -157,9 +206,9 @@ export function getSessionTokenFromReq(req) {
 }
 
 /** Attaches req.authUser if there's a valid session; never blocks the
- *  request by itself — requireAuth/requireAdmin below do that. Mounted
- *  globally so req.authUser is available everywhere, including routes
- *  that stay public. */
+ *  request by itself — requireAuth/requireAdmin/requirePermission below do
+ *  that. Mounted globally so req.authUser is available everywhere,
+ *  including routes that stay public. */
 export function attachUser(req, res, next) {
   req.authUser = getUserBySession(getSessionTokenFromReq(req));
   next();
@@ -174,6 +223,19 @@ export function requireAdmin(req, res, next) {
   if (!req.authUser) return res.status(401).json({ error: "login required" });
   if (req.authUser.role !== "admin") return res.status(403).json({ error: "admin access required" });
   next();
+}
+
+/** Gate on one AREA — admin always passes, a restricted account needs it
+ *  in their granted permissions. Use this instead of requireAdmin for
+ *  anything that a non-admin CAN be granted (draft board / Game Day /
+ *  League History), and requireAdmin only for things that must always stay
+ *  admin-only regardless of permissions (account management). */
+export function requirePermission(area) {
+  return (req, res, next) => {
+    if (!req.authUser) return res.status(401).json({ error: "login required" });
+    if (req.authUser.role === "admin" || req.authUser.permissions.includes(area)) return next();
+    res.status(403).json({ error: `access to '${area}' not granted` });
+  };
 }
 
 /** Creates the first admin account on a fresh install, with a random
