@@ -19,7 +19,7 @@ function PodiumBar({ rank, row, color }) {
   const height = rank === 1 ? 128 : 106;
   return (
     <div style={{ display:"flex", flexDirection:"column", alignItems:"center", flex:"0 1 150px", minWidth:110 }}>
-      <TeamAvatar name={row.avatarName} seed={row.avatarGuid || row.avatarName} size={rank === 1 ? 64 : 54} />
+      <TeamAvatar name={row.avatarName} seed={row.avatarGuid || row.avatarName} size={rank === 1 ? 64 : 54} imageUrl={row.avatarLogo} />
       <div style={{ fontWeight:700, fontSize:13, marginTop:8, textAlign:"center" }}>{row.primary}</div>
       {row.secondary && <div style={{ fontSize:11, opacity:0.6, marginBottom:8, textAlign:"center" }}>{row.secondary}</div>}
       <div style={{
@@ -82,7 +82,7 @@ function StatBlock({ icon, iconColor, title, toggleOptions, activeToggle, onTogg
                 <div key={i} style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"8px 10px", background:"#181910", borderRadius:6, marginBottom:6, fontSize:12.5 }}>
                   <div style={{ display:"flex", alignItems:"center", gap:10 }}>
                     <span style={{ opacity:0.5, width:16 }}>{i + 4}</span>
-                    <TeamAvatar name={r.avatarName} seed={r.avatarGuid || r.avatarName} size={22} />
+                    <TeamAvatar name={r.avatarName} seed={r.avatarGuid || r.avatarName} size={22} imageUrl={r.avatarLogo} />
                     <div>
                       {r.primary}
                       {r.secondary && <div style={{ fontSize:11, opacity:0.6 }}>{r.secondary}</div>}
@@ -110,14 +110,14 @@ function ScoresTab({ teamIdx, matchups, seasonRecords, activeYears }) {
   const scoreRows = useMemo(() => {
     const sorted = [...scoreEntries].sort((a, b) => scoreView === "high" ? b.score - a.score : a.score - b.score);
     return sorted.map(e => ({
-      primary: e.team.owner_name || e.team.team_name, avatarGuid: e.team.owner_guid, avatarName: e.team.team_name,
+      primary: e.team.owner_name || e.team.team_name, avatarGuid: e.team.owner_guid, avatarName: e.team.team_name, avatarLogo: e.team.logo,
       secondary: `${e.season} · Week ${e.week}`, value: e.score.toFixed(1),
     }));
   }, [scoreEntries, scoreView]);
 
   const ppg = useMemo(() => computeSeasonPPG(seasonRecords, activeYears), [seasonRecords, activeYears]);
   const ppgRows = useMemo(() => (ppgView === "high" ? ppg.highest : ppg.lowest).map(r => ({
-    primary: r.name, avatarGuid: r.ownerGuid, avatarName: r.teamName, secondary: `${r.season} · ${r.games} games`, value: r.ppg.toFixed(1),
+    primary: r.name, avatarGuid: r.ownerGuid, avatarName: r.teamName, avatarLogo: r.logo, secondary: `${r.season} · ${r.games} games`, value: r.ppg.toFixed(1),
   })), [ppg, ppgView]);
 
   return (
@@ -136,7 +136,7 @@ function MatchupsTab({ teamIdx, matchups, activeYears }) {
 
   const blowouts = useMemo(() => computeBlowouts(teamIdx, matchups, activeYears), [teamIdx, matchups, activeYears]);
   const blowoutRows = useMemo(() => (blowoutView === "biggest" ? blowouts.biggest : blowouts.closest).map(g => ({
-    primary: `${g.winnerName} def. ${g.loserName}`, avatarGuid: g.winnerGuid, avatarName: g.winnerTeamName,
+    primary: `${g.winnerName} def. ${g.loserName}`, avatarGuid: g.winnerGuid, avatarName: g.winnerTeamName, avatarLogo: g.winnerLogo,
     secondary: `${g.season} · Week ${g.week} · ${g.winnerScore.toFixed(1)} - ${g.loserScore.toFixed(1)}`,
     value: `+${g.margin.toFixed(1)}`,
   })), [blowouts, blowoutView]);
@@ -145,12 +145,12 @@ function MatchupsTab({ teamIdx, matchups, activeYears }) {
   const lossWinRows = useMemo(() => {
     if (lossWinView === "heartbreak") {
       return lossWin.heartbreak.map(g => ({
-        primary: g.loserName, avatarGuid: g.loserGuid, avatarName: g.loserTeamName,
+        primary: g.loserName, avatarGuid: g.loserGuid, avatarName: g.loserTeamName, avatarLogo: g.loserLogo,
         secondary: `lost to ${g.winnerName} · ${g.season} wk ${g.week}`, value: `${g.loserScore.toFixed(1)}`,
       }));
     }
     return lossWin.criminal.map(g => ({
-      primary: g.winnerName, avatarGuid: g.winnerGuid, avatarName: g.winnerTeamName,
+      primary: g.winnerName, avatarGuid: g.winnerGuid, avatarName: g.winnerTeamName, avatarLogo: g.winnerLogo,
       secondary: `beat ${g.loserName} · ${g.season} wk ${g.week}`, value: `${g.winnerScore.toFixed(1)}`,
     }));
   }, [lossWin, lossWinView]);
@@ -177,12 +177,12 @@ function StreaksTab({ teamIdx, matchups, activeYears }) {
   // dropped per Will's call, so this is always the within-a-season kind.
   const winStreaks = useMemo(() => computeStreaks(teamIdx, matchups, activeYears, "season"), [teamIdx, matchups, activeYears]);
   const winRows = useMemo(() => winStreaks.winStreaks.map(s => ({
-    primary: s.name, avatarGuid: s.ownerGuid, avatarName: s.teamName, secondary: streakLabel(s), value: `${s.len}W`,
+    primary: s.name, avatarGuid: s.ownerGuid, avatarName: s.teamName, avatarLogo: s.logo, secondary: streakLabel(s), value: `${s.len}W`,
   })), [winStreaks]);
 
   const lossStreaks = useMemo(() => computeStreaks(teamIdx, matchups, activeYears, "season"), [teamIdx, matchups, activeYears]);
   const lossRows = useMemo(() => lossStreaks.lossStreaks.map(s => ({
-    primary: s.name, avatarGuid: s.ownerGuid, avatarName: s.teamName, secondary: streakLabel(s), value: `${s.len}L`,
+    primary: s.name, avatarGuid: s.ownerGuid, avatarName: s.teamName, avatarLogo: s.logo, secondary: streakLabel(s), value: `${s.len}L`,
   })), [lossStreaks]);
 
   return (

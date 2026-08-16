@@ -2,6 +2,7 @@ import React, { useState, useMemo } from "react";
 import { useOutletContext } from "react-router-dom";
 import { panelStyle, th, td, btnStyle } from "../../theme.jsx";
 import { computeDynastyRankings, computePlayoffLegends, computeScoreEntries } from "./compute.js";
+import TeamAvatar from "./Avatar.jsx";
 
 function leaderOf(list) {
   // Callers pass lists sorted for their own purposes (dynastyRankings is
@@ -62,9 +63,15 @@ export default function ChampsPage() {
           textAlign:"center", marginBottom:16, color:"#12130f",
         }}>
           <div style={{
-            width:70, height:70, borderRadius:"50%", background:"#181910", border:"3px solid #f0d97a",
-            display:"flex", alignItems:"center", justifyContent:"center", fontSize:32, margin:"0 auto 10px",
-          }}>🏆</div>
+            width:70, height:70, borderRadius:"50%", border:"3px solid #f0d97a", margin:"0 auto 10px", position:"relative",
+            display:"flex", alignItems:"center", justifyContent:"center",
+          }}>
+            <TeamAvatar name={latestChamp.teamName} seed={latestChamp.ownerGuid || latestChamp.teamName} size={64} imageUrl={latestChamp.logo} />
+            <div style={{
+              position:"absolute", bottom:-4, right:-4, width:26, height:26, borderRadius:"50%",
+              background:"#181910", border:"2px solid #f0d97a", display:"flex", alignItems:"center", justifyContent:"center", fontSize:13,
+            }}>🏆</div>
+          </div>
           <div style={{ fontSize:24, fontWeight:800 }}>{latestChamp.ownerName || latestChamp.teamName}</div>
           <div style={{ fontSize:14, opacity:0.85 }}>{latestChamp.season} Champion</div>
         </div>

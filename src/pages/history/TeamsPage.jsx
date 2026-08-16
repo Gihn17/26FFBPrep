@@ -20,7 +20,7 @@ function TeamCard({ f, dim }) {
         opacity: dim ? 0.6 : 1, transition:"transform .1s, border-color .1s", cursor:"pointer",
       }}>
         <div style={{ display:"flex", justifyContent:"center", marginBottom:10 }}>
-          <TeamAvatar name={f.teamName} seed={f.ownerGuid} size={64} />
+          <TeamAvatar name={f.teamName} seed={f.ownerGuid} size={64} imageUrl={f.logo} />
         </div>
         <div style={{ fontWeight:700, fontSize:14.5 }}>{f.teamName}</div>
         <div style={{ fontSize:12, opacity:0.7, marginBottom:8 }}>{f.ownerName}{dim ? " · inactive" : ""}</div>

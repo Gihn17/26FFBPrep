@@ -39,6 +39,12 @@ CREATE TABLE IF NOT EXISTS history_teams (
                                       -- just regular-season record (verified: a 6-8 team finished
                                       -- last in 2025 — this is real standings, not win total).
                                       -- Null for an in-progress season (nothing finalized yet).
+  logo          TEXT,               -- ESPN's team.logo — a hotlinked image URL the manager set
+                                      -- (imgur/giphy/ESPN's own vector packs/etc, not hosted by us).
+                                      -- Per-season: a manager's logo can change year to year, same
+                                      -- as team_name. Some are dead links now (tinypic.com is gone
+                                      -- entirely) — the frontend must fall back gracefully, never
+                                      -- assume this resolves.
   UNIQUE(league_id, season, espn_team_id)
 );
 
@@ -63,6 +69,9 @@ CREATE TABLE IF NOT EXISTS history_matchups (
 const historyTeamsCols = db.prepare("PRAGMA table_info(history_teams)").all().map((c) => c.name);
 if (!historyTeamsCols.includes("final_rank")) {
   db.exec("ALTER TABLE history_teams ADD COLUMN final_rank INTEGER");
+}
+if (!historyTeamsCols.includes("logo")) {
+  db.exec("ALTER TABLE history_teams ADD COLUMN logo TEXT");
 }
 
 /** Cookies live in the same shared user_kv store as everything else (see
@@ -110,10 +119,10 @@ async function fetchSeason(leagueId, year) {
 function upsertSeason(leagueId, year, data) {
   const memberName = new Map((data.members || []).map(m => [m.id, [m.firstName, m.lastName].filter(Boolean).join(" ") || m.displayName]));
   const upsertTeam = db.prepare(`
-    INSERT INTO history_teams (league_id, season, espn_team_id, team_name, owner_guid, owner_name, final_rank)
-    VALUES (@league_id, @season, @espn_team_id, @team_name, @owner_guid, @owner_name, @final_rank)
+    INSERT INTO history_teams (league_id, season, espn_team_id, team_name, owner_guid, owner_name, final_rank, logo)
+    VALUES (@league_id, @season, @espn_team_id, @team_name, @owner_guid, @owner_name, @final_rank, @logo)
     ON CONFLICT(league_id, season, espn_team_id) DO UPDATE SET
-      team_name=excluded.team_name, owner_guid=excluded.owner_guid, owner_name=excluded.owner_name, final_rank=excluded.final_rank
+      team_name=excluded.team_name, owner_guid=excluded.owner_guid, owner_name=excluded.owner_name, final_rank=excluded.final_rank, logo=excluded.logo
   `);
   const upsertMatchup = db.prepare(`
     INSERT INTO history_matchups (league_id, season, week, playoff_tier, home_team_id, away_team_id, home_score, away_score, winner)
@@ -131,6 +140,7 @@ function upsertSeason(leagueId, year, data) {
         // 0 means "not computed yet" (an in-progress season before results
         // exist) — treated the same as no value, not a real 0th place.
         final_rank: t.rankCalculatedFinal || null,
+        logo: t.logo || null,
       });
     }
     for (const m of data.schedule || []) {

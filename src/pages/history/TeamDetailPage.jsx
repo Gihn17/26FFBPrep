@@ -125,7 +125,7 @@ export default function TeamDetailPage() {
 
       <div style={{ ...panelStyle(), textAlign:"center", padding:"26px 14px" }}>
         <div style={{ display:"flex", justifyContent:"center", marginBottom:10 }}>
-          <TeamAvatar name={franchise.teamName} seed={franchise.ownerGuid} size={80} />
+          <TeamAvatar name={franchise.teamName} seed={franchise.ownerGuid} size={80} imageUrl={franchise.logo} />
         </div>
         <div style={{ fontSize:22, fontWeight:800 }}>{franchise.teamName}</div>
         <div style={{ fontSize:13, opacity:0.7 }}>{franchise.ownerName} &middot; est. {franchise.estYear}</div>

@@ -58,7 +58,7 @@ function TeamBlock({ team, record, align }) {
   return (
     <Link to={team?.owner_guid ? `/league-koi/teams/${ownerSlug(team.owner_guid)}` : "#"}
       style={{ display:"flex", alignItems:"center", gap:10, textDecoration:"none", color:"inherit", flexDirection: align==="right" ? "row-reverse" : "row", flex:"1 1 0", minWidth:0 }}>
-      <TeamAvatar name={team?.team_name} seed={team?.owner_guid || team?.team_name} size={40} />
+      <TeamAvatar name={team?.team_name} seed={team?.owner_guid || team?.team_name} size={40} imageUrl={team?.logo} />
       <div style={{ textAlign: align === "right" ? "right" : "left", minWidth:0 }}>
         <div style={{ fontWeight:700, fontSize:14.5, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{name}</div>
         <div style={{ fontSize:11.5, opacity:0.6 }}>

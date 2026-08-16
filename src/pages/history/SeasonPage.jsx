@@ -37,11 +37,11 @@ function InfoTh({ label, title }) {
   return <th style={th()} title={title}>{label} <span style={{ fontSize:10, opacity:0.6 }}>ⓘ</span></th>;
 }
 
-function TeamCell({ ownerGuid, ownerName, teamName, sub }) {
+function TeamCell({ ownerGuid, ownerName, teamName, sub, logo }) {
   return (
     <td style={td("left")}>
       <Link to={ownerGuid ? `/league-koi/teams/${ownerSlug(ownerGuid)}` : "#"} style={{ display:"flex", alignItems:"center", gap:8, textDecoration:"none", color:"inherit", pointerEvents: ownerGuid ? "auto" : "none" }}>
-        <TeamAvatar name={teamName} seed={ownerGuid || teamName} size={26} />
+        <TeamAvatar name={teamName} seed={ownerGuid || teamName} size={26} imageUrl={logo} />
         <div>
           <div style={{ fontWeight:700 }}>{teamName}</div>
           {(sub || ownerName) && <div style={{ fontSize:10.5, opacity:0.6 }}>{sub || ownerName}</div>}
@@ -185,7 +185,7 @@ export default function SeasonPage() {
                         <td style={{...td(), fontWeight: r.finalRank===1 ? 700 : 400, color: r.finalRank===1 ? "#f0d97a" : undefined}}>
                           {r.finalRank != null ? (r.finalRank===1 ? "🏆 1" : r.finalRank) : "—"}
                         </td>
-                        <TeamCell ownerGuid={r.ownerGuid} ownerName={r.ownerName} teamName={r.teamName} />
+                        <TeamCell ownerGuid={r.ownerGuid} ownerName={r.ownerName} teamName={r.teamName} logo={r.logo} />
                         <td style={td()}>{r.wins}-{r.losses}{r.ties ? `-${r.ties}` : ""}</td>
                         <FormCells games={games} />
                         <td style={{...td(), opacity:0.75, fontStyle:"italic"}}>{w ? `${w.expW}-${w.expL}` : "—"}</td>
@@ -247,7 +247,7 @@ export default function SeasonPage() {
                   {aggregateRows.map((a, i) => (
                     <tr key={a.ownerGuid}>
                       <td style={td()}>{i + 1}</td>
-                      <TeamCell ownerGuid={a.ownerGuid} ownerName={a.ownerName} teamName={a.teamName}
+                      <TeamCell ownerGuid={a.ownerGuid} ownerName={a.ownerName} teamName={a.teamName} logo={a.logo}
                         sub={a.seasons < activeYears.length ? `${a.ownerName} · ${a.seasons} seasons in range` : a.ownerName} />
                       <td style={td()}>{a.wins}-{a.losses}{a.ties ? `-${a.ties}` : ""}</td>
                       <td style={{...td(), opacity:0.75, fontStyle:"italic"}}>{a.expW}-{a.expL}</td>
