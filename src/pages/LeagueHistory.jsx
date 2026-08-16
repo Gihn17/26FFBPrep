@@ -30,6 +30,7 @@ function computeSeasonRecords(teams, matchups) {
   for (const t of teams) {
     acc.set(teamKey(t.season, t.espn_team_id), {
       season: t.season, teamName: t.team_name, ownerName: t.owner_name, ownerGuid: t.owner_guid,
+      finalRank: t.final_rank || null,
       wins: 0, losses: 0, ties: 0, pointsFor: 0, pointsAgainst: 0, games: 0, high: null, low: null,
     });
   }
@@ -49,7 +50,17 @@ function computeSeasonRecords(teams, matchups) {
   }
   const bySeason = {};
   for (const rec of acc.values()) (bySeason[rec.season] = bySeason[rec.season] || []).push(rec);
-  for (const season of Object.keys(bySeason)) bySeason[season].sort((a, b) => b.wins - a.wins || b.pointsFor - a.pointsFor);
+  for (const season of Object.keys(bySeason)) {
+    // Sort by ESPN's final rank when the season is complete (it reflects the
+    // full playoff/consolation bracket, not just regular-season record —
+    // confirmed a 6-8 team finished dead last one year). Falls back to
+    // win/points ordering for the in-progress season, where final_rank is
+    // null for everyone (nothing's been decided yet).
+    bySeason[season].sort((a, b) => {
+      if (a.finalRank != null && b.finalRank != null) return a.finalRank - b.finalRank;
+      return b.wins - a.wins || b.pointsFor - a.pointsFor;
+    });
+  }
   return bySeason;
 }
 
@@ -223,35 +234,53 @@ export default function LeagueHistory() {
               <div style={{ fontSize:11, fontWeight:700, letterSpacing:0.5, color:"#c9a227", marginBottom:10, textTransform:"uppercase" }}>
                 Season Records
               </div>
-              {(season === "all" ? seasons : [Number(season)]).map(s => (
-                <div key={s} style={{ marginBottom:16 }}>
-                  <div style={{ fontSize:13, fontWeight:700, marginBottom:6 }}>{s}</div>
-                  <div style={{ overflowX:"auto" }}>
-                    <table style={{ width:"100%", fontSize:12.5 }}>
-                      <thead>
-                        <tr style={{ opacity:0.65, textAlign:"left" }}>
-                          <th style={th("left")}>Owner</th><th style={th("left")}>Team</th>
-                          <th style={th()}>W</th><th style={th()}>L</th><th style={th()}>T</th>
-                          <th style={th()}>Pts For</th><th style={th()}>Pts Against</th>
-                          <th style={th()}>High</th><th style={th()}>Low</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {(seasonRecords[s] || []).map(r => (
-                          <tr key={`${r.season}-${r.ownerGuid}`}>
-                            <td style={td("left")}>{r.ownerName || "—"}</td>
-                            <td style={td("left")}>{r.teamName}</td>
-                            <td style={td()}>{r.wins}</td><td style={td()}>{r.losses}</td><td style={td()}>{r.ties}</td>
-                            <td style={td()}>{r.pointsFor.toFixed(1)}</td><td style={td()}>{r.pointsAgainst.toFixed(1)}</td>
-                            <td style={td()}>{r.high != null ? r.high.toFixed(1) : "—"}</td>
-                            <td style={td()}>{r.low != null ? r.low.toFixed(1) : "—"}</td>
+              {(season === "all" ? seasons : [Number(season)]).map(s => {
+                const rows = seasonRecords[s] || [];
+                const ranked = rows.filter(r => r.finalRank != null);
+                const champion = ranked.find(r => r.finalRank === 1);
+                const lastPlace = ranked.length ? ranked.reduce((a, b) => (a.finalRank > b.finalRank ? a : b)) : null;
+                return (
+                  <div key={s} style={{ marginBottom:16 }}>
+                    <div style={{ fontSize:13, fontWeight:700, marginBottom:6 }}>
+                      {s}
+                      {champion && (
+                        <span style={{ fontWeight:400, fontSize:12, opacity:0.85 }}>
+                          {" — 🏆 "}{champion.ownerName || champion.teamName}
+                          {lastPlace && lastPlace !== champion && <> · last: {lastPlace.ownerName || lastPlace.teamName}</>}
+                        </span>
+                      )}
+                      {!champion && <span style={{ fontWeight:400, fontSize:12, opacity:0.5 }}> — season in progress, not finalized yet</span>}
+                    </div>
+                    <div style={{ overflowX:"auto" }}>
+                      <table style={{ width:"100%", fontSize:12.5 }}>
+                        <thead>
+                          <tr style={{ opacity:0.65, textAlign:"left" }}>
+                            <th style={th()}>Rank</th><th style={th("left")}>Owner</th><th style={th("left")}>Team</th>
+                            <th style={th()}>W</th><th style={th()}>L</th><th style={th()}>T</th>
+                            <th style={th()}>Pts For</th><th style={th()}>Pts Against</th>
+                            <th style={th()}>High</th><th style={th()}>Low</th>
                           </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                        </thead>
+                        <tbody>
+                          {rows.map(r => (
+                            <tr key={`${r.season}-${r.ownerGuid}`}>
+                              <td style={{...td(), fontWeight: r.finalRank===1 ? 700 : 400, color: r.finalRank===1 ? "#f0d97a" : undefined}}>
+                                {r.finalRank != null ? (r.finalRank===1 ? "🏆 1" : r.finalRank) : "—"}
+                              </td>
+                              <td style={td("left")}>{r.ownerName || "—"}</td>
+                              <td style={td("left")}>{r.teamName}</td>
+                              <td style={td()}>{r.wins}</td><td style={td()}>{r.losses}</td><td style={td()}>{r.ties}</td>
+                              <td style={td()}>{r.pointsFor.toFixed(1)}</td><td style={td()}>{r.pointsAgainst.toFixed(1)}</td>
+                              <td style={td()}>{r.high != null ? r.high.toFixed(1) : "—"}</td>
+                              <td style={td()}>{r.low != null ? r.low.toFixed(1) : "—"}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
 
             <div style={panelStyle()}>
