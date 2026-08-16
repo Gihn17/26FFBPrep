@@ -202,10 +202,13 @@ app.post("/api/history/:league/refresh", async (req, res) => {
     return res.status(400).json({ error: `${req.params.league} has no ESPN league id on file yet` });
   }
   const currentYear = new Date().getFullYear();
-  // Verified directly against the live API: this league's data doesn't
-  // reach past 2018 (ESPN's fantasy platform migration) regardless of
-  // auth — no point trying earlier years.
-  const startYear = Number(req.body?.startYear) || 2018;
+  // Default start year is a conservative floor, not a known cutoff — how
+  // far back a league's data actually goes varies per league (confirmed:
+  // Koi reaches back to 2011, 2010 and earlier 404 even with cookies).
+  // refreshLeagueHistory reports every year it couldn't reach in `skipped`
+  // rather than guessing where to stop, so a few extra no-op years here
+  // cost one HTTP request each, not correctness.
+  const startYear = Number(req.body?.startYear) || 2000;
   const endYear = Number(req.body?.endYear) || currentYear;
   try {
     const result = await refreshLeagueHistory(req.params.league, league.source_league_id, startYear, endYear);

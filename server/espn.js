@@ -2,13 +2,24 @@
 // history_teams/history_matchups tables) and live Game Day scores, both for
 // ESPN-hosted leagues (Koi now; Jordan once its league ID is on file).
 //
-// Endpoint verified directly against the live API (not assumed from docs):
-//   https://lm-api-reads.fantasy.espn.com/apis/v3/games/ffl/seasons/{year}/segments/0/leagues/{leagueId}?view=mTeam&view=mMatchupScore
-// This host works with ZERO auth for recent seasons of a public league.
-// Older seasons can 401 even on a public league — ESPN requires espn_s2/SWID
-// cookies for those regardless of the league's current privacy setting.
-// Seasons before ESPN's 2018 platform migration 404 outright; that league ID
-// scheme doesn't reach back further, nothing to recover there.
+// Two endpoints, both verified directly against the live API (not assumed
+// from docs), used for different eras — ESPN's 2018 platform migration
+// split "current-ish" and "old" seasons across genuinely different URLs,
+// not just different years on the same shape:
+//   - 2018+:  .../seasons/{year}/segments/0/leagues/{leagueId}?view=...
+//     Works with ZERO auth for recent seasons of a public league (2024+ for
+//     Koi); older years in this range (2018-2023 for Koi) 401 even on a
+//     public league — ESPN gates those behind espn_s2/SWID regardless of
+//     current privacy setting. This is the endpoint that stays current
+//     season to season, so 2018+ always uses it, even once leagueHistory
+//     is also confirmed to serve some of those years.
+//   - Pre-2018: .../leagueHistory/{leagueId}?seasonId={year}?view=... —
+//     ALWAYS needs espn_s2/SWID (confirmed: still 404s with valid cookies
+//     if the season doesn't exist, but 401s without cookies even for
+//     seasons that do). Response is an array wrapping one season object
+//     (`[season]`, not `season`) — unwrapped in fetchSeason below. For Koi,
+//     confirmed working back to 2011; 2010 and earlier 404 even with
+//     cookies, so that's the real floor for this league.
 import { db, getOrCreateUser } from "./db.js";
 
 const ESPN_HOST = "https://lm-api-reads.fantasy.espn.com/apis/v3/games/ffl";
@@ -59,16 +70,28 @@ function getEspnCookies() {
 
 /** Single season fetch. Returns {status, data} rather than throwing on
  *  401/404 — those are expected, normal outcomes here (season needs cookies
- *  we don't have, or predates the league/platform), not failures. */
+ *  we don't have, or predates the league/platform), not failures.
+ *  Routes to the right endpoint by year — see the header comment above for
+ *  why these aren't interchangeable. */
 async function fetchSeason(leagueId, year) {
   const cookies = getEspnCookies();
   const headers = {};
   if (cookies) headers.Cookie = `espn_s2=${cookies.espn_s2}; SWID=${cookies.swid}`;
-  const url = `${ESPN_HOST}/seasons/${year}/segments/0/leagues/${leagueId}?view=mTeam&view=mMatchupScore`;
+
+  if (year >= 2018) {
+    const url = `${ESPN_HOST}/seasons/${year}/segments/0/leagues/${leagueId}?view=mTeam&view=mMatchupScore`;
+    const res = await fetch(url, { headers });
+    if (res.status === 401 || res.status === 404) return { status: res.status, data: null };
+    if (!res.ok) throw new Error(`ESPN API returned HTTP ${res.status} for season ${year}`);
+    return { status: 200, data: await res.json() };
+  }
+
+  const url = `${ESPN_HOST}/leagueHistory/${leagueId}?seasonId=${year}&view=mTeam&view=mMatchupScore`;
   const res = await fetch(url, { headers });
   if (res.status === 401 || res.status === 404) return { status: res.status, data: null };
   if (!res.ok) throw new Error(`ESPN API returned HTTP ${res.status} for season ${year}`);
-  return { status: 200, data: await res.json() };
+  const arr = await res.json();
+  return { status: 200, data: Array.isArray(arr) ? arr[0] : arr };
 }
 
 function upsertSeason(leagueId, year, data) {
