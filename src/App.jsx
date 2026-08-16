@@ -471,6 +471,11 @@ export default function DraftPrepApp() {
   const [replacement, setReplacement] = useState(DEFAULT_REPLACEMENT);
   const [tierParams, setTierParams] = useState(DEFAULT_TIER_PARAMS);
   const [playerImports, setPlayerImports] = useState({}); // id -> {statsOverride, flatPtsOverride, koiPoints, finalPoints, auction}
+  // Persistent (shared, not per-browser) — was previously a local checkbox
+  // that silently reset to "on" every time you left and came back to the
+  // Final Fantasy tab, so it kept hitting Sleeper's API outside draft time
+  // no matter what you'd chosen last. Now it actually stays off.
+  const [sleeperSyncPaused, setSleeperSyncPaused] = useState(false);
   const [expanded, setExpanded] = useState(null);
   const [showBudgets, setShowBudgets] = useState(false);
   const [loaded, setLoaded] = useState(false);
@@ -588,6 +593,7 @@ export default function DraftPrepApp() {
             }
           }
           setPlayerImports(pImp || {});
+          setSleeperSyncPaused(!!parsed.sleeperSyncPaused);
         }
       } catch (e) { /* first run, no saved state */ }
 
@@ -606,10 +612,10 @@ export default function DraftPrepApp() {
     if (!loaded) return;
     const payload = JSON.stringify({
       draftByLeague, managersByLeague, teamsByLeague, rosterSpotsByLeague,
-      weights, replacement, tierParams, playerImports,
+      weights, replacement, tierParams, playerImports, sleeperSyncPaused,
     });
     window.storage.set("ffb-draft-state", payload).catch(() => {});
-  }, [draftByLeague, managersByLeague, teamsByLeague, rosterSpotsByLeague, weights, replacement, tierParams, playerImports, loaded]);
+  }, [draftByLeague, managersByLeague, teamsByLeague, rosterSpotsByLeague, weights, replacement, tierParams, playerImports, sleeperSyncPaused, loaded]);
 
   // Personal notes save separately, per "Viewing as" user — see getPersonalNotes/
   // setPersonalNotes above for why this isn't part of the shared payload.
@@ -907,6 +913,8 @@ export default function DraftPrepApp() {
           draft={draftByLeague.final || {}}
           onMergePicks={(patchMap) => mergePicksForLeague("final", patchMap)}
           onAddManagers={(names) => addManagersForLeague("final", names)}
+          paused={sleeperSyncPaused}
+          onTogglePause={() => setSleeperSyncPaused(p => !p)}
         />
       )}
 
@@ -1181,7 +1189,7 @@ const SLEEPER_API = "https://api.sleeper.app/v1";
  *  see PROJECT_CONTEXT.md's "Platform sync strategy" and the design notes
  *  above reconcileSleeperPicks(). Never blocks manual entry: every fetch
  *  is caught and degrades to a status message, nothing throws upward. */
-function SleeperSyncPanel({ sourceLeagueId, pool, draft, onMergePicks, onAddManagers }) {
+function SleeperSyncPanel({ sourceLeagueId, pool, draft, onMergePicks, onAddManagers, paused, onTogglePause }) {
   const [draftId, setDraftId] = useState(null);
   const [managerByRoster, setManagerByRoster] = useState(new Map());
   const [status, setStatus] = useState("idle"); // 'idle' | 'loading' | 'error'
@@ -1189,11 +1197,12 @@ function SleeperSyncPanel({ sourceLeagueId, pool, draft, onMergePicks, onAddMana
   const [lastSynced, setLastSynced] = useState(null);
   const [unmatched, setUnmatched] = useState([]);
   const [conflicts, setConflicts] = useState([]);
-  const [autoSync, setAutoSync] = useState(true);
 
-  // Resolve the current draft_id + manager names once we know the league.
+  // Resolve the current draft_id + manager names once we know the league —
+  // skipped entirely while paused, not just the recurring poll below, so
+  // pausing actually stops every Sleeper API call, not just the 15s timer.
   useEffect(() => {
-    if (!sourceLeagueId) return;
+    if (!sourceLeagueId || paused) return;
     let cancelled = false;
     (async () => {
       try {
@@ -1220,7 +1229,7 @@ function SleeperSyncPanel({ sourceLeagueId, pool, draft, onMergePicks, onAddMana
       }
     })();
     return () => { cancelled = true; };
-  }, [sourceLeagueId]);
+  }, [sourceLeagueId, paused]);
 
   const sync = useCallback(async () => {
     if (!draftId) return;
@@ -1246,13 +1255,14 @@ function SleeperSyncPanel({ sourceLeagueId, pool, draft, onMergePicks, onAddMana
   }, [draftId, pool, draft, managerByRoster, onMergePicks]);
 
   useEffect(() => {
-    if (!draftId || !autoSync) return;
+    if (!draftId || paused) return;
     sync();
     const interval = setInterval(sync, 15000);
     return () => clearInterval(interval);
-  }, [draftId, autoSync, sync]);
+  }, [draftId, paused, sync]);
 
-  const statusText = !sourceLeagueId ? "Waiting on league config…"
+  const statusText = paused ? "Sync paused"
+    : !sourceLeagueId ? "Waiting on league config…"
     : !draftId ? (error || "Resolving draft…")
     : status === "loading" ? "Syncing…"
     : error ? error
@@ -1264,12 +1274,17 @@ function SleeperSyncPanel({ sourceLeagueId, pool, draft, onMergePicks, onAddMana
         <div style={{ fontSize:11, fontWeight:700, letterSpacing:0.5, color:"#c9a227", textTransform:"uppercase" }}>
           Sleeper Sync
         </div>
-        <div style={{ fontSize:12, opacity:0.75 }}>{statusText}</div>
-        <button onClick={sync} disabled={!draftId} style={btnStyle()}>Sync now</button>
-        <label style={{ fontSize:12, display:"flex", alignItems:"center", gap:4, opacity:0.85 }}>
-          <input type="checkbox" checked={autoSync} onChange={e=>setAutoSync(e.target.checked)} /> auto (15s)
-        </label>
+        <div style={{ fontSize:12, opacity: paused ? 0.5 : 0.75 }}>{statusText}</div>
+        <button onClick={onTogglePause} style={btnStyle(paused ? "#20211a" : "#3a1f1f", paused ? "#c9a227" : "#c0453f")}>
+          {paused ? "Resume Sync" : "Pause Sync"}
+        </button>
+        {!paused && <button onClick={sync} disabled={!draftId} style={btnStyle()}>Sync now</button>}
       </div>
+      {paused && (
+        <div style={{ fontSize:11, opacity:0.55 }}>
+          No requests are being made to Sleeper while paused — turn this back on closer to draft day.
+        </div>
+      )}
       {conflicts.length > 0 && (
         <div style={{ fontSize:12, color:"#e08a8a" }}>
           {conflicts.length} conflict{conflicts.length>1?"s":""} — Sleeper disagrees with a manual entry, not overwritten:{" "}
