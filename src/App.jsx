@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from "react";
+import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
 
 /* ============================================================
    DEFAULT ADJUSTABLE PARAMETERS
@@ -382,6 +382,23 @@ const TAB_LABELS = {
 };
 const TAB_LABELS_SHORT = { koi: "Koi", final: "Final Fantasy", jordan: "Jordan", how: "Calculations", settings: "Settings" };
 
+/** A textarea that grows to fit its full content — used for Expert/Personal
+ *  Notes so opening a player's row always shows the whole note, not a
+ *  clipped 2-line box you have to scroll inside. Re-measures on every
+ *  value change (typing, or switching to a different player's note). */
+function AutoGrowTextarea({ value, onChange, style, minRows = 3 }) {
+  const ref = useRef(null);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = el.scrollHeight + "px";
+  }, [value]);
+  return (
+    <textarea ref={ref} value={value} onChange={onChange} rows={minRows}
+      style={{ ...style, overflow:"hidden", resize:"none" }} />
+  );
+}
 function NumField({ label, value, onChange, step }) {
   return (
     <label style={{ display:"flex", flexDirection:"column", gap:2, fontSize:11, opacity:0.85, width:118 }}>
@@ -1029,13 +1046,13 @@ export default function DraftPrepApp() {
                             <div style={{ display:"flex", gap:20, flexWrap:"wrap" }}>
                               <div style={{ flex:"1 1 320px" }}>
                                 <div style={lblSmall("#7fd18f")}>Expert Notes</div>
-                                <textarea value={r.noteData.pos} onChange={e=>setNote(r.id,{pos:e.target.value}, r.note)}
-                                  style={ta()} rows={2} />
+                                <AutoGrowTextarea value={r.noteData.pos} onChange={e=>setNote(r.id,{pos:e.target.value}, r.note)}
+                                  style={ta()} />
                               </div>
                               <div style={{ flex:"1 1 320px" }}>
                                 <div style={lblSmall("#e08a8a")}>Personal Notes</div>
-                                <textarea value={r.noteData.neg} onChange={e=>setNote(r.id,{neg:e.target.value}, r.note)}
-                                  style={ta()} rows={2} />
+                                <AutoGrowTextarea value={r.noteData.neg} onChange={e=>setNote(r.id,{neg:e.target.value}, r.note)}
+                                  style={ta()} />
                               </div>
                               <div style={{ flex:"0 0 160px" }}>
                                 <div style={lblSmall("#f0d97a")}>Outlook</div>
