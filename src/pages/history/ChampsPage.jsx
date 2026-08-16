@@ -4,8 +4,12 @@ import { panelStyle, th, td, btnStyle } from "../../theme.jsx";
 import { computeDynastyRankings, computePlayoffLegends, computeScoreEntries } from "./compute.js";
 
 function leaderOf(list) {
-  if (!list.length || !list[0].count) return { label: "—", value: 0 };
-  const max = list[0].count;
+  // Callers pass lists sorted for their own purposes (dynastyRankings is
+  // sorted by championships, not runner-ups), so don't trust list[0] —
+  // find the actual max ourselves.
+  if (!list.length) return { label: "—", value: 0 };
+  const max = Math.max(...list.map(x => x.count));
+  if (!max) return { label: "—", value: 0 };
   const leaders = list.filter(x => x.count === max);
   return { label: leaders.length > 1 ? "Multiple Teams" : leaders[0].name, value: max };
 }
