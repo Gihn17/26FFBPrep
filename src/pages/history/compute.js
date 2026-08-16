@@ -487,6 +487,127 @@ export function computeFranchiseWeeklyStats(matchups) {
   return acc;
 }
 
+// ============================================================
+// Season page — playoff probability for the in-progress season: "of every
+// team-season in this league's history that had the exact same record
+// after the exact same number of games, what percent made the playoffs?"
+// ============================================================
+
+/** Which (season, espnTeamId) slots made the real playoffs — appeared in
+ *  at least one WINNERS_BRACKET game that season. Team-slot keyed (not
+ *  owner_guid keyed like computePlayoffLegends), since this is entirely
+ *  season-scoped and needs to work even for the corrected 2011 team. */
+function computeMadePlayoffsSet(matchups) {
+  const made = new Set();
+  for (const m of matchups) {
+    if (m.playoff_tier !== "WINNERS_BRACKET" || m.away_team_id == null || !isPlayed(m)) continue;
+    made.add(teamKey(m.season, m.home_team_id));
+    made.add(teamKey(m.season, m.away_team_id));
+  }
+  return made;
+}
+
+/** Every team-slot's chronological game-by-game results, keyed by teamKey,
+ *  sorted by week. Shared by the historical pool (every past season) and
+ *  the target season's own teams (same walk, just used differently). */
+function computeGameLogs(matchups) {
+  const logs = new Map();
+  for (const m of matchups) {
+    if (m.away_team_id == null || !isPlayed(m)) continue;
+    const hKey = teamKey(m.season, m.home_team_id), aKey = teamKey(m.season, m.away_team_id);
+    const homeResult = m.winner === "HOME" ? "W" : m.winner === "AWAY" ? "L" : "T";
+    const awayResult = m.winner === "AWAY" ? "W" : m.winner === "HOME" ? "L" : "T";
+    if (!logs.has(hKey)) logs.set(hKey, []);
+    if (!logs.has(aKey)) logs.set(aKey, []);
+    logs.get(hKey).push({ week: m.week, result: homeResult });
+    logs.get(aKey).push({ week: m.week, result: awayResult });
+  }
+  for (const log of logs.values()) log.sort((a, b) => a.week - b.week);
+  return logs;
+}
+
+/** For every team-season in league history EXCEPT `targetSeason`, indexes
+ *  "after G games, this team's record was W-L-T" -> did they make the
+ *  playoffs that season. Only pulls from seasons that actually finished
+ *  (have a decided champion) so a second in-progress season can never
+ *  contaminate the pool. `targetSeason` is a parameter (not hardcoded to
+ *  "the current season") so this same function can be pointed at a
+ *  completed past season to sanity-check the method against a known real
+ *  outcome, not just used live on data that doesn't exist yet. */
+function buildPlayoffOddsPool(teams, matchups, seasonRecords, targetSeason) {
+  const madePlayoffs = computeMadePlayoffsSet(matchups);
+  const logs = computeGameLogs(matchups);
+  const pool = new Map(); // "games|w|l|t" -> { total, made }
+  const seasons = new Set(teams.map(t => t.season));
+  for (const season of seasons) {
+    if (season === targetSeason) continue;
+    if (!(seasonRecords[season] || []).some(r => r.finalRank === 1)) continue; // skip unfinished seasons
+    for (const t of teams.filter(t => t.season === season)) {
+      const key = teamKey(season, t.espn_team_id);
+      const log = logs.get(key) || [];
+      let w = 0, l = 0, tt = 0;
+      log.forEach((g, i) => {
+        if (g.result === "W") w++; else if (g.result === "L") l++; else tt++;
+        const poolKey = `${i + 1}|${w}|${l}|${tt}`;
+        if (!pool.has(poolKey)) pool.set(poolKey, { total: 0, made: 0 });
+        const entry = pool.get(poolKey);
+        entry.total++;
+        if (madePlayoffs.has(key)) entry.made++;
+      });
+    }
+  }
+  return pool;
+}
+
+/** Playoff probability for every team in `targetSeason`, based on their
+ *  actual current record: "of every team-season in this league's history
+ *  with the same record after the same number of games, what percent made
+ *  the playoffs?" Below `minGames` played the sample is dominated by
+ *  small-n noise (a 1-0 start matches almost every good team's start), so
+ *  callers should gate display on `gamesPlayed >= minGames` themselves —
+ *  this still returns a result either way, un-opinionated about the UI. */
+export function computePlayoffProbabilities(teams, matchups, seasonRecords, targetSeason, asOfGames = Infinity) {
+  const pool = buildPlayoffOddsPool(teams, matchups, seasonRecords, targetSeason);
+  const madePlayoffs = computeMadePlayoffsSet(matchups);
+  const logs = computeGameLogs(matchups);
+  const targetTeams = teams.filter(t => t.season === targetSeason);
+  return targetTeams.map(t => {
+    const key = teamKey(targetSeason, t.espn_team_id);
+    const log = (logs.get(key) || []).slice(0, asOfGames);
+    let w = 0, l = 0, tt = 0;
+    for (const g of log) { if (g.result === "W") w++; else if (g.result === "L") l++; else tt++; }
+    const gamesPlayed = log.length;
+    const poolKey = `${gamesPlayed}|${w}|${l}|${tt}`;
+    const entry = pool.get(poolKey);
+    const probability = entry && entry.total > 0 ? (entry.made / entry.total) * 100 : null;
+
+    // "click to view more data" — every historical team-season that fed
+    // this percentage, for the expanded detail view.
+    const matches = [];
+    if (gamesPlayed > 0) {
+      const seasons = new Set(teams.map(x => x.season));
+      for (const season of seasons) {
+        if (season === targetSeason || !(seasonRecords[season] || []).some(r => r.finalRank === 1)) continue;
+        for (const other of teams.filter(x => x.season === season)) {
+          const oKey = teamKey(season, other.espn_team_id);
+          const oLog = (logs.get(oKey) || []).slice(0, gamesPlayed);
+          if (oLog.length < gamesPlayed) continue;
+          let ow = 0, ol = 0, ot = 0;
+          for (const g of oLog) { if (g.result === "W") ow++; else if (g.result === "L") ol++; else ot++; }
+          if (ow === w && ol === l && ot === tt) {
+            matches.push({ season, ownerName: other.owner_name, teamName: other.team_name, madePlayoffs: madePlayoffs.has(oKey) });
+          }
+        }
+      }
+    }
+
+    return {
+      ownerGuid: t.owner_guid, ownerName: t.owner_name, teamName: t.team_name,
+      gamesPlayed, wins: w, losses: l, ties: tt, probability, sampleSize: entry?.total || 0, matches,
+    };
+  });
+}
+
 /** The 8 "Team Records" cards on a franchise's page — the Stats page's
  *  Juggernaut/Featherweight/Cakewalk/Nailbiter/Powerhouse/Slacker/streak
  *  stats, scoped to just this owner's games instead of the whole league. */
