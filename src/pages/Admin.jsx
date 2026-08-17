@@ -42,24 +42,8 @@ function RoleSelect({ value, onChange, disabled }) {
   );
 }
 
-function AreaCheckboxes({ permissions, onChange, disabled }) {
-  const toggle = (area) => {
-    onChange(permissions.includes(area) ? permissions.filter(a => a !== area) : [...permissions, area]);
-  };
-  return (
-    <div style={{ display:"flex", gap:12, flexWrap:"wrap" }}>
-      {AREAS.map(([key, label]) => (
-        <label key={key} style={{ display:"flex", alignItems:"center", gap:5, fontSize:12, opacity: disabled ? 0.4 : 1 }}>
-          <input type="checkbox" checked={permissions.includes(key)} disabled={disabled} onChange={()=>toggle(key)} />
-          {label}
-        </label>
-      ))}
-    </div>
-  );
-}
-
-// Shared by both sub-tab rows (draft/history) — same shape, different
-// option list.
+// Shared by both sub-permission rows (draft tabs/history leagues) — same
+// shape, different option list.
 function SubTabCheckboxes({ options, selected, onChange, disabled }) {
   const toggle = (key) => {
     onChange(selected.includes(key) ? selected.filter(t => t !== key) : [...selected, key]);
@@ -71,6 +55,35 @@ function SubTabCheckboxes({ options, selected, onChange, disabled }) {
           <input type="checkbox" checked={selected.includes(key)} disabled={disabled} onChange={()=>toggle(key)} />
           {label}
         </label>
+      ))}
+    </div>
+  );
+}
+
+// One row per AREA, stacked vertically, with that area's own sub-
+// permissions (if it has any) nested directly underneath it when checked —
+// replaces cramming every area into one line with all their sub-checkboxes
+// piled below, which made it hard to tell which sub-list belonged to which
+// area. Game Day has no finer grain, so it's just a bare row.
+function PermissionRows({ permissions, onChangePermissions, draftTabs, onChangeDraftTabs, historyLeagues, onChangeHistoryLeagues, disabled }) {
+  const toggleArea = (area) => {
+    onChangePermissions(permissions.includes(area) ? permissions.filter(a => a !== area) : [...permissions, area]);
+  };
+  return (
+    <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+      {AREAS.map(([key, label]) => (
+        <div key={key}>
+          <label style={{ display:"flex", alignItems:"center", gap:5, fontSize:12, opacity: disabled ? 0.4 : 1 }}>
+            <input type="checkbox" checked={permissions.includes(key)} disabled={disabled} onChange={()=>toggleArea(key)} />
+            {label}
+          </label>
+          {key === "draft" && permissions.includes("draft") && (
+            <SubTabCheckboxes options={DRAFT_TABS} selected={draftTabs} onChange={onChangeDraftTabs} disabled={disabled} />
+          )}
+          {key === "history" && permissions.includes("history") && (
+            <SubTabCheckboxes options={HISTORY_LEAGUES} selected={historyLeagues} onChange={onChangeHistoryLeagues} disabled={disabled} />
+          )}
+        </div>
       ))}
     </div>
   );
@@ -120,13 +133,11 @@ function NewUserForm({ onCreate }) {
       {role === "limited" && (
         <label style={{ ...lbl(), gap:6 }}>
           Can see
-          <AreaCheckboxes permissions={permissions} onChange={setPermissions} />
-          {permissions.includes("draft") && (
-            <SubTabCheckboxes options={DRAFT_TABS} selected={draftTabs} onChange={setDraftTabs} />
-          )}
-          {permissions.includes("history") && (
-            <SubTabCheckboxes options={HISTORY_LEAGUES} selected={historyLeagues} onChange={setHistoryLeagues} />
-          )}
+          <PermissionRows
+            permissions={permissions} onChangePermissions={setPermissions}
+            draftTabs={draftTabs} onChangeDraftTabs={setDraftTabs}
+            historyLeagues={historyLeagues} onChangeHistoryLeagues={setHistoryLeagues}
+          />
         </label>
       )}
       {error && <div style={{ fontSize:12, color:"#e08a8a" }}>{error}</div>}
@@ -193,15 +204,11 @@ function UserRow({ u, isSelf, onSetRole, onSetPermissions, onSetDraftTabs, onSet
           <RoleSelect value={u.role} onChange={(role)=>onSetRole(u.id, role)} disabled={isSelf} />
         </div>
         {u.role === "limited" && (
-          <>
-            <AreaCheckboxes permissions={u.permissions} onChange={(perms)=>onSetPermissions(u.id, perms)} />
-            {u.permissions.includes("draft") && (
-              <SubTabCheckboxes options={DRAFT_TABS} selected={u.draftTabs} onChange={(tabs)=>onSetDraftTabs(u.id, tabs)} />
-            )}
-            {u.permissions.includes("history") && (
-              <SubTabCheckboxes options={HISTORY_LEAGUES} selected={u.historyLeagues} onChange={(tabs)=>onSetHistoryLeagues(u.id, tabs)} />
-            )}
-          </>
+          <PermissionRows
+            permissions={u.permissions} onChangePermissions={(perms)=>onSetPermissions(u.id, perms)}
+            draftTabs={u.draftTabs} onChangeDraftTabs={(tabs)=>onSetDraftTabs(u.id, tabs)}
+            historyLeagues={u.historyLeagues} onChangeHistoryLeagues={(leagues)=>onSetHistoryLeagues(u.id, leagues)}
+          />
         )}
       </td>
       <td style={{ padding:"8px 6px", borderBottom:"1px solid #1e2018", verticalAlign:"top" }}>
@@ -312,8 +319,9 @@ export default function Admin() {
           </div>
           <div style={{ fontSize:12, opacity:0.65, marginBottom:14 }}>
             Admin sees everything and can manage other accounts. Standard sees everything but can't manage
-            accounts. Limited only ever sees the areas — and, within Draft Prep/League History, the specific
-            tabs — checked below for them. All enforced on the server, not just hidden in the UI.
+            accounts. Limited only ever sees the areas checked below — and, within Draft Prep, the specific
+            leagues/tab, or within League History, the specific league's history. All enforced on the server,
+            not just hidden in the UI.
           </div>
 
           {loaded && (
