@@ -49,7 +49,7 @@ function VideoEditor({ youtubeUrl, onSave }) {
   );
 }
 
-function DivisionStandings({ divisions }) {
+function DivisionStandings({ divisions, currentLogos }) {
   return (
     <div style={{ display:"flex", gap:14, flexWrap:"wrap" }}>
       {divisions.map(d => (
@@ -60,7 +60,7 @@ function DivisionStandings({ divisions }) {
               <Link key={r.ownerGuid || r.teamName} to={r.ownerGuid ? `/league-koi/teams/${ownerSlug(r.ownerGuid)}` : "#"}
                 style={{ display:"flex", alignItems:"center", gap:8, padding:"6px 12px", textDecoration:"none", color:"inherit" }}>
                 <span style={{ width:16, fontSize:11, opacity:0.5 }}>{i + 1}</span>
-                <TeamAvatar name={r.teamName} seed={r.ownerGuid || r.teamName} size={22} />
+                <TeamAvatar name={r.teamName} seed={r.ownerGuid || r.teamName} size={22} imageUrl={currentLogos.get(r.ownerGuid)} />
                 <div style={{ flex:1, minWidth:0 }}>
                   <div style={{ fontSize:12.5, fontWeight:600, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{r.ownerName || r.teamName}</div>
                 </div>
@@ -115,7 +115,7 @@ function ChatBox({ chat, onPost, onDelete }) {
 }
 
 export default function HomePage() {
-  const { league, seasonRecords, seasons } = useOutletContext();
+  const { league, seasonRecords, seasons, currentLogos } = useOutletContext();
   const { user } = useAuth();
   const [settings, setSettings] = useState({ youtubeUrl: null });
   const [chat, setChat] = useState([]);
@@ -184,7 +184,7 @@ export default function HomePage() {
         <div style={{ fontSize:11, fontWeight:700, letterSpacing:0.5, color:"#c9a227", marginBottom:10, textTransform:"uppercase" }}>
           Current Standings {mostRecentSeason ? `— ${mostRecentSeason}` : ""}
         </div>
-        {loaded && divisions.length > 0 ? <DivisionStandings divisions={divisions} /> : (
+        {loaded && divisions.length > 0 ? <DivisionStandings divisions={divisions} currentLogos={currentLogos} /> : (
           <div style={{ fontSize:12.5, opacity:0.55 }}>No standings yet.</div>
         )}
       </div>
