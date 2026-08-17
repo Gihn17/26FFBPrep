@@ -112,7 +112,7 @@ export function computeSeasonRecords(teams, matchups) {
   for (const t of teams) {
     acc.set(teamKey(t.season, t.espn_team_id), {
       season: t.season, teamName: t.team_name, ownerName: t.owner_name, ownerGuid: t.owner_guid,
-      finalRank: t.final_rank || null,
+      finalRank: t.final_rank || null, divisionId: t.division_id ?? null, divisionName: t.division_name || null,
       wins: 0, losses: 0, ties: 0, pointsFor: 0, pointsAgainst: 0, games: 0, high: null, low: null,
     });
   }
@@ -139,6 +139,27 @@ export function computeSeasonRecords(teams, matchups) {
     });
   }
   return bySeason;
+}
+
+/** Groups one season's already-sorted standings rows (from
+ *  computeSeasonRecords) by division, preserving each division's internal
+ *  rank order. Divisions themselves are sorted by their best (lowest)
+ *  finalRank so the division currently in the lead sorts first. Teams with
+ *  no division on file (older data, or a season fetched before divisions
+ *  were tracked) land in a single "No Division" bucket rather than being
+ *  dropped. */
+export function groupByDivision(rows) {
+  const groups = new Map(); // divisionId (or "none") -> { name, rows }
+  for (const r of rows) {
+    const key = r.divisionId != null ? String(r.divisionId) : "none";
+    if (!groups.has(key)) groups.set(key, { name: r.divisionName || "No Division", rows: [] });
+    groups.get(key).rows.push(r);
+  }
+  return [...groups.values()].sort((a, b) => {
+    const bestA = Math.min(...a.rows.map(r => r.finalRank ?? Infinity));
+    const bestB = Math.min(...b.rows.map(r => r.finalRank ?? Infinity));
+    return bestA - bestB;
+  });
 }
 
 /** Every individual matchup between two specific owners — by GUID, not team

@@ -6,6 +6,7 @@ import { seedLeagues, getAllLeagues, getLeague } from "./leagues.js";
 import { db, getOrCreateUser } from "./db.js";
 import { getAdpPool, getAdpStatus, refreshAdpPool, startAdpScheduler } from "./adp.js";
 import { refreshLeagueHistory, getLeagueHistory, getWeekMatchups } from "./espn.js";
+import { getHomeSettings, setHomeSettings, listChatMessages, addChatMessage, deleteChatMessage } from "./leaguehome.js";
 import {
   bootstrapAdmin, attachUser, requireAuth, requireAdmin, requirePermission,
   verifyLogin, createSession, deleteSession, setSessionCookie, clearSessionCookie, getSessionTokenFromReq,
@@ -305,6 +306,39 @@ app.post("/api/history/:league/refresh", requireAdmin, async (req, res) => {
     res.json(result);
   } catch (e) {
     res.status(502).json({ error: e.message });
+  }
+});
+
+// --- League History "Home" page (League Social — featured video + a
+// shared chat board). Admin-only for now, not just hidden client-side —
+// Will's call, the page isn't finished yet. Once it's ready this can drop
+// to requirePermission("history") to match the rest of League History. ---
+app.get("/api/history/:league/home", requireAdmin, (req, res) => {
+  res.json({ settings: getHomeSettings(req.params.league), chat: listChatMessages(req.params.league) });
+});
+
+app.put("/api/history/:league/home/settings", requireAdmin, (req, res) => {
+  try {
+    res.json(setHomeSettings(req.params.league, req.body || {}));
+  } catch (e) {
+    res.status(400).json({ error: e.message });
+  }
+});
+
+app.post("/api/history/:league/home/chat", requireAdmin, (req, res) => {
+  try {
+    res.json(addChatMessage(req.params.league, req.authUser.username, req.body && req.body.message));
+  } catch (e) {
+    res.status(400).json({ error: e.message });
+  }
+});
+
+app.delete("/api/history/:league/home/chat/:id", requireAdmin, (req, res) => {
+  try {
+    deleteChatMessage(req.params.league, Number(req.params.id));
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(400).json({ error: e.message });
   }
 });
 

@@ -45,6 +45,10 @@ CREATE TABLE IF NOT EXISTS history_teams (
                                       -- as team_name. Some are dead links now (tinypic.com is gone
                                       -- entirely) — the frontend must fall back gracefully, never
                                       -- assume this resolves.
+  division_id   INTEGER,             -- ESPN's team.divisionId, scoped to this season
+  division_name TEXT,                -- from settings.scheduleSettings.divisions — resolved and
+                                      -- stored per-season same as everything else here, since
+                                      -- division names/composition can change year to year
   UNIQUE(league_id, season, espn_team_id)
 );
 
@@ -72,6 +76,10 @@ if (!historyTeamsCols.includes("final_rank")) {
 }
 if (!historyTeamsCols.includes("logo")) {
   db.exec("ALTER TABLE history_teams ADD COLUMN logo TEXT");
+}
+if (!historyTeamsCols.includes("division_id")) {
+  db.exec("ALTER TABLE history_teams ADD COLUMN division_id INTEGER");
+  db.exec("ALTER TABLE history_teams ADD COLUMN division_name TEXT");
 }
 
 /** Cookies live in the same shared user_kv store as everything else (see
@@ -101,14 +109,14 @@ async function fetchSeason(leagueId, year) {
   if (cookies) headers.Cookie = `espn_s2=${cookies.espn_s2}; SWID=${cookies.swid}`;
 
   if (year >= 2018) {
-    const url = `${ESPN_HOST}/seasons/${year}/segments/0/leagues/${leagueId}?view=mTeam&view=mMatchupScore`;
+    const url = `${ESPN_HOST}/seasons/${year}/segments/0/leagues/${leagueId}?view=mTeam&view=mMatchupScore&view=mSettings`;
     const res = await fetch(url, { headers });
     if (res.status === 401 || res.status === 404) return { status: res.status, data: null };
     if (!res.ok) throw new Error(`ESPN API returned HTTP ${res.status} for season ${year}`);
     return { status: 200, data: await res.json() };
   }
 
-  const url = `${ESPN_HOST}/leagueHistory/${leagueId}?seasonId=${year}&view=mTeam&view=mMatchupScore`;
+  const url = `${ESPN_HOST}/leagueHistory/${leagueId}?seasonId=${year}&view=mTeam&view=mMatchupScore&view=mSettings`;
   const res = await fetch(url, { headers });
   if (res.status === 401 || res.status === 404) return { status: res.status, data: null };
   if (!res.ok) throw new Error(`ESPN API returned HTTP ${res.status} for season ${year}`);
@@ -118,11 +126,13 @@ async function fetchSeason(leagueId, year) {
 
 function upsertSeason(leagueId, year, data) {
   const memberName = new Map((data.members || []).map(m => [m.id, [m.firstName, m.lastName].filter(Boolean).join(" ") || m.displayName]));
+  const divisionName = new Map((data.settings?.scheduleSettings?.divisions || []).map(d => [d.id, d.name]));
   const upsertTeam = db.prepare(`
-    INSERT INTO history_teams (league_id, season, espn_team_id, team_name, owner_guid, owner_name, final_rank, logo)
-    VALUES (@league_id, @season, @espn_team_id, @team_name, @owner_guid, @owner_name, @final_rank, @logo)
+    INSERT INTO history_teams (league_id, season, espn_team_id, team_name, owner_guid, owner_name, final_rank, logo, division_id, division_name)
+    VALUES (@league_id, @season, @espn_team_id, @team_name, @owner_guid, @owner_name, @final_rank, @logo, @division_id, @division_name)
     ON CONFLICT(league_id, season, espn_team_id) DO UPDATE SET
-      team_name=excluded.team_name, owner_guid=excluded.owner_guid, owner_name=excluded.owner_name, final_rank=excluded.final_rank, logo=excluded.logo
+      team_name=excluded.team_name, owner_guid=excluded.owner_guid, owner_name=excluded.owner_name, final_rank=excluded.final_rank,
+      logo=excluded.logo, division_id=excluded.division_id, division_name=excluded.division_name
   `);
   const upsertMatchup = db.prepare(`
     INSERT INTO history_matchups (league_id, season, week, playoff_tier, home_team_id, away_team_id, home_score, away_score, winner)
@@ -141,6 +151,8 @@ function upsertSeason(leagueId, year, data) {
         // exist) — treated the same as no value, not a real 0th place.
         final_rank: t.rankCalculatedFinal || null,
         logo: t.logo || null,
+        division_id: t.divisionId ?? null,
+        division_name: t.divisionId != null ? (divisionName.get(t.divisionId) || null) : null,
       });
     }
     for (const m of data.schedule || []) {

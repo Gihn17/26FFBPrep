@@ -14,6 +14,11 @@ const TABS = [
   ["teams", "Teams"],
 ];
 
+// Home is admin-only for now (Will's call — not finished yet), so it's
+// prepended separately rather than living in TABS, which every
+// history-permitted visitor sees.
+const HOME_TAB = ["home", "Home"];
+
 /** Loads {teams, matchups} once, derives the shared shapes every sub-page
  *  needs (team index, season records, owner list), and hands it all down
  *  via Outlet context — sub-pages don't each re-fetch or re-derive this. */
@@ -95,7 +100,7 @@ export default function HistoryLayout() {
         )}
 
         <div style={{ display:"flex", gap:8, marginBottom:16, flexWrap:"wrap" }}>
-          {TABS.map(([slug, label]) => (
+          {(canEdit ? [HOME_TAB, ...TABS] : TABS).map(([slug, label]) => (
             <NavLink key={slug} to={`/league-koi/${slug}`}
               style={({ isActive }) => ({
                 padding:"8px 16px", borderRadius:8, textDecoration:"none",

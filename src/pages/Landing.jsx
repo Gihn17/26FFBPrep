@@ -13,15 +13,40 @@ const TOOLS = [
     desc: "Live matchup scores for the current week, per league — updates while games are being played.",
     note: "🚧 Under construction — still being refined.",
   },
+];
+
+// One button per league's own League History — a separate row below the
+// main tools, on purpose, so adding Jordan/Final Fantasy later is just
+// another entry here rather than reshaping a single generic tile.
+const LEAGUE_HISTORIES = [
   {
-    to: "/league-koi/season", emoji: "📚", title: "League History", area: "history",
-    desc: "Season records, matchup log, head-to-head, and high/low weekly scores — starting with Koi.",
+    to: "/league-koi/season", emoji: "📚", title: "League History - Koi", area: "history",
+    desc: "Season records, matchup log, head-to-head, and high/low weekly scores.",
   },
 ];
 
+function ToolCard({ t }) {
+  return (
+    <div style={{ flex:"1 1 260px", minWidth:240 }}>
+      <Link to={t.to} style={{ textDecoration:"none", color:"inherit" }}>
+        <div style={{...panelStyle(), marginBottom:0, height:"100%", transition:"border-color 0.15s", cursor:"pointer"}}
+             onMouseEnter={e=>e.currentTarget.style.borderColor="#c9a227"}
+             onMouseLeave={e=>e.currentTarget.style.borderColor="#2a2c20"}>
+          <div style={{ fontSize:28, marginBottom:8 }}>{t.emoji}</div>
+          <div style={{ fontSize:16, fontWeight:700, color:"#f0d97a", marginBottom:6 }}>{t.title}</div>
+          <div style={{ fontSize:12.5, opacity:0.75, lineHeight:1.5 }}>{t.desc}</div>
+        </div>
+      </Link>
+      {t.note && <div style={{ fontSize:11.5, opacity:0.6, marginTop:6, paddingLeft:2 }}>{t.note}</div>}
+    </div>
+  );
+}
+
 export default function Landing() {
   const { user, logout } = useAuth();
-  const visibleTools = TOOLS.filter(t => user?.role === "admin" || user?.permissions.includes(t.area));
+  const canSee = (t) => user?.role === "admin" || user?.permissions.includes(t.area);
+  const visibleTools = TOOLS.filter(canSee);
+  const visibleHistories = LEAGUE_HISTORIES.filter(canSee);
 
   return (
     <div style={pageShell()}>
@@ -39,22 +64,22 @@ export default function Landing() {
           </div>
         </div>
 
-        <div style={{ display:"flex", flexWrap:"wrap", gap:16 }}>
-          {visibleTools.map(t => (
-            <div key={t.to} style={{ flex:"1 1 260px", minWidth:240 }}>
-              <Link to={t.to} style={{ textDecoration:"none", color:"inherit" }}>
-                <div style={{...panelStyle(), marginBottom:0, height:"100%", transition:"border-color 0.15s", cursor:"pointer"}}
-                     onMouseEnter={e=>e.currentTarget.style.borderColor="#c9a227"}
-                     onMouseLeave={e=>e.currentTarget.style.borderColor="#2a2c20"}>
-                  <div style={{ fontSize:28, marginBottom:8 }}>{t.emoji}</div>
-                  <div style={{ fontSize:16, fontWeight:700, color:"#f0d97a", marginBottom:6 }}>{t.title}</div>
-                  <div style={{ fontSize:12.5, opacity:0.75, lineHeight:1.5 }}>{t.desc}</div>
-                </div>
-              </Link>
-              {t.note && <div style={{ fontSize:11.5, opacity:0.6, marginTop:6, paddingLeft:2 }}>{t.note}</div>}
+        {visibleTools.length > 0 && (
+          <div style={{ display:"flex", flexWrap:"wrap", gap:16, marginBottom: visibleHistories.length ? 28 : 0 }}>
+            {visibleTools.map(t => <ToolCard key={t.to} t={t} />)}
+          </div>
+        )}
+
+        {visibleHistories.length > 0 && (
+          <>
+            <div style={{ fontSize:11, fontWeight:700, letterSpacing:0.5, color:"#c9a227", marginBottom:10, textTransform:"uppercase" }}>
+              League History
             </div>
-          ))}
-        </div>
+            <div style={{ display:"flex", flexWrap:"wrap", gap:16 }}>
+              {visibleHistories.map(t => <ToolCard key={t.to} t={t} />)}
+            </div>
+          </>
+        )}
       </div>
     </div>
   );
