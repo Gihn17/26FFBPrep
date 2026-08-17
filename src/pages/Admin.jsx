@@ -134,12 +134,59 @@ function NewUserForm({ onCreate }) {
   );
 }
 
+// SQLite's datetime('now') is UTC without a "Z" suffix — Date needs the
+// suffix or it's parsed as local time, which quietly skews the displayed
+// time by a timezone offset (same fix as history/HomePage.jsx's timeAgo).
+function formatLoginTime(iso) {
+  const d = new Date(iso.includes("Z") ? iso : iso.replace(" ", "T") + "Z");
+  return d.toLocaleString(undefined, { month:"short", day:"numeric", hour:"numeric", minute:"2-digit" });
+}
+
+function LoginLog({ userId }) {
+  const [rows, setRows] = useState(null);
+  useEffect(() => {
+    fetch(`/api/auth/users/${userId}/logins`).then(r => r.json()).then(setRows).catch(() => setRows([]));
+  }, [userId]);
+
+  if (rows === null) return <div style={{ fontSize:11.5, opacity:0.6 }}>Loading…</div>;
+  if (rows.length === 0) return <div style={{ fontSize:11.5, opacity:0.6 }}>No login attempts recorded yet.</div>;
+  return (
+    <table style={{ fontSize:11.5, borderCollapse:"collapse" }}>
+      <thead>
+        <tr style={{ opacity:0.6, textAlign:"left" }}>
+          <th style={{ padding:"3px 10px 3px 0" }}>When</th>
+          <th style={{ padding:"3px 10px" }}></th>
+          <th style={{ padding:"3px 10px" }}>IP</th>
+          <th style={{ padding:"3px 0" }}>Device</th>
+        </tr>
+      </thead>
+      <tbody>
+        {rows.map((r, i) => (
+          <tr key={i}>
+            <td style={{ padding:"3px 10px 3px 0", whiteSpace:"nowrap" }}>{formatLoginTime(r.created_at)}</td>
+            <td style={{ padding:"3px 10px", color: r.success ? "#7fd18f" : "#e08a8a" }}>{r.success ? "✓ success" : "✗ failed"}</td>
+            <td style={{ padding:"3px 10px", opacity:0.8 }}>{r.ip || "—"}</td>
+            <td style={{ padding:"3px 0", opacity:0.6, maxWidth:280, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{r.user_agent || "—"}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+}
+
 function UserRow({ u, isSelf, onSetRole, onSetPermissions, onSetDraftTabs, onSetHistoryTabs, onResetPassword, onDelete }) {
   const [newPassword, setNewPassword] = useState("");
+  const [showLogins, setShowLogins] = useState(false);
   return (
+    <>
     <tr>
       <td style={{ padding:"8px 6px", borderBottom:"1px solid #1e2018", verticalAlign:"top" }}>
         {u.username}{isSelf && <span style={{ opacity:0.5, fontSize:11 }}> (you)</span>}
+        <div>
+          <button onClick={()=>setShowLogins(s=>!s)} style={{ background:"none", border:"none", color:"#9c998e", fontSize:10.5, cursor:"pointer", padding:0, marginTop:4, textDecoration:"underline" }}>
+            {showLogins ? "hide logins" : "recent logins"}
+          </button>
+        </div>
       </td>
       <td style={{ padding:"8px 6px", borderBottom:"1px solid #1e2018", verticalAlign:"top" }}>
         <div style={{ marginBottom:6 }}>
@@ -168,6 +215,16 @@ function UserRow({ u, isSelf, onSetRole, onSetPermissions, onSetDraftTabs, onSet
         <button onClick={()=>onDelete(u.id)} disabled={isSelf} style={btnStyle("#3a1f1f","#c0453f")}>Delete</button>
       </td>
     </tr>
+    {showLogins && (
+      <tr>
+        <td colSpan={4} style={{ padding:"0 6px 12px", borderBottom:"1px solid #1e2018" }}>
+          <div style={{ overflowX:"auto" }}>
+            <LoginLog userId={u.id} />
+          </div>
+        </td>
+      </tr>
+    )}
+    </>
   );
 }
 

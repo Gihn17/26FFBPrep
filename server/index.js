@@ -11,7 +11,7 @@ import {
   bootstrapAdmin, attachUser, requireAuth, requireAdmin, requirePermission,
   verifyLogin, createSession, deleteSession, setSessionCookie, clearSessionCookie, getSessionTokenFromReq,
   listAuthUsers, createAuthUser, setAuthUserPassword, setAuthUserRole, setAuthUserPermissions,
-  setAuthUserDraftTabs, setAuthUserHistoryTabs, deleteAuthUser,
+  setAuthUserDraftTabs, setAuthUserHistoryTabs, deleteAuthUser, recordLogin, listLoginLog,
 } from "./auth.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -64,6 +64,12 @@ startAdpScheduler();
 })();
 
 const app = express();
+// This app sits behind nginx-proxy-manager — without trusting the proxy,
+// req.ip would just be the Docker network's internal gateway address for
+// every request, which makes the login log useless. Only one hop (the
+// proxy) between the internet and this container, so trusting it here
+// doesn't open up IP spoofing from further away.
+app.set("trust proxy", true);
 app.use(express.json({ limit: "15mb" })); // draft boards + CSV imports can add up
 app.use(attachUser); // attaches req.authUser if there's a valid session cookie; never blocks by itself
 
@@ -74,6 +80,7 @@ app.use(attachUser); // attaches req.authUser if there's a valid session cookie;
 app.post("/api/auth/login", (req, res) => {
   const { username, password } = req.body || {};
   const user = verifyLogin(username, password);
+  recordLogin({ usernameAttempted: username, success: !!user, ip: req.ip, userAgent: req.headers["user-agent"] });
   if (!user) return res.status(401).json({ error: "wrong username or password" });
   const { token } = createSession(user.id);
   setSessionCookie(req, res, token);
@@ -103,6 +110,13 @@ app.put("/api/auth/me/password", requireAuth, (req, res) => {
 // --- Account management (admin only) — create/edit/remove the accounts
 // that can log in at all, and what role (admin/restricted) each has. ---
 app.get("/api/auth/users", requireAdmin, (req, res) => res.json(listAuthUsers()));
+
+// Recent login attempts (success and failure) for one account — see
+// server/auth.js's login_log table. Admin-only, and only ever surfaced
+// here, never through the login response itself.
+app.get("/api/auth/users/:id/logins", requireAdmin, (req, res) => {
+  res.json(listLoginLog(Number(req.params.id)));
+});
 
 app.post("/api/auth/users", requireAdmin, (req, res) => {
   try {

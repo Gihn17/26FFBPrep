@@ -75,6 +75,24 @@ CREATE TABLE IF NOT EXISTS auth_sessions (
   expires_at  TEXT NOT NULL,
   created_at  TEXT NOT NULL DEFAULT (datetime('now'))
 );
+
+-- Every login attempt, success or failure — light audit trail so "who's
+-- actually using the guest account" has a real answer instead of a shrug.
+-- user_id is set whenever the attempted username matches a real account
+-- (even if the password was wrong — that's still an attempt against that
+-- account, worth showing on its row), and left null for a username that
+-- doesn't exist at all. Never surfaced back through the login response
+-- itself — admin-only, via a separate route — so this doesn't turn into a
+-- user-enumeration leak on the login endpoint.
+CREATE TABLE IF NOT EXISTS login_log (
+  id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id             INTEGER REFERENCES auth_users(id) ON DELETE SET NULL,
+  username_attempted  TEXT NOT NULL,
+  success             INTEGER NOT NULL,
+  ip                  TEXT,
+  user_agent          TEXT,
+  created_at          TEXT NOT NULL DEFAULT (datetime('now'))
+);
 `);
 
 // Migration: CREATE TABLE IF NOT EXISTS above doesn't add columns to an
@@ -211,6 +229,27 @@ export function verifyLogin(username, password) {
   const a = Buffer.from(candidate, "hex"), b = Buffer.from(user.password_hash, "hex");
   if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) return null;
   return toUserShape(user);
+}
+
+const LOGIN_LOG_CAP = 2000; // light, not unbounded — trimmed on every insert
+
+/** Records one login attempt (success or failure). Resolves user_id by
+ *  username alone, independent of whether the password was right — a
+ *  wrong-password attempt against a real account still belongs on that
+ *  account's history, not just on the "unknown username" pile. */
+export function recordLogin({ usernameAttempted, success, ip, userAgent }) {
+  const username = normalizeUsername(usernameAttempted);
+  const user = db.prepare("SELECT id FROM auth_users WHERE username = ?").get(username);
+  db.prepare("INSERT INTO login_log (user_id, username_attempted, success, ip, user_agent) VALUES (?, ?, ?, ?, ?)")
+    .run(user ? user.id : null, username, success ? 1 : 0, ip || null, userAgent || null);
+  db.prepare(`DELETE FROM login_log WHERE id NOT IN (SELECT id FROM login_log ORDER BY id DESC LIMIT ${LOGIN_LOG_CAP})`).run();
+}
+
+/** Recent login attempts for one account (both successful and failed —
+ *  a string of failures is exactly the kind of thing worth seeing). */
+export function listLoginLog(userId, limit = 25) {
+  return db.prepare("SELECT success, ip, user_agent, created_at FROM login_log WHERE user_id = ? ORDER BY id DESC LIMIT ?")
+    .all(userId, limit);
 }
 
 export function createSession(userId) {
