@@ -16,10 +16,10 @@
 //                 default for "just a trusted person," no checkboxes to
 //                 configure.
 //   - 'limited'   (was called 'restricted') sees only whichever AREAS —
-//                 and, within those, whichever sub-tabs — they've been
-//                 explicitly granted. permissions/draft_tabs/history_tabs
-//                 are only ever consulted for this role; admin and
-//                 standard both bypass them entirely.
+//                 and, within those, whichever sub-grants — they've been
+//                 explicitly granted. permissions/draft_tabs/
+//                 history_leagues are only ever consulted for this role;
+//                 admin and standard both bypass them entirely.
 //
 // AREAS — independently grantable, not a fixed bundle (Will asked for
 // this explicitly after the first pass only offered "everything" or
@@ -28,7 +28,7 @@
 //   - 'gameday'   live scores
 //   - 'history'   League History
 //
-// Two AREAS have their own finer layer, same shape, same reasoning (Will
+// Two AREAS have their own finer layer, same shape, different grain (Will
 // asked for this explicitly too — a 'limited' account granted an area
 // shouldn't automatically get every sub-page inside it):
 //   - DRAFT_TABS (db.js's VALID_TABS): which of the draft board's own
@@ -36,9 +36,12 @@
 //     with 'draft' sees. Replaces the old free-text "Viewing as" profile
 //     picker and its per-profile allowed_tabs (db.js's `users` table),
 //     which had no real login behind it at all.
-//   - HISTORY_TABS (db.js's own export): which of League History's
-//     sub-pages (Seasons/Stats/H2H/Champs/Teams) a 'limited' account with
-//     'history' sees. "Home" is deliberately NOT part of this list — it's
+//   - HISTORY_LEAGUES (db.js's own export): which WHOLE league's History a
+//     'limited' account with 'history' sees (Koi is the only one built so
+//     far). Deliberately per-league, not per-sub-page like DRAFT_TABS —
+//     once a league is granted, every sub-page inside it (Season/Stats/
+//     H2H/Champs/Teams) comes with it; there's no finer grant underneath.
+//     "Home" is deliberately NOT part of this list either way — it's
 //     gated to the true admin role only, unfinished, not a grantable
 //     permission (see requireAdmin on its routes in index.js).
 //
@@ -47,7 +50,7 @@
 // tokens in a DB table (not a stateless JWT), so revoking one is just a
 // DELETE — no separate blocklist to maintain.
 import crypto from "crypto";
-import { db, VALID_TABS as DRAFT_TABS, HISTORY_TABS } from "./db.js";
+import { db, VALID_TABS as DRAFT_TABS, HISTORY_LEAGUES } from "./db.js";
 
 export const ROLES = ["admin", "standard", "limited"];
 export const AREAS = ["draft", "gameday", "history"];
@@ -62,9 +65,9 @@ CREATE TABLE IF NOT EXISTS auth_users (
   role          TEXT NOT NULL DEFAULT 'limited',  -- 'admin' | 'standard' | 'limited'
   permissions   TEXT,                   -- comma-separated subset of AREAS; only
                                           -- meaningful for role='limited'
-  draft_tabs    TEXT,                   -- comma-separated subset of DRAFT_TABS;
+  draft_tabs      TEXT,                 -- comma-separated subset of DRAFT_TABS;
                                           -- only meaningful when 'draft' is granted
-  history_tabs  TEXT,                   -- comma-separated subset of HISTORY_TABS;
+  history_leagues TEXT,                 -- comma-separated subset of HISTORY_LEAGUES;
                                           -- only meaningful when 'history' is granted
   created_at    TEXT NOT NULL DEFAULT (datetime('now'))
 );
@@ -105,8 +108,26 @@ if (!authUsersCols.includes("permissions")) {
 if (!authUsersCols.includes("draft_tabs")) {
   db.exec("ALTER TABLE auth_users ADD COLUMN draft_tabs TEXT");
 }
-if (!authUsersCols.includes("history_tabs")) {
-  db.exec("ALTER TABLE auth_users ADD COLUMN history_tabs TEXT");
+// Migration: history_tabs (per-sub-page grants within Koi's History: season/
+// stats/h2h/champs/teams) is replaced by history_leagues (which WHOLE
+// league's History a 'limited' account can see — Koi is the only one that
+// exists). Renaming preserves any stored values, which then need their own
+// one-time translation: since Koi was the only league History could ever
+// apply to, any account that had at least one old sub-page grant gets
+// 'koi' now (they could already see into Koi's history; now they see all
+// of it, which is the closest honest equivalent, not a new grant of
+// something they couldn't reach before). Guarded on the rename actually
+// having just happened, so this never re-runs against a real league grant.
+if (!authUsersCols.includes("history_leagues")) {
+  if (authUsersCols.includes("history_tabs")) {
+    db.exec("ALTER TABLE auth_users RENAME COLUMN history_tabs TO history_leagues");
+    db.prepare(`
+      UPDATE auth_users SET history_leagues = 'koi'
+      WHERE history_leagues IS NOT NULL AND history_leagues != ''
+    `).run();
+  } else {
+    db.exec("ALTER TABLE auth_users ADD COLUMN history_leagues TEXT");
+  }
 }
 // Migration: the role that's now 'limited' used to be called 'restricted'
 // — rename the stored value for every existing account, not just new
@@ -137,19 +158,19 @@ const parsePermissions = (raw) => parseList(raw, AREAS);
 const serializePermissions = (areas) => serializeList(areas, AREAS);
 const parseDraftTabs = (raw) => parseList(raw, DRAFT_TABS);
 const serializeDraftTabs = (tabs) => serializeList(tabs, DRAFT_TABS);
-const parseHistoryTabs = (raw) => parseList(raw, HISTORY_TABS);
-const serializeHistoryTabs = (tabs) => serializeList(tabs, HISTORY_TABS);
+const parseHistoryLeagues = (raw) => parseList(raw, HISTORY_LEAGUES);
+const serializeHistoryLeagues = (leagues) => serializeList(leagues, HISTORY_LEAGUES);
 
 function toUserShape(row) {
   return {
     id: row.id, username: row.username, role: row.role,
     permissions: parsePermissions(row.permissions),
     draftTabs: parseDraftTabs(row.draft_tabs),
-    historyTabs: parseHistoryTabs(row.history_tabs),
+    historyLeagues: parseHistoryLeagues(row.history_leagues),
   };
 }
 
-export function createAuthUser(username, password, role = "limited", permissions = [], draftTabs = [], historyTabs = []) {
+export function createAuthUser(username, password, role = "limited", permissions = [], draftTabs = [], historyLeagues = []) {
   username = normalizeUsername(username);
   if (!username) throw new Error("username required");
   if (!password || password.length < 4) throw new Error("password must be at least 4 characters");
@@ -158,14 +179,14 @@ export function createAuthUser(username, password, role = "limited", permissions
   const hash = hashPassword(password, salt);
   const perms = serializePermissions(permissions);
   const draftT = serializeDraftTabs(draftTabs);
-  const historyT = serializeHistoryTabs(historyTabs);
-  const info = db.prepare("INSERT INTO auth_users (username, password_hash, password_salt, role, permissions, draft_tabs, history_tabs) VALUES (?, ?, ?, ?, ?, ?, ?)")
-    .run(username, hash, salt, role, perms, draftT, historyT);
-  return toUserShape({ id: info.lastInsertRowid, username, role, permissions: perms, draft_tabs: draftT, history_tabs: historyT });
+  const historyL = serializeHistoryLeagues(historyLeagues);
+  const info = db.prepare("INSERT INTO auth_users (username, password_hash, password_salt, role, permissions, draft_tabs, history_leagues) VALUES (?, ?, ?, ?, ?, ?, ?)")
+    .run(username, hash, salt, role, perms, draftT, historyL);
+  return toUserShape({ id: info.lastInsertRowid, username, role, permissions: perms, draft_tabs: draftT, history_leagues: historyL });
 }
 
 export function listAuthUsers() {
-  return db.prepare("SELECT id, username, role, permissions, draft_tabs, history_tabs, created_at FROM auth_users ORDER BY id")
+  return db.prepare("SELECT id, username, role, permissions, draft_tabs, history_leagues, created_at FROM auth_users ORDER BY id")
     .all().map((row) => ({ ...toUserShape(row), created_at: row.created_at }));
 }
 
@@ -202,12 +223,13 @@ export function setAuthUserDraftTabs(id, tabs) {
   if (result.changes === 0) throw new Error("user not found");
 }
 
-/** Which of League History's sub-pages (Seasons/Stats/H2H/Champs/Teams —
- *  never "home", see the file header) a 'limited' account with 'history'
- *  access can see. */
-export function setAuthUserHistoryTabs(id, tabs) {
-  const value = serializeHistoryTabs(tabs);
-  const result = db.prepare("UPDATE auth_users SET history_tabs = ? WHERE id = ?").run(value, id);
+/** Which WHOLE league's History (Koi is the only one so far — never
+ *  "home", see the file header) a 'limited' account with 'history' access
+ *  can see. Granting a league grants every sub-page inside it; there's no
+ *  finer permission underneath, unlike setAuthUserDraftTabs above. */
+export function setAuthUserHistoryLeagues(id, leagues) {
+  const value = serializeHistoryLeagues(leagues);
+  const result = db.prepare("UPDATE auth_users SET history_leagues = ? WHERE id = ?").run(value, id);
   if (result.changes === 0) throw new Error("user not found");
 }
 
@@ -266,7 +288,7 @@ export function deleteSession(token) {
 export function getUserBySession(token) {
   if (!token) return null;
   const row = db.prepare(`
-    SELECT u.id, u.username, u.role, u.permissions, u.draft_tabs, u.history_tabs, s.expires_at
+    SELECT u.id, u.username, u.role, u.permissions, u.draft_tabs, u.history_leagues, s.expires_at
     FROM auth_sessions s JOIN auth_users u ON u.id = s.user_id
     WHERE s.token = ?
   `).get(token);
@@ -344,6 +366,22 @@ export function requirePermission(area) {
     if (FULL_ACCESS_ROLES.includes(req.authUser.role) || req.authUser.permissions.includes(area)) return next();
     res.status(403).json({ error: `access to '${area}' not granted` });
   };
+}
+
+/** Gate on a specific league's League History (route's :league param) — a
+ *  REAL data-security boundary, unlike DRAFT_TABS, which only ever hid nav/
+ *  routes client-side and never further restricted /api/storage. Because
+ *  history_leagues is meant to keep one friend off another league's data
+ *  entirely (not just off a sub-page of a league they can already reach),
+ *  it has to be checked here too, not just in the UI. Full-access roles
+ *  always pass; a 'limited' account needs both the 'history' area AND the
+ *  requested league in their granted history_leagues. */
+export function requireHistoryLeague(req, res, next) {
+  if (!req.authUser) return res.status(401).json({ error: "login required" });
+  if (FULL_ACCESS_ROLES.includes(req.authUser.role)) return next();
+  const league = req.params.league;
+  if (req.authUser.permissions.includes("history") && req.authUser.historyLeagues.includes(league)) return next();
+  res.status(403).json({ error: `access to '${league}' history not granted` });
 }
 
 /** Creates the first admin account on a fresh install, with a random

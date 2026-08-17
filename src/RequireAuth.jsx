@@ -16,10 +16,13 @@ const FULL_ACCESS_ROLES = ["admin", "standard"];
 //   - permission="X":    admin/standard, or a 'limited' account granted
 //                        area X (X is one of server/auth.js's AREAS:
 //                        'draft' | 'gameday' | 'history')
-//   - historyTab="X":    admin/standard, or a 'limited' account granted
-//                        that specific League History sub-page (X is one
-//                        of db.js's HISTORY_TABS)
-export default function RequireAuth({ role, permission, historyTab, children }) {
+//   - historyLeague="X": admin/standard, or a 'limited' account granted
+//                        that specific league's League History (X is one
+//                        of db.js's HISTORY_LEAGUES). Granting a league
+//                        grants every sub-page inside it — this is checked
+//                        once, on the league's own top-level route, not
+//                        per sub-page.
+export default function RequireAuth({ role, permission, historyLeague, children }) {
   const { user, loading } = useAuth();
   const location = useLocation();
 
@@ -28,6 +31,6 @@ export default function RequireAuth({ role, permission, historyTab, children }) 
   if (role === "admin" && user.role !== "admin") return <Navigate to="/" replace />;
   const hasFullAccess = FULL_ACCESS_ROLES.includes(user.role);
   if (permission && !hasFullAccess && !user.permissions.includes(permission)) return <Navigate to="/" replace />;
-  if (historyTab && !hasFullAccess && !user.historyTabs.includes(historyTab)) return <Navigate to="/league-koi" replace />;
+  if (historyLeague && !hasFullAccess && !user.historyLeagues.includes(historyLeague)) return <Navigate to="/" replace />;
   return children;
 }

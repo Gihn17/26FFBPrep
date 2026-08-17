@@ -8,10 +8,10 @@ import { getAdpPool, getAdpStatus, refreshAdpPool, startAdpScheduler } from "./a
 import { refreshLeagueHistory, getLeagueHistory, getWeekMatchups } from "./espn.js";
 import { getHomeSettings, setHomeSettings, listChatMessages, addChatMessage, deleteChatMessage } from "./leaguehome.js";
 import {
-  bootstrapAdmin, attachUser, requireAuth, requireAdmin, requirePermission,
+  bootstrapAdmin, attachUser, requireAuth, requireAdmin, requirePermission, requireHistoryLeague,
   verifyLogin, createSession, deleteSession, setSessionCookie, clearSessionCookie, getSessionTokenFromReq,
   listAuthUsers, createAuthUser, setAuthUserPassword, setAuthUserRole, setAuthUserPermissions,
-  setAuthUserDraftTabs, setAuthUserHistoryTabs, deleteAuthUser, recordLogin, listLoginLog,
+  setAuthUserDraftTabs, setAuthUserHistoryLeagues, deleteAuthUser, recordLogin, listLoginLog,
 } from "./auth.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -120,8 +120,8 @@ app.get("/api/auth/users/:id/logins", requireAdmin, (req, res) => {
 
 app.post("/api/auth/users", requireAdmin, (req, res) => {
   try {
-    const { username, password, role, permissions, draftTabs, historyTabs } = req.body || {};
-    res.json(createAuthUser(username, password, role, permissions, draftTabs, historyTabs));
+    const { username, password, role, permissions, draftTabs, historyLeagues } = req.body || {};
+    res.json(createAuthUser(username, password, role, permissions, draftTabs, historyLeagues));
   } catch (e) {
     res.status(400).json({ error: e.message });
   }
@@ -171,11 +171,12 @@ app.put("/api/auth/users/:id/draft-tabs", requireAdmin, (req, res) => {
   }
 });
 
-// Which of League History's sub-pages (Seasons/Stats/H2H/Champs/Teams) a
-// 'limited' account with 'history' access can see.
-app.put("/api/auth/users/:id/history-tabs", requireAdmin, (req, res) => {
+// Which WHOLE league's History (Koi is the only one so far) a 'limited'
+// account with 'history' access can see — granting a league grants every
+// sub-page inside it, unlike draft-tabs above.
+app.put("/api/auth/users/:id/history-leagues", requireAdmin, (req, res) => {
   try {
-    setAuthUserHistoryTabs(Number(req.params.id), req.body && req.body.historyTabs);
+    setAuthUserHistoryLeagues(Number(req.params.id), req.body && req.body.historyLeagues);
     res.json({ ok: true });
   } catch (e) {
     res.status(400).json({ error: e.message });
@@ -306,10 +307,14 @@ app.get("/api/health", (req, res) => res.json({ ok: true, dataFile: DATA_FILE })
 app.get("/api/leagues", requireAuth, (req, res) => res.json(getAllLeagues()));
 
 // --- League History (ESPN leagues only — Koi now, Jordan once its ESPN
-// league id is on file). See server/espn.js. Gated on the 'history' area;
-// only admin can trigger a refresh against ESPN regardless of permissions
-// (that's a write against an external API + cookies, not just a view). ---
-app.get("/api/history/:league", requirePermission("history"), (req, res) => {
+// league id is on file). See server/espn.js. Gated on both the 'history'
+// area AND the specific league (requireHistoryLeague) — a real data
+// boundary, not just nav-hiding, so a friend granted Koi's history can't
+// pull a different league's data by changing the URL once more leagues
+// exist. Only admin can trigger a refresh against ESPN regardless of
+// permissions (that's a write against an external API + cookies, not just
+// a view). ---
+app.get("/api/history/:league", requireHistoryLeague, (req, res) => {
   res.json(getLeagueHistory(req.params.league));
 });
 

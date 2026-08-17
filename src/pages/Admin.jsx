@@ -17,19 +17,19 @@ const AREAS = [
 
 // Sub-permissions, only meaningful once their parent area is granted AND
 // the account is "limited" (admin/standard both bypass these entirely —
-// see server/auth.js's FULL_ACCESS_ROLES).
+// see server/auth.js's FULL_ACCESS_ROLES). Different grain on purpose:
+// Draft's are per-sub-page within one shared board, History's are per
+// WHOLE LEAGUE — granting Koi's history grants everything inside it
+// (Season/Stats/H2H/Champs/Teams together), there's no finer pick.
 const DRAFT_TABS = [
   ["koi", "Koi"],
   ["final", "Final Fantasy"],
   ["jordan", "Jordan"],
   ["how", "Calculations"],
 ];
-const HISTORY_TABS = [
-  ["season", "Seasons"],
-  ["stats", "Stats"],
-  ["h2h", "H2H"],
-  ["champs", "Champs"],
-  ["teams", "Teams"],
+const HISTORY_LEAGUES = [
+  ["koi", "Koi"],
+  // Add Final Fantasy/Jordan here once they get their own League History page.
 ];
 
 function RoleSelect({ value, onChange, disabled }) {
@@ -82,7 +82,7 @@ function NewUserForm({ onCreate }) {
   const [role, setRole] = useState("limited");
   const [permissions, setPermissions] = useState([]);
   const [draftTabs, setDraftTabs] = useState([]);
-  const [historyTabs, setHistoryTabs] = useState([]);
+  const [historyLeagues, setHistoryLeagues] = useState([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
 
@@ -90,8 +90,8 @@ function NewUserForm({ onCreate }) {
     e.preventDefault();
     setBusy(true); setError(null);
     try {
-      await onCreate({ username, password, role, permissions, draftTabs, historyTabs });
-      setUsername(""); setPassword(""); setRole("limited"); setPermissions([]); setDraftTabs([]); setHistoryTabs([]);
+      await onCreate({ username, password, role, permissions, draftTabs, historyLeagues });
+      setUsername(""); setPassword(""); setRole("limited"); setPermissions([]); setDraftTabs([]); setHistoryLeagues([]);
     } catch (e) {
       setError(e.message);
     }
@@ -125,7 +125,7 @@ function NewUserForm({ onCreate }) {
             <SubTabCheckboxes options={DRAFT_TABS} selected={draftTabs} onChange={setDraftTabs} />
           )}
           {permissions.includes("history") && (
-            <SubTabCheckboxes options={HISTORY_TABS} selected={historyTabs} onChange={setHistoryTabs} />
+            <SubTabCheckboxes options={HISTORY_LEAGUES} selected={historyLeagues} onChange={setHistoryLeagues} />
           )}
         </label>
       )}
@@ -174,7 +174,7 @@ function LoginLog({ userId }) {
   );
 }
 
-function UserRow({ u, isSelf, onSetRole, onSetPermissions, onSetDraftTabs, onSetHistoryTabs, onResetPassword, onDelete }) {
+function UserRow({ u, isSelf, onSetRole, onSetPermissions, onSetDraftTabs, onSetHistoryLeagues, onResetPassword, onDelete }) {
   const [newPassword, setNewPassword] = useState("");
   const [showLogins, setShowLogins] = useState(false);
   return (
@@ -199,7 +199,7 @@ function UserRow({ u, isSelf, onSetRole, onSetPermissions, onSetDraftTabs, onSet
               <SubTabCheckboxes options={DRAFT_TABS} selected={u.draftTabs} onChange={(tabs)=>onSetDraftTabs(u.id, tabs)} />
             )}
             {u.permissions.includes("history") && (
-              <SubTabCheckboxes options={HISTORY_TABS} selected={u.historyTabs} onChange={(tabs)=>onSetHistoryTabs(u.id, tabs)} />
+              <SubTabCheckboxes options={HISTORY_LEAGUES} selected={u.historyLeagues} onChange={(tabs)=>onSetHistoryLeagues(u.id, tabs)} />
             )}
           </>
         )}
@@ -239,10 +239,10 @@ export default function Admin() {
   }, []);
   useEffect(load, [load]);
 
-  const createUser = async ({ username, password, role, permissions, draftTabs, historyTabs }) => {
+  const createUser = async ({ username, password, role, permissions, draftTabs, historyLeagues }) => {
     const res = await fetch("/api/auth/users", {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ username, password, role, permissions, draftTabs, historyTabs }),
+      body: JSON.stringify({ username, password, role, permissions, draftTabs, historyLeagues }),
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || "failed to create account");
@@ -272,10 +272,10 @@ export default function Admin() {
     });
   };
 
-  const setHistoryTabs = async (id, historyTabs) => {
-    setUsers(us => us.map(u => u.id === id ? { ...u, historyTabs } : u));
-    await fetch(`/api/auth/users/${id}/history-tabs`, {
-      method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ historyTabs }),
+  const setHistoryLeagues = async (id, historyLeagues) => {
+    setUsers(us => us.map(u => u.id === id ? { ...u, historyLeagues } : u));
+    await fetch(`/api/auth/users/${id}/history-leagues`, {
+      method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ historyLeagues }),
     });
   };
 
@@ -331,7 +331,7 @@ export default function Admin() {
                   {users.map(u => (
                     <UserRow key={u.id} u={u} isSelf={u.id === user?.id}
                       onSetRole={setRole} onSetPermissions={setPermissions}
-                      onSetDraftTabs={setDraftTabs} onSetHistoryTabs={setHistoryTabs}
+                      onSetDraftTabs={setDraftTabs} onSetHistoryLeagues={setHistoryLeagues}
                       onResetPassword={resetPassword} onDelete={deleteUser} />
                   ))}
                 </tbody>

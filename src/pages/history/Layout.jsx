@@ -6,9 +6,12 @@ import { useAuth } from "../../AuthContext.jsx";
 
 const LEAGUE = "koi"; // only league with an ESPN id on file so far — same code path once Jordan/Final have one
 
-// Keep in sync with db.js's HISTORY_TABS (the server-side canonical
-// list) — same manual-sync convention already used for App.jsx's
-// ALL_TABS vs. db.js's VALID_TABS.
+// Pure navigation list now — NOT a permission list. Permission for League
+// History is per-LEAGUE (server/db.js's HISTORY_LEAGUES, checked once via
+// RequireAuth's historyLeague prop on this whole route in main.jsx), so
+// every visitor who reaches this layout at all sees every one of these.
+// Keep in sync with db.js's TABS-shaped nav comment above VALID_TABS —
+// same manual-sync convention already used for App.jsx's ALL_TABS.
 export const TABS = [
   ["season", "Seasons"],
   ["stats", "Stats"],
@@ -22,8 +25,6 @@ export const TABS = [
 // history-permitted visitor sees.
 const HOME_TAB = ["home", "Home"];
 
-const FULL_ACCESS_ROLES = ["admin", "standard"];
-
 /** Loads {teams, matchups} once, derives the shared shapes every sub-page
  *  needs (team index, season records, owner list), and hands it all down
  *  via Outlet context — sub-pages don't each re-fetch or re-derive this. */
@@ -36,8 +37,10 @@ export default function HistoryLayout() {
 
   const { user } = useAuth();
   const canEdit = user?.role === "admin"; // strict — not "standard", Home stays admin-only while it's unfinished
-  const hasFullAccess = FULL_ACCESS_ROLES.includes(user?.role);
-  const visibleTabs = hasFullAccess ? TABS : TABS.filter(([slug]) => user?.historyTabs.includes(slug));
+  // Reaching this component at all already means the league is granted
+  // (RequireAuth checked it before rendering HistoryLayout) — every nav
+  // tab is visible, no further per-tab filtering.
+  const visibleTabs = TABS;
 
   const load = () => {
     fetch(`/api/history/${LEAGUE}`).then(r => r.json()).then(d => {

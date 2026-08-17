@@ -195,11 +195,16 @@ if (!defaultUser) {
 // used for the checkbox UI and the nav-filtering fallback.
 export const VALID_TABS = ["koi", "final", "jordan", "how"];
 
-// Same idea, for League History's own sub-pages — keep in sync with TABS
-// in src/pages/history/Layout.jsx. Deliberately excludes "home": that
-// page is gated to the true admin role only (see server/auth.js's role
-// comment), not grantable as a per-area permission like these are.
-export const HISTORY_TABS = ["season", "stats", "h2h", "champs", "teams"];
+// Which whole league's League History a 'limited' account can see — Koi is
+// the only one with a League History page built so far; extend this list
+// (and Landing.jsx's LEAGUE_HISTORIES / main.jsx's routes) as Final/Jordan
+// get their own. Deliberately per-LEAGUE, not per-sub-page: once a league
+// is granted here, every sub-page inside it (Season/Stats/H2H/Champs/Teams)
+// is visible — there's no finer permission underneath, unlike Draft Prep's
+// VALID_TABS above. "home" isn't a league and never appears here regardless
+// — that page is gated to the true admin role only (see server/auth.js's
+// role comment), not grantable as a permission at all.
+export const HISTORY_LEAGUES = ["koi"];
 
 /** allowed_tabs is stored as a comma-separated string; NULL/empty means
  *  "all tabs" (the default, so existing single-user setups are never
