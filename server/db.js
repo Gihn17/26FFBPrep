@@ -195,6 +195,12 @@ if (!defaultUser) {
 // used for the checkbox UI and the nav-filtering fallback.
 export const VALID_TABS = ["koi", "final", "jordan", "how"];
 
+// Same idea, for League History's own sub-pages — keep in sync with TABS
+// in src/pages/history/Layout.jsx. Deliberately excludes "home": that
+// page is gated to the true admin role only (see server/auth.js's role
+// comment), not grantable as a per-area permission like these are.
+export const HISTORY_TABS = ["season", "stats", "h2h", "champs", "teams"];
+
 /** allowed_tabs is stored as a comma-separated string; NULL/empty means
  *  "all tabs" (the default, so existing single-user setups are never
  *  restricted). Always comes back as either an array or null, never "". */

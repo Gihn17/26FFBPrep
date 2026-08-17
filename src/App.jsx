@@ -485,15 +485,18 @@ export default function DraftPrepApp() {
 
   // Who's actually signed in (real session, see AuthContext — this
   // replaces the old free-text "Viewing as" picker entirely) and which of
-  // this board's tabs they can see. Admin always gets everything; a
-  // restricted account only sees whatever's checked for them in the Admin
-  // panel — no implicit "all tabs" fallback the way the old system had,
-  // since the whole point of per-area permissions is that nothing's
-  // visible until it's explicitly granted.
+  // this board's tabs they can see. Admin and standard both get every tab;
+  // a "limited" account only sees whatever's checked for them in the Admin
+  // panel — no implicit "all tabs" fallback for limited, since the whole
+  // point of per-area permissions is that nothing's visible until it's
+  // explicitly granted. isAdmin stays the true admin role only — keeper
+  // import, ESPN cookie edits, and the base-notes upload are elevated
+  // actions that standard doesn't get just for having full view access.
   const { user: authUser, logout } = useAuth();
   const currentUserName = authUser?.username || "";
   const isAdmin = authUser?.role === "admin";
-  const allowedTabs = isAdmin ? ALL_TABS : (authUser?.draftTabs || []);
+  const hasFullDraftAccess = isAdmin || authUser?.role === "standard";
+  const allowedTabs = hasFullDraftAccess ? ALL_TABS : (authUser?.draftTabs || []);
 
   // If the active tab isn't (or is no longer) allowed for this user, bump
   // them to their first allowed tab instead of showing a tab they can't see.

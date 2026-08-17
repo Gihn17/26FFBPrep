@@ -3,22 +3,44 @@ import { Link } from "react-router-dom";
 import { pageShell, panelStyle, btnStyle, inp, lbl } from "../theme.jsx";
 import { useAuth } from "../AuthContext.jsx";
 
+const ROLE_LABEL = {
+  admin: "Admin — full access + account management",
+  standard: "Standard — full access, no account management",
+  limited: "Limited — pick exactly what they can see",
+};
+
 const AREAS = [
   ["draft", "Draft Prep"],
   ["gameday", "Game Day"],
   ["history", "League History"],
 ];
 
-// Sub-permission, only meaningful once 'draft' is granted — which of the
-// draft board's own internal tabs this account sees (same values as
-// db.js's VALID_TABS / App.jsx's ALL_TABS, minus "settings" — that one's
-// never independently grantable, same as it's always been admin-only).
+// Sub-permissions, only meaningful once their parent area is granted AND
+// the account is "limited" (admin/standard both bypass these entirely —
+// see server/auth.js's FULL_ACCESS_ROLES).
 const DRAFT_TABS = [
   ["koi", "Koi"],
   ["final", "Final Fantasy"],
   ["jordan", "Jordan"],
   ["how", "Calculations"],
 ];
+const HISTORY_TABS = [
+  ["season", "Seasons"],
+  ["stats", "Stats"],
+  ["h2h", "H2H"],
+  ["champs", "Champs"],
+  ["teams", "Teams"],
+];
+
+function RoleSelect({ value, onChange, disabled }) {
+  return (
+    <select value={value} onChange={e=>onChange(e.target.value)} disabled={disabled} style={inp(230)}>
+      <option value="limited">{ROLE_LABEL.limited}</option>
+      <option value="standard">{ROLE_LABEL.standard}</option>
+      <option value="admin">{ROLE_LABEL.admin}</option>
+    </select>
+  );
+}
 
 function AreaCheckboxes({ permissions, onChange, disabled }) {
   const toggle = (area) => {
@@ -36,15 +58,17 @@ function AreaCheckboxes({ permissions, onChange, disabled }) {
   );
 }
 
-function DraftTabCheckboxes({ draftTabs, onChange, disabled }) {
-  const toggle = (tab) => {
-    onChange(draftTabs.includes(tab) ? draftTabs.filter(t => t !== tab) : [...draftTabs, tab]);
+// Shared by both sub-tab rows (draft/history) — same shape, different
+// option list.
+function SubTabCheckboxes({ options, selected, onChange, disabled }) {
+  const toggle = (key) => {
+    onChange(selected.includes(key) ? selected.filter(t => t !== key) : [...selected, key]);
   };
   return (
     <div style={{ display:"flex", gap:12, flexWrap:"wrap", paddingLeft:18, marginTop:4, borderLeft:"2px solid #2a2c20" }}>
-      {DRAFT_TABS.map(([key, label]) => (
+      {options.map(([key, label]) => (
         <label key={key} style={{ display:"flex", alignItems:"center", gap:5, fontSize:11.5, opacity: disabled ? 0.4 : 0.85 }}>
-          <input type="checkbox" checked={draftTabs.includes(key)} disabled={disabled} onChange={()=>toggle(key)} />
+          <input type="checkbox" checked={selected.includes(key)} disabled={disabled} onChange={()=>toggle(key)} />
           {label}
         </label>
       ))}
@@ -55,9 +79,10 @@ function DraftTabCheckboxes({ draftTabs, onChange, disabled }) {
 function NewUserForm({ onCreate }) {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
-  const [role, setRole] = useState("restricted");
+  const [role, setRole] = useState("limited");
   const [permissions, setPermissions] = useState([]);
   const [draftTabs, setDraftTabs] = useState([]);
+  const [historyTabs, setHistoryTabs] = useState([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
 
@@ -65,8 +90,8 @@ function NewUserForm({ onCreate }) {
     e.preventDefault();
     setBusy(true); setError(null);
     try {
-      await onCreate({ username, password, role, permissions, draftTabs });
-      setUsername(""); setPassword(""); setRole("restricted"); setPermissions([]); setDraftTabs([]);
+      await onCreate({ username, password, role, permissions, draftTabs, historyTabs });
+      setUsername(""); setPassword(""); setRole("limited"); setPermissions([]); setDraftTabs([]); setHistoryTabs([]);
     } catch (e) {
       setError(e.message);
     }
@@ -86,21 +111,21 @@ function NewUserForm({ onCreate }) {
         </label>
         <label style={lbl()}>
           Role
-          <select value={role} onChange={e=>setRole(e.target.value)} style={inp(180)}>
-            <option value="restricted">Restricted</option>
-            <option value="admin">Admin — full access</option>
-          </select>
+          <RoleSelect value={role} onChange={setRole} />
         </label>
         <button type="submit" disabled={busy || !username || !password} style={btnStyle("#2a2a18","#c9a227")}>
           Add account
         </button>
       </div>
-      {role === "restricted" && (
+      {role === "limited" && (
         <label style={{ ...lbl(), gap:6 }}>
           Can see
           <AreaCheckboxes permissions={permissions} onChange={setPermissions} />
           {permissions.includes("draft") && (
-            <DraftTabCheckboxes draftTabs={draftTabs} onChange={setDraftTabs} />
+            <SubTabCheckboxes options={DRAFT_TABS} selected={draftTabs} onChange={setDraftTabs} />
+          )}
+          {permissions.includes("history") && (
+            <SubTabCheckboxes options={HISTORY_TABS} selected={historyTabs} onChange={setHistoryTabs} />
           )}
         </label>
       )}
@@ -109,7 +134,7 @@ function NewUserForm({ onCreate }) {
   );
 }
 
-function UserRow({ u, isSelf, onSetRole, onSetPermissions, onSetDraftTabs, onResetPassword, onDelete }) {
+function UserRow({ u, isSelf, onSetRole, onSetPermissions, onSetDraftTabs, onSetHistoryTabs, onResetPassword, onDelete }) {
   const [newPassword, setNewPassword] = useState("");
   return (
     <tr>
@@ -117,15 +142,17 @@ function UserRow({ u, isSelf, onSetRole, onSetPermissions, onSetDraftTabs, onRes
         {u.username}{isSelf && <span style={{ opacity:0.5, fontSize:11 }}> (you)</span>}
       </td>
       <td style={{ padding:"8px 6px", borderBottom:"1px solid #1e2018", verticalAlign:"top" }}>
-        <select value={u.role} onChange={e=>onSetRole(u.id, e.target.value)} disabled={isSelf} style={{...inp(150), marginBottom:6}}>
-          <option value="restricted">Restricted</option>
-          <option value="admin">Admin — full access</option>
-        </select>
-        {u.role === "restricted" && (
+        <div style={{ marginBottom:6 }}>
+          <RoleSelect value={u.role} onChange={(role)=>onSetRole(u.id, role)} disabled={isSelf} />
+        </div>
+        {u.role === "limited" && (
           <>
             <AreaCheckboxes permissions={u.permissions} onChange={(perms)=>onSetPermissions(u.id, perms)} />
             {u.permissions.includes("draft") && (
-              <DraftTabCheckboxes draftTabs={u.draftTabs} onChange={(tabs)=>onSetDraftTabs(u.id, tabs)} />
+              <SubTabCheckboxes options={DRAFT_TABS} selected={u.draftTabs} onChange={(tabs)=>onSetDraftTabs(u.id, tabs)} />
+            )}
+            {u.permissions.includes("history") && (
+              <SubTabCheckboxes options={HISTORY_TABS} selected={u.historyTabs} onChange={(tabs)=>onSetHistoryTabs(u.id, tabs)} />
             )}
           </>
         )}
@@ -155,10 +182,10 @@ export default function Admin() {
   }, []);
   useEffect(load, [load]);
 
-  const createUser = async ({ username, password, role, permissions, draftTabs }) => {
+  const createUser = async ({ username, password, role, permissions, draftTabs, historyTabs }) => {
     const res = await fetch("/api/auth/users", {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ username, password, role, permissions, draftTabs }),
+      body: JSON.stringify({ username, password, role, permissions, draftTabs, historyTabs }),
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || "failed to create account");
@@ -185,6 +212,13 @@ export default function Admin() {
     setUsers(us => us.map(u => u.id === id ? { ...u, draftTabs } : u));
     await fetch(`/api/auth/users/${id}/draft-tabs`, {
       method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ draftTabs }),
+    });
+  };
+
+  const setHistoryTabs = async (id, historyTabs) => {
+    setUsers(us => us.map(u => u.id === id ? { ...u, historyTabs } : u));
+    await fetch(`/api/auth/users/${id}/history-tabs`, {
+      method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ historyTabs }),
     });
   };
 
@@ -220,9 +254,9 @@ export default function Admin() {
             Accounts
           </div>
           <div style={{ fontSize:12, opacity:0.65, marginBottom:14 }}>
-            Admin accounts see everything. Restricted accounts only ever see the areas checked below for
-            them — enforced on the server, not just hidden in the UI, so checking a box is the only thing
-            that grants access to it.
+            Admin sees everything and can manage other accounts. Standard sees everything but can't manage
+            accounts. Limited only ever sees the areas — and, within Draft Prep/League History, the specific
+            tabs — checked below for them. All enforced on the server, not just hidden in the UI.
           </div>
 
           {loaded && (
@@ -239,7 +273,8 @@ export default function Admin() {
                 <tbody>
                   {users.map(u => (
                     <UserRow key={u.id} u={u} isSelf={u.id === user?.id}
-                      onSetRole={setRole} onSetPermissions={setPermissions} onSetDraftTabs={setDraftTabs}
+                      onSetRole={setRole} onSetPermissions={setPermissions}
+                      onSetDraftTabs={setDraftTabs} onSetHistoryTabs={setHistoryTabs}
                       onResetPassword={resetPassword} onDelete={deleteUser} />
                   ))}
                 </tbody>

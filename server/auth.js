@@ -2,15 +2,24 @@
 // server has full access," which stopped being acceptable the moment this
 // app was exposed to the internet for friends to use.
 //
-// role:
-//   - 'admin'      full access to every page and API, PLUS account
-//                  management (creating/editing/removing other accounts).
-//                  That last part is deliberately never grantable as a
-//                  plain permission below — "can see the draft board" and
-//                  "can create other logins" are different trust levels
-//                  and shouldn't get conflated just because it'd be
-//                  convenient to have one fewer checkbox.
-//   - 'restricted' sees only whichever AREAS (below) they've been granted.
+// role — three tiers, not two (Will's call, after the first pass only had
+// admin vs. a permission-gated "restricted"):
+//   - 'admin'     full access to every page and API, PLUS account
+//                 management (creating/editing/removing other accounts).
+//                 That last part is deliberately never grantable to
+//                 either of the roles below — "can see the draft board"
+//                 and "can create other logins" are different trust
+//                 levels and shouldn't get conflated just to save a
+//                 checkbox.
+//   - 'standard'  full access to every AREA and every sub-tab below, same
+//                 as admin content-wise, but NOT account management. The
+//                 default for "just a trusted person," no checkboxes to
+//                 configure.
+//   - 'limited'   (was called 'restricted') sees only whichever AREAS —
+//                 and, within those, whichever sub-tabs — they've been
+//                 explicitly granted. permissions/draft_tabs/history_tabs
+//                 are only ever consulted for this role; admin and
+//                 standard both bypass them entirely.
 //
 // AREAS — independently grantable, not a fixed bundle (Will asked for
 // this explicitly after the first pass only offered "everything" or
@@ -18,27 +27,31 @@
 //   - 'draft'     the draft prep board
 //   - 'gameday'   live scores
 //   - 'history'   League History
-// An admin implicitly has all three; `permissions` is only consulted for
-// a 'restricted' account.
 //
-// Within 'draft' there's a second, finer layer: DRAFT_TABS (same values as
-// db.js's VALID_TABS) controls which of the draft board's own internal
-// tabs (Koi / Final Fantasy / Jordan / Calculations) a restricted account
-// with 'draft' access actually sees — this replaces the old free-text
-// "Viewing as" profile picker and its per-profile allowed_tabs (db.js's
-// `users` table), which had no real login behind it at all. The real,
-// authenticated account IS the identity now; which tabs it can see is
-// just another permission, set from the same Admin panel as everything
-// else, not a separate picker.
+// Two AREAS have their own finer layer, same shape, same reasoning (Will
+// asked for this explicitly too — a 'limited' account granted an area
+// shouldn't automatically get every sub-page inside it):
+//   - DRAFT_TABS (db.js's VALID_TABS): which of the draft board's own
+//     tabs (Koi/Final Fantasy/Jordan/Calculations) a 'limited' account
+//     with 'draft' sees. Replaces the old free-text "Viewing as" profile
+//     picker and its per-profile allowed_tabs (db.js's `users` table),
+//     which had no real login behind it at all.
+//   - HISTORY_TABS (db.js's own export): which of League History's
+//     sub-pages (Seasons/Stats/H2H/Champs/Teams) a 'limited' account with
+//     'history' sees. "Home" is deliberately NOT part of this list — it's
+//     gated to the true admin role only, unfinished, not a grantable
+//     permission (see requireAdmin on its routes in index.js).
 //
 // Passwords are hashed with Node's built-in scrypt (no new dependency) —
 // per-user random salt, timing-safe comparison. Sessions are opaque random
 // tokens in a DB table (not a stateless JWT), so revoking one is just a
 // DELETE — no separate blocklist to maintain.
 import crypto from "crypto";
-import { db, VALID_TABS as DRAFT_TABS } from "./db.js";
+import { db, VALID_TABS as DRAFT_TABS, HISTORY_TABS } from "./db.js";
 
+export const ROLES = ["admin", "standard", "limited"];
 export const AREAS = ["draft", "gameday", "history"];
+const FULL_ACCESS_ROLES = ["admin", "standard"];
 
 db.exec(`
 CREATE TABLE IF NOT EXISTS auth_users (
@@ -46,11 +59,13 @@ CREATE TABLE IF NOT EXISTS auth_users (
   username      TEXT UNIQUE NOT NULL,   -- stored lowercase; login is case-insensitive
   password_hash TEXT NOT NULL,
   password_salt TEXT NOT NULL,
-  role          TEXT NOT NULL DEFAULT 'restricted',  -- 'admin' | 'restricted'
+  role          TEXT NOT NULL DEFAULT 'limited',  -- 'admin' | 'standard' | 'limited'
   permissions   TEXT,                   -- comma-separated subset of AREAS; only
-                                          -- meaningful for role='restricted'
+                                          -- meaningful for role='limited'
   draft_tabs    TEXT,                   -- comma-separated subset of DRAFT_TABS;
                                           -- only meaningful when 'draft' is granted
+  history_tabs  TEXT,                   -- comma-separated subset of HISTORY_TABS;
+                                          -- only meaningful when 'history' is granted
   created_at    TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
@@ -72,6 +87,13 @@ if (!authUsersCols.includes("permissions")) {
 if (!authUsersCols.includes("draft_tabs")) {
   db.exec("ALTER TABLE auth_users ADD COLUMN draft_tabs TEXT");
 }
+if (!authUsersCols.includes("history_tabs")) {
+  db.exec("ALTER TABLE auth_users ADD COLUMN history_tabs TEXT");
+}
+// Migration: the role that's now 'limited' used to be called 'restricted'
+// — rename the stored value for every existing account, not just new
+// ones. Safe to run every boot (no-op once there's nothing left to rename).
+db.prepare("UPDATE auth_users SET role = 'limited' WHERE role = 'restricted'").run();
 
 const SESSION_DAYS = 30;
 const SCRYPT_KEYLEN = 64;
@@ -97,31 +119,35 @@ const parsePermissions = (raw) => parseList(raw, AREAS);
 const serializePermissions = (areas) => serializeList(areas, AREAS);
 const parseDraftTabs = (raw) => parseList(raw, DRAFT_TABS);
 const serializeDraftTabs = (tabs) => serializeList(tabs, DRAFT_TABS);
+const parseHistoryTabs = (raw) => parseList(raw, HISTORY_TABS);
+const serializeHistoryTabs = (tabs) => serializeList(tabs, HISTORY_TABS);
 
 function toUserShape(row) {
   return {
     id: row.id, username: row.username, role: row.role,
     permissions: parsePermissions(row.permissions),
     draftTabs: parseDraftTabs(row.draft_tabs),
+    historyTabs: parseHistoryTabs(row.history_tabs),
   };
 }
 
-export function createAuthUser(username, password, role = "restricted", permissions = [], draftTabs = []) {
+export function createAuthUser(username, password, role = "limited", permissions = [], draftTabs = [], historyTabs = []) {
   username = normalizeUsername(username);
   if (!username) throw new Error("username required");
   if (!password || password.length < 4) throw new Error("password must be at least 4 characters");
-  if (role !== "admin" && role !== "restricted") throw new Error("role must be 'admin' or 'restricted'");
+  if (!ROLES.includes(role)) throw new Error(`role must be one of: ${ROLES.join(", ")}`);
   const salt = crypto.randomBytes(16).toString("hex");
   const hash = hashPassword(password, salt);
   const perms = serializePermissions(permissions);
-  const tabs = serializeDraftTabs(draftTabs);
-  const info = db.prepare("INSERT INTO auth_users (username, password_hash, password_salt, role, permissions, draft_tabs) VALUES (?, ?, ?, ?, ?, ?)")
-    .run(username, hash, salt, role, perms, tabs);
-  return toUserShape({ id: info.lastInsertRowid, username, role, permissions: perms, draft_tabs: tabs });
+  const draftT = serializeDraftTabs(draftTabs);
+  const historyT = serializeHistoryTabs(historyTabs);
+  const info = db.prepare("INSERT INTO auth_users (username, password_hash, password_salt, role, permissions, draft_tabs, history_tabs) VALUES (?, ?, ?, ?, ?, ?, ?)")
+    .run(username, hash, salt, role, perms, draftT, historyT);
+  return toUserShape({ id: info.lastInsertRowid, username, role, permissions: perms, draft_tabs: draftT, history_tabs: historyT });
 }
 
 export function listAuthUsers() {
-  return db.prepare("SELECT id, username, role, permissions, draft_tabs, created_at FROM auth_users ORDER BY id")
+  return db.prepare("SELECT id, username, role, permissions, draft_tabs, history_tabs, created_at FROM auth_users ORDER BY id")
     .all().map((row) => ({ ...toUserShape(row), created_at: row.created_at }));
 }
 
@@ -134,15 +160,15 @@ export function setAuthUserPassword(id, password) {
 }
 
 export function setAuthUserRole(id, role) {
-  if (role !== "admin" && role !== "restricted") throw new Error("role must be 'admin' or 'restricted'");
+  if (!ROLES.includes(role)) throw new Error(`role must be one of: ${ROLES.join(", ")}`);
   const result = db.prepare("UPDATE auth_users SET role = ? WHERE id = ?").run(role, id);
   if (result.changes === 0) throw new Error("user not found");
 }
 
-/** areas: array of AREAS keys this restricted account can see. Ignored in
- *  practice for an admin account (they already see everything), but still
+/** areas: array of AREAS keys this 'limited' account can see. Ignored in
+ *  practice for admin/standard (they already see everything), but still
  *  stored as given — no special-casing needed if their role ever changes
- *  back to restricted later. */
+ *  back to 'limited' later. */
 export function setAuthUserPermissions(id, areas) {
   const perms = serializePermissions(areas);
   const result = db.prepare("UPDATE auth_users SET permissions = ? WHERE id = ?").run(perms, id);
@@ -150,11 +176,20 @@ export function setAuthUserPermissions(id, areas) {
 }
 
 /** Which of the draft board's own tabs (Koi/Final Fantasy/Jordan/
- *  Calculations) a restricted account with 'draft' access can see. Only
+ *  Calculations) a 'limited' account with 'draft' access can see. Only
  *  meaningful for that combination; harmless to set on anyone else. */
 export function setAuthUserDraftTabs(id, tabs) {
   const value = serializeDraftTabs(tabs);
   const result = db.prepare("UPDATE auth_users SET draft_tabs = ? WHERE id = ?").run(value, id);
+  if (result.changes === 0) throw new Error("user not found");
+}
+
+/** Which of League History's sub-pages (Seasons/Stats/H2H/Champs/Teams —
+ *  never "home", see the file header) a 'limited' account with 'history'
+ *  access can see. */
+export function setAuthUserHistoryTabs(id, tabs) {
+  const value = serializeHistoryTabs(tabs);
+  const result = db.prepare("UPDATE auth_users SET history_tabs = ? WHERE id = ?").run(value, id);
   if (result.changes === 0) throw new Error("user not found");
 }
 
@@ -192,7 +227,7 @@ export function deleteSession(token) {
 export function getUserBySession(token) {
   if (!token) return null;
   const row = db.prepare(`
-    SELECT u.id, u.username, u.role, u.permissions, u.draft_tabs, s.expires_at
+    SELECT u.id, u.username, u.role, u.permissions, u.draft_tabs, u.history_tabs, s.expires_at
     FROM auth_sessions s JOIN auth_users u ON u.id = s.user_id
     WHERE s.token = ?
   `).get(token);
@@ -258,15 +293,16 @@ export function requireAdmin(req, res, next) {
   next();
 }
 
-/** Gate on one AREA — admin always passes, a restricted account needs it
- *  in their granted permissions. Use this instead of requireAdmin for
- *  anything that a non-admin CAN be granted (draft board / Game Day /
- *  League History), and requireAdmin only for things that must always stay
- *  admin-only regardless of permissions (account management). */
+/** Gate on one AREA — admin/standard always pass (full content access is
+ *  the whole point of 'standard'), a 'limited' account needs it in their
+ *  granted permissions. Use this instead of requireAdmin for anything a
+ *  non-admin CAN be granted (draft board / Game Day / League History),
+ *  and requireAdmin only for things that must always stay admin-only
+ *  regardless of permissions (account management, the WIP Home page). */
 export function requirePermission(area) {
   return (req, res, next) => {
     if (!req.authUser) return res.status(401).json({ error: "login required" });
-    if (req.authUser.role === "admin" || req.authUser.permissions.includes(area)) return next();
+    if (FULL_ACCESS_ROLES.includes(req.authUser.role) || req.authUser.permissions.includes(area)) return next();
     res.status(403).json({ error: `access to '${area}' not granted` });
   };
 }

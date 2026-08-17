@@ -9,7 +9,7 @@ import Landing from "./pages/Landing.jsx";
 import Login from "./pages/Login.jsx";
 import Admin from "./pages/Admin.jsx";
 import GameDay from "./pages/GameDay.jsx";
-import HistoryLayout from "./pages/history/Layout.jsx";
+import HistoryLayout, { TABS as HISTORY_TABS } from "./pages/history/Layout.jsx";
 import HomePage from "./pages/history/HomePage.jsx";
 import SeasonPage from "./pages/history/SeasonPage.jsx";
 import StatsPage from "./pages/history/StatsPage.jsx";
@@ -18,11 +18,17 @@ import ChampsPage from "./pages/history/ChampsPage.jsx";
 import TeamsPage from "./pages/history/TeamsPage.jsx";
 import TeamDetailPage from "./pages/history/TeamDetailPage.jsx";
 
-// Home is admin-only (not finished yet) — an admin lands there by
-// default, everyone else still lands on Seasons like before.
+// Home is admin-only (not finished yet) — a true admin lands there by
+// default. Everyone else lands on their first accessible History tab: all
+// of them for "standard," whichever are actually granted for "limited"
+// (never hardcoded to "season" — a limited account without Seasons
+// granted would otherwise bounce straight back here in a loop).
 function HistoryIndexRedirect() {
   const { user } = useAuth();
-  return <Navigate to={user?.role === "admin" ? "home" : "season"} replace />;
+  if (user?.role === "admin") return <Navigate to="home" replace />;
+  const allowed = user?.role === "standard" ? HISTORY_TABS : HISTORY_TABS.filter(([slug]) => user?.historyTabs.includes(slug));
+  if (!allowed.length) return <Navigate to="/" replace />; // nothing granted yet — not a loop, just nowhere to land
+  return <Navigate to={allowed[0][0]} replace />;
 }
 
 ReactDOM.createRoot(document.getElementById("root")).render(
@@ -40,12 +46,12 @@ ReactDOM.createRoot(document.getElementById("root")).render(
           <Route path="/league-koi" element={<RequireAuth permission="history"><HistoryLayout /></RequireAuth>}>
             <Route index element={<HistoryIndexRedirect />} />
             <Route path="home" element={<RequireAuth role="admin"><HomePage /></RequireAuth>} />
-            <Route path="season" element={<SeasonPage />} />
-            <Route path="stats" element={<StatsPage />} />
-            <Route path="h2h" element={<H2HPage />} />
-            <Route path="champs" element={<ChampsPage />} />
-            <Route path="teams" element={<TeamsPage />} />
-            <Route path="teams/:slug" element={<TeamDetailPage />} />
+            <Route path="season" element={<RequireAuth historyTab="season"><SeasonPage /></RequireAuth>} />
+            <Route path="stats" element={<RequireAuth historyTab="stats"><StatsPage /></RequireAuth>} />
+            <Route path="h2h" element={<RequireAuth historyTab="h2h"><H2HPage /></RequireAuth>} />
+            <Route path="champs" element={<RequireAuth historyTab="champs"><ChampsPage /></RequireAuth>} />
+            <Route path="teams" element={<RequireAuth historyTab="teams"><TeamsPage /></RequireAuth>} />
+            <Route path="teams/:slug" element={<RequireAuth historyTab="teams"><TeamDetailPage /></RequireAuth>} />
           </Route>
         </Routes>
       </AuthProvider>

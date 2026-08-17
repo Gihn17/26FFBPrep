@@ -6,7 +6,10 @@ import { useAuth } from "../../AuthContext.jsx";
 
 const LEAGUE = "koi"; // only league with an ESPN id on file so far — same code path once Jordan/Final have one
 
-const TABS = [
+// Keep in sync with db.js's HISTORY_TABS (the server-side canonical
+// list) — same manual-sync convention already used for App.jsx's
+// ALL_TABS vs. db.js's VALID_TABS.
+export const TABS = [
   ["season", "Seasons"],
   ["stats", "Stats"],
   ["h2h", "H2H"],
@@ -19,6 +22,8 @@ const TABS = [
 // history-permitted visitor sees.
 const HOME_TAB = ["home", "Home"];
 
+const FULL_ACCESS_ROLES = ["admin", "standard"];
+
 /** Loads {teams, matchups} once, derives the shared shapes every sub-page
  *  needs (team index, season records, owner list), and hands it all down
  *  via Outlet context — sub-pages don't each re-fetch or re-derive this. */
@@ -30,7 +35,9 @@ export default function HistoryLayout() {
   const [refreshing, setRefreshing] = useState(false);
 
   const { user } = useAuth();
-  const canEdit = user?.role === "admin";
+  const canEdit = user?.role === "admin"; // strict — not "standard", Home stays admin-only while it's unfinished
+  const hasFullAccess = FULL_ACCESS_ROLES.includes(user?.role);
+  const visibleTabs = hasFullAccess ? TABS : TABS.filter(([slug]) => user?.historyTabs.includes(slug));
 
   const load = () => {
     fetch(`/api/history/${LEAGUE}`).then(r => r.json()).then(d => {
@@ -100,7 +107,7 @@ export default function HistoryLayout() {
         )}
 
         <div style={{ display:"flex", gap:8, marginBottom:16, flexWrap:"wrap" }}>
-          {(canEdit ? [HOME_TAB, ...TABS] : TABS).map(([slug, label]) => (
+          {(canEdit ? [HOME_TAB, ...visibleTabs] : visibleTabs).map(([slug, label]) => (
             <NavLink key={slug} to={`/league-koi/${slug}`}
               style={({ isActive }) => ({
                 padding:"8px 16px", borderRadius:8, textDecoration:"none",

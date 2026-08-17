@@ -44,7 +44,7 @@ function ToolCard({ t }) {
 
 export default function Landing() {
   const { user, logout } = useAuth();
-  const canSee = (t) => user?.role === "admin" || user?.permissions.includes(t.area);
+  const canSee = (t) => user?.role === "admin" || user?.role === "standard" || user?.permissions.includes(t.area);
   const visibleTools = TOOLS.filter(canSee);
   const visibleHistories = LEAGUE_HISTORIES.filter(canSee);
 

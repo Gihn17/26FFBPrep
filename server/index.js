@@ -10,7 +10,8 @@ import { getHomeSettings, setHomeSettings, listChatMessages, addChatMessage, del
 import {
   bootstrapAdmin, attachUser, requireAuth, requireAdmin, requirePermission,
   verifyLogin, createSession, deleteSession, setSessionCookie, clearSessionCookie, getSessionTokenFromReq,
-  listAuthUsers, createAuthUser, setAuthUserPassword, setAuthUserRole, setAuthUserPermissions, setAuthUserDraftTabs, deleteAuthUser,
+  listAuthUsers, createAuthUser, setAuthUserPassword, setAuthUserRole, setAuthUserPermissions,
+  setAuthUserDraftTabs, setAuthUserHistoryTabs, deleteAuthUser,
 } from "./auth.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -105,8 +106,8 @@ app.get("/api/auth/users", requireAdmin, (req, res) => res.json(listAuthUsers())
 
 app.post("/api/auth/users", requireAdmin, (req, res) => {
   try {
-    const { username, password, role, permissions, draftTabs } = req.body || {};
-    res.json(createAuthUser(username, password, role, permissions, draftTabs));
+    const { username, password, role, permissions, draftTabs, historyTabs } = req.body || {};
+    res.json(createAuthUser(username, password, role, permissions, draftTabs, historyTabs));
   } catch (e) {
     res.status(400).json({ error: e.message });
   }
@@ -130,10 +131,10 @@ app.put("/api/auth/users/:id/role", requireAdmin, (req, res) => {
   }
 });
 
-// Which of the 3 top-level areas (draft/gameday/history) a restricted
-// account can see — ignored in practice for an admin (they see
+// Which of the 3 top-level areas (draft/gameday/history) a 'limited'
+// account can see — ignored in practice for admin/standard (they see
 // everything), but still settable so it's ready if their role ever
-// changes back.
+// changes back to 'limited'.
 app.put("/api/auth/users/:id/permissions", requireAdmin, (req, res) => {
   try {
     setAuthUserPermissions(Number(req.params.id), req.body && req.body.permissions);
@@ -144,12 +145,23 @@ app.put("/api/auth/users/:id/permissions", requireAdmin, (req, res) => {
 });
 
 // Which of the draft board's own tabs (Koi/Final Fantasy/Jordan/
-// Calculations) a restricted account with 'draft' access can see — the
+// Calculations) a 'limited' account with 'draft' access can see — the
 // real-auth replacement for the old free-text "Viewing as" profile's
 // per-profile allowed_tabs.
 app.put("/api/auth/users/:id/draft-tabs", requireAdmin, (req, res) => {
   try {
     setAuthUserDraftTabs(Number(req.params.id), req.body && req.body.draftTabs);
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(400).json({ error: e.message });
+  }
+});
+
+// Which of League History's sub-pages (Seasons/Stats/H2H/Champs/Teams) a
+// 'limited' account with 'history' access can see.
+app.put("/api/auth/users/:id/history-tabs", requireAdmin, (req, res) => {
+  try {
+    setAuthUserHistoryTabs(Number(req.params.id), req.body && req.body.historyTabs);
     res.json({ ok: true });
   } catch (e) {
     res.status(400).json({ error: e.message });
