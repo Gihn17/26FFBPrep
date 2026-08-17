@@ -364,8 +364,12 @@ app.get("/api/gameday/:league", requirePermission("gameday"), async (req, res) =
     return res.status(400).json({ error: `${req.params.league} isn't an ESPN league with a league id on file — Final Fantasy uses Sleeper directly` });
   }
   const week = req.query.week ? Number(req.query.week) : null;
+  // Year override is admin-only — lets a past, fully-settled week (e.g. last
+  // season's week 17) be pulled through the real pipeline to test it, since
+  // a genuinely live week only exists while games are actually being played.
+  const year = (req.query.year && req.authUser.role === "admin") ? Number(req.query.year) : null;
   try {
-    const result = await getWeekMatchups(league.source_league_id, week);
+    const result = await getWeekMatchups(league.source_league_id, week, year);
     if (result.status === 401) return res.status(401).json({ error: "ESPN needs auth cookies for this — set them in Settings" });
     res.json(result);
   } catch (e) {

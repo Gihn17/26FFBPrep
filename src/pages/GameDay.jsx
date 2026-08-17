@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { Link } from "react-router-dom";
 import { pageShell, panelStyle, btnStyle, inp, lbl } from "../theme.jsx";
+import { useAuth } from "../AuthContext.jsx";
 
 const SLEEPER_API = "https://api.sleeper.app/v1";
 const LEAGUE_OPTIONS = [
@@ -14,11 +15,16 @@ const LEAGUE_OPTIONS = [
 const POLL_MS = { espn: 2 * 60 * 1000, sleeper: 5 * 60 * 1000 };
 
 export default function GameDay() {
+  const { user } = useAuth();
   const [league, setLeague] = useState("koi");
   const [leagueConfigs, setLeagueConfigs] = useState({});
   const [matchups, setMatchups] = useState([]);
   const [week, setWeek] = useState(null);
   const [weekInput, setWeekInput] = useState("");
+  // Admin-only test affordance — points ESPN fetches at a past, settled
+  // season/week (e.g. 2025 week 17) instead of the real current one, since
+  // a genuinely live week only exists while games are being played.
+  const [yearInput, setYearInput] = useState("");
   const [status, setStatus] = useState("idle");
   const [error, setError] = useState(null);
   const [lastSynced, setLastSynced] = useState(null);
@@ -34,6 +40,7 @@ export default function GameDay() {
   const cfg = leagueConfigs[league];
   const source = LEAGUE_OPTIONS.find(l => l.id === league)?.source;
   const requestedWeek = weekInput.trim() ? Number(weekInput) : null;
+  const requestedYear = (user?.role === "admin" && yearInput.trim()) ? Number(yearInput) : null;
 
   const fetchEspn = useCallback(async () => {
     if (!cfg || cfg.source_platform !== "espn" || !cfg.source_league_id) {
@@ -41,7 +48,11 @@ export default function GameDay() {
     }
     setStatus("loading");
     try {
-      const res = await fetch(`/api/gameday/${league}${requestedWeek ? `?week=${requestedWeek}` : ""}`);
+      const params = new URLSearchParams();
+      if (requestedWeek) params.set("week", requestedWeek);
+      if (requestedYear) params.set("year", requestedYear);
+      const qs = params.toString();
+      const res = await fetch(`/api/gameday/${league}${qs ? `?${qs}` : ""}`);
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
       setMatchups(data.matchups || []);
@@ -51,7 +62,7 @@ export default function GameDay() {
     } catch (e) {
       setStatus("error"); setError(e.message);
     }
-  }, [cfg, league, requestedWeek]);
+  }, [cfg, league, requestedWeek, requestedYear]);
 
   const fetchSleeper = useCallback(async () => {
     if (!cfg || !cfg.source_league_id) { setError("Final Fantasy league not configured yet"); setStatus("error"); return; }
@@ -98,7 +109,7 @@ export default function GameDay() {
     const interval = setInterval(sync, POLL_MS[source] || POLL_MS.espn);
     return () => clearInterval(interval);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [paused, cfg, source, requestedWeek]);
+  }, [paused, cfg, source, requestedWeek, requestedYear]);
 
   const statusText = paused ? "Paused"
     : status === "loading" ? "Syncing…"
@@ -121,6 +132,13 @@ export default function GameDay() {
             <input type="number" min="1" max="18" value={weekInput} onChange={e=>setWeekInput(e.target.value)}
               placeholder="auto" style={inp(90)} />
           </label>
+          {user?.role === "admin" && source === "espn" && (
+            <label style={lbl()} title="Testing only — pulls a past, settled season instead of the real current one, since a genuinely live week only exists while games are being played.">
+              Year (blank = current, admin test)
+              <input type="number" min="2011" max="2100" value={yearInput} onChange={e=>setYearInput(e.target.value)}
+                placeholder="auto" style={inp(90)} />
+            </label>
+          )}
           <button onClick={()=>setPaused(p=>!p)} style={btnStyle(paused ? "#20211a" : "#3a1f1f", paused ? "#c9a227" : "#c0453f")}>
             {paused ? "Resume" : "Pause"}
           </button>

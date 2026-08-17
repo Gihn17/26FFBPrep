@@ -207,10 +207,15 @@ export function getLeagueHistory(leagueId) {
  *  totalPointsLive (when present) reflects in-progress game stats; falls
  *  back to totalPoints when a week's games are settled or haven't started.
  *  espnLeagueId: ESPN's numeric league id (this function doesn't touch the
- *  DB, so there's no internal id involved here, unlike refreshLeagueHistory). */
-export async function getWeekMatchups(espnLeagueId, week) {
-  const year = new Date().getFullYear();
-  const { status, data } = await fetchSeason(espnLeagueId, year);
+ *  DB, so there's no internal id involved here, unlike refreshLeagueHistory).
+ *  year: optional override, defaults to the real current year — exists so a
+ *  past, fully-settled week (e.g. last season's week 17) can be pulled
+ *  through the exact same pipeline to test parsing/rendering, since a
+ *  genuinely live in-progress week is only available while games are being
+ *  played. Gated to admin in the UI (see GameDay.jsx) — not a real feature. */
+export async function getWeekMatchups(espnLeagueId, week, year) {
+  const targetYear = year || new Date().getFullYear();
+  const { status, data } = await fetchSeason(espnLeagueId, targetYear);
   if (status !== 200) return { status, matchups: [] };
   const targetWeek = week || data.scoringPeriodId;
   const teamById = new Map((data.teams || []).map(t => [t.id, t.name]));
