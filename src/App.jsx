@@ -1337,7 +1337,7 @@ function SettingsTab({ teamsByLeague, rosterSpotsByLeague, setTeamsFor, setRoste
 
       <div style={panelStyle()}>
         <div style={{ fontSize:11, fontWeight:700, letterSpacing:0.5, color:"#c9a227", marginBottom:10, textTransform:"uppercase" }}>
-          FantasyPros API — secondary ECR/ADP/Auction/Projections alongside UDK &amp; the free feeds
+          FantasyPros API — Projections &amp; Rankings (auction/risk/upside/outlook stay UDK, ADP stays FFC)
         </div>
         <FantasyProsAccessPanel canEdit={canEditEspnAccess} />
       </div>
@@ -1718,10 +1718,15 @@ function FantasyProsAccessPanel({ canEdit }) {
   const [key, setKey] = useState("");
   const [hasStored, setHasStored] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [status, setStatus] = useState(null); // {count, lastRefreshAt, lastRefreshError}
+  const [refreshing, setRefreshing] = useState(false);
+  const [refreshMsg, setRefreshMsg] = useState(null);
 
-  useEffect(() => {
+  const loadStatus = () => {
     fetch("/api/settings/fantasypros-key/status").then(r => r.ok ? r.json() : { set: false }).then(d => setHasStored(!!d.set)).catch(() => {});
-  }, []);
+    fetch("/api/fp-pool/status").then(r => r.ok ? r.json() : null).then(setStatus).catch(() => {});
+  };
+  useEffect(loadStatus, []);
 
   const save = () => {
     if (!key.trim()) return;
@@ -1736,36 +1741,61 @@ function FantasyProsAccessPanel({ canEdit }) {
   };
 
   const remove = () => {
-    if (!confirm("Remove the stored FantasyPros API key? Secondary ECR/ADP/Projections data stops refreshing until a new one's set.")) return;
+    if (!confirm("Remove the stored FantasyPros API key? Projections/rankings refreshes stop working until a new one's set.")) return;
     fetch("/api/settings/fantasypros-key", { method: "DELETE" }).then(r => {
       if (r.ok) { setHasStored(false); setSaved(false); }
     });
   };
 
+  const refreshNow = () => {
+    setRefreshing(true);
+    setRefreshMsg(null);
+    fetch("/api/fp-pool/refresh", { method: "POST" }).then(async (r) => {
+      const data = await r.json();
+      setRefreshMsg(r.ok ? `Refreshed — ${data.count} players.` : (data.error || "Refresh failed."));
+      loadStatus();
+    }).catch(() => setRefreshMsg("Refresh failed — couldn't reach the server."))
+      .finally(() => setRefreshing(false));
+  };
+
   return (
     <div>
       <p style={pText()}>
-        Your FantasyPros API key — used to pull their Expert Consensus Rankings, ADP/Auction values, and
-        projections as a <b>secondary</b> source shown next to UDK and the free feeds already in use, not
-        replacing them.
+        Your FantasyPros API key — pulls their Expert Consensus Rankings and season projections as the
+        pool's default (auction values, risk/upside, and outlook stay UDK-only — FantasyPros doesn't have
+        those; ADP stays Fantasy Football Calculator, matched in by name).
       </p>
       <div style={{ fontSize:12, marginBottom:12 }}>
         Status: <b style={{ color: hasStored ? "#7fd18f" : "#9c998e" }}>{hasStored ? "Key is set" : "Not set"}</b>
+        {status && status.count > 0 && (
+          <span style={{ opacity:0.7 }}> · {status.count} players cached
+            {status.lastRefreshAt && ` · last refreshed ${new Date(status.lastRefreshAt).toLocaleString()}`}
+          </span>
+        )}
+        {status && status.lastRefreshError && <span style={{ color:"#e08a8a" }}> · last refresh failed: {status.lastRefreshError}</span>}
       </div>
       {!canEdit ? (
         <div style={{ ...pText(), background:"#181910", border:"1px solid #2a2c20", borderRadius:8, padding:12, marginBottom:0 }}>
-          Only <b style={{color:"#f0d97a"}}>Will</b> can set this.
+          Only <b style={{color:"#f0d97a"}}>Will</b> can set this or trigger a refresh.
         </div>
       ) : (
-        <div style={{ display:"flex", gap:12, flexWrap:"wrap", alignItems:"flex-end" }}>
-          <label style={lbl()}>API key
-            <input type="password" value={key} onChange={e=>{ setKey(e.target.value); setSaved(false); }}
-              placeholder={hasStored ? "•••••••••••••••••••• (set — paste to replace)" : "paste key"} style={inp(320)} />
-          </label>
-          <button onClick={save} disabled={!key.trim()} style={btnStyle("#20211a","#c9a227")}>Save</button>
-          {hasStored && <button onClick={remove} style={btnStyle("#3a1f1f","#c0453f")}>Remove</button>}
-          {saved && <span style={{ fontSize:12, color:"#7fd18f" }}>Saved.</span>}
-        </div>
+        <>
+          <div style={{ display:"flex", gap:12, flexWrap:"wrap", alignItems:"flex-end", marginBottom:12 }}>
+            <label style={lbl()}>API key
+              <input type="password" value={key} onChange={e=>{ setKey(e.target.value); setSaved(false); }}
+                placeholder={hasStored ? "•••••••••••••••••••• (set — paste to replace)" : "paste key"} style={inp(320)} />
+            </label>
+            <button onClick={save} disabled={!key.trim()} style={btnStyle("#20211a","#c9a227")}>Save</button>
+            {hasStored && <button onClick={remove} style={btnStyle("#3a1f1f","#c0453f")}>Remove</button>}
+            {saved && <span style={{ fontSize:12, color:"#7fd18f" }}>Saved.</span>}
+          </div>
+          <div style={{ display:"flex", gap:12, alignItems:"center" }}>
+            <button onClick={refreshNow} disabled={!hasStored || refreshing} style={btnStyle()}>
+              {refreshing ? "Refreshing…" : "Refresh Projections Now"}
+            </button>
+            {refreshMsg && <span style={{ fontSize:12, color: refreshMsg.startsWith("Refreshed") ? "#7fd18f" : "#e08a8a" }}>{refreshMsg}</span>}
+          </div>
+        </>
       )}
     </div>
   );
