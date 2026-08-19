@@ -5,6 +5,7 @@ import { fileURLToPath } from "url";
 import { seedLeagues, getAllLeagues, getLeague } from "./leagues.js";
 import { db, getOrCreateUser } from "./db.js";
 import { getAdpPool, getAdpStatus, refreshAdpPool, startAdpScheduler } from "./adp.js";
+import { getFpPool, getFpStatus, refreshFpPool } from "./fantasypros.js";
 import { refreshLeagueHistory, getLeagueHistory, getWeekMatchups } from "./espn.js";
 import { getHomeSettings, setHomeSettings, listChatMessages, addChatMessage, deleteChatMessage } from "./leaguehome.js";
 import { getSetting, hasSetting, setSetting, deleteSetting } from "./settings.js";
@@ -362,6 +363,20 @@ app.get("/api/players/status", requirePermission("draft"), (req, res) => res.jso
 app.post("/api/players/refresh", requirePermission("draft"), async (req, res) => {
   try {
     const count = await refreshAdpPool();
+    res.json({ ok: true, count });
+  } catch (e) {
+    res.status(502).json({ error: e.message });
+  }
+});
+
+// --- FantasyPros pool — Phase 1 of the pool-source switch (see the plan).
+// Purely additive right now: fp_pool is a staging table, /api/players still
+// serves adp_pool untouched. Refresh is admin-only (unlike the FFC refresh
+// above) since it spends real paid API budget, not just re-pulls a free feed. ---
+app.get("/api/fp-pool/status", requireAdmin, (req, res) => res.json(getFpStatus()));
+app.post("/api/fp-pool/refresh", requireAdmin, async (req, res) => {
+  try {
+    const count = await refreshFpPool();
     res.json({ ok: true, count });
   } catch (e) {
     res.status(502).json({ error: e.message });
