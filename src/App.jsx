@@ -177,13 +177,36 @@ function noteFor(pos, name, rank) {
    repoint every stored draft pick/note/import at a different player
    the moment rank order shifted.
    ============================================================ */
+// Only the raw stat fields scorePoints() actually reads (passYds/passTD/
+// INT/rushYds/rushTD/rec/recYds/recTD/fumbles) — same shape a UDK
+// statsOverride already provides, so this slots into the exact same
+// scoring path, just as the default instead of requiring an import first.
+// K/DEF get no stat line here (FantasyPros' own consensus rankings don't
+// rank them at all — verified live — and their scoring isn't stat-line-
+// based anyway); they keep relying on UDK's flatPtsOverride, unchanged.
+function fpStatsOverride(p) {
+  if (p.position === "K" || p.position === "DEF") return null;
+  return {
+    passYds: p.pass_yd, passTD: p.pass_td, INT: p.pass_int,
+    rushYds: p.rush_yd, rushTD: p.rush_td,
+    rec: p.rec, recYds: p.rec_yd, recTD: p.rec_td,
+    fumbles: p.fum_lost,
+  };
+}
+
 function buildPool(adpPool) {
   const players = [];
   for (const p of adpPool) {
     const [pos1, neg1, outlook1] = noteFor(p.position, p.name, p.adp_rank);
     players.push({
       id: p.id, pos: p.position, name: p.name, team: p.team, bye: p.bye, adpRank: p.adp_rank,
-      stats: null, flatPts: null,
+      stats: fpStatsOverride(p), flatPts: null,
+      // FantasyPros' own signal — informational, doesn't touch this app's
+      // existing tier/posRank display (that stays computed from VBD, same
+      // as always; a UDK tier/posRank import still overrides it exactly
+      // like before). Available for the Cheat Sheet or a future column.
+      ecr: p.rank_ecr ?? null, ecrPos: p.rank_ecr_pos ?? null, fpTier: p.tier ?? null,
+      ecrSpread: (p.ecr_min != null) ? { min: p.ecr_min, max: p.ecr_max, avg: p.ecr_avg, std: p.ecr_std, experts: p.total_experts } : null,
       note: { pos: pos1, neg: neg1, outlook: outlook1 },
     });
   }
@@ -1818,15 +1841,6 @@ function ImportPanel({ pool, playerImports, onApplyImport, onClearImport, canEdi
     };
     return {
       name: findCol(["player","name"]),
-      passYds: findCol(["passyds","passingyds","pyds"]),
-      passTD: findCol(["passtd","passingtd","ptd"]),
-      INT: findCol(["int","interception"]),
-      rushYds: findCol(["rushyds","rushingyds","ryds"]),
-      rushTD: findCol(["rushtd","rushingtd","rtd"]),
-      rec: findCol(["receptions","rec","catches"]),
-      recYds: findCol(["recyds","receivingyds","reyds"]),
-      recTD: findCol(["rectd","receivingtd","retd"]),
-      fumbles: findCol(["fumbleslost","fuml","fumbles"]),
       koiPoints: findCol(["halfppr","koi"]),
       finalPoints: findCol(["fullppr","pprpts","fpts","fantasypoints","points","proj"]),
       auction: findCol(["auction","dollar","aav","$"]),
@@ -1885,11 +1899,6 @@ function ImportPanel({ pool, playerImports, onApplyImport, onClearImport, canEdi
         const player = nameIndex[normName(rawName)];
         if (!player) { unmatched.push(`${rawName} (${batch.label})`); continue; }
 
-        const statsFields = {};
-        ["passYds","passTD","INT","rushYds","rushTD","rec","recYds","recTD","fumbles"].forEach(k => {
-          const v = num(row, cols[k]);
-          if (v != null) statsFields[k] = v;
-        });
         const koiPts = num(row, cols.koiPoints);
         const finalPts = num(row, cols.finalPoints);
         const auc = num(row, cols.auction);
@@ -1902,10 +1911,16 @@ function ImportPanel({ pool, playerImports, onApplyImport, onClearImport, canEdi
 
         const entry = {};
         if (player.pos === "K" || player.pos === "DEF") {
+          // FantasyPros doesn't rank/project K or DEF at all (verified live —
+          // their scoring isn't stat-line-based) — this stays the only
+          // points source for those two positions, unchanged.
           const flat = koiPts != null ? koiPts : finalPts;
           if (flat != null) entry.flatPtsOverride = flat;
         } else {
-          if (Object.keys(statsFields).length) entry.statsOverride = statsFields;
+          // Raw stat-line columns dropped from this importer — FantasyPros
+          // supplies the default projection for every other position now
+          // (see buildPool's fpStatsOverride). koiPoints/finalPoints still
+          // works as a manual point-total override if ever needed.
           if (koiPts != null) entry.koiPoints = koiPts;
           if (finalPts != null) entry.finalPoints = finalPts;
         }
@@ -1917,16 +1932,12 @@ function ImportPanel({ pool, playerImports, onApplyImport, onClearImport, canEdi
         if (outlookVal != null) entry.outlook = outlookVal;
         if (byeVal != null) entry.bye = byeVal;
         if (!Object.keys(entry).length) continue;
-        const fieldsTouched = Object.keys(entry).filter(k => k !== "statsOverride")
-          .concat(entry.statsOverride ? Object.keys(entry.statsOverride) : []);
+        const fieldsTouched = Object.keys(entry);
 
         // merge across batches so a QB file and (say) a K/DEF file both feeding the same run don't clobber each other
         const prior = overrides[player.id] || {};
         overrides[player.id] = {
           ...prior, ...entry,
-          statsOverride: (prior.statsOverride || entry.statsOverride)
-            ? { ...(prior.statsOverride||{}), ...(entry.statsOverride||{}) }
-            : undefined,
           sources: [...(prior.sources || []), { label: batch.label, date: importTimestamp, fields: fieldsTouched }],
         };
         matched++;
@@ -1942,17 +1953,17 @@ function ImportPanel({ pool, playerImports, onApplyImport, onClearImport, canEdi
   return (
     <div>
       <p style={pText()}>
-        Drop in as many files as you want — one per position, or however your export is split — without merging
-        them yourself first. Each file gets its own column mapping (a QB file and a WR file won't share columns),
-        then <b>Apply All Imports</b> matches every row across every file by player name and merges it all into
-        the same universal player pool. Raw stats (pass/rush/rec yards, TDs, INT, receptions, fumbles lost) drive both Koi and
-        Final Fantasy through their own scoring formulas; point-total columns are a fallback if a file doesn't
-        have raw stats. You can also import a separate rankings/write-up file per position — map its Tier,
-        Position Rank, Risk, Upside, Bye Week, and Write-up columns and they'll combine with whatever you already imported
-        from a projections file for the same player. Imported tiers/ranks/bye weeks take priority over the model's
-        computed or default values, and an imported write-up replaces the shared <b>Expert Notes</b> field for
-        everyone. <b>Personal Notes</b> works differently — it's blank by default and edited directly on the board,
-        not through import, and each person's own edits there stay on their profile even after a re-import.
+        Stat-line projections now come from FantasyPros by default (see the Settings tab) — this importer is for
+        what FantasyPros doesn't provide: <b>auction $</b>, <b>risk/upside</b>, a written <b>outlook</b>, and — since
+        FantasyPros doesn't project them at all — <b>point totals for K/DEF</b> (the only points source for those
+        two positions). Drop in as many files as you want — one per position, or however your export is split —
+        without merging them yourself first. Each file gets its own column mapping, then <b>Apply All Imports</b>
+        matches every row across every file by player name and merges it into the same universal player pool. You
+        can also map Tier, Position Rank, and Bye Week if you want to hand-override FantasyPros' own numbers for a
+        specific player. Imported tiers/ranks/bye weeks take priority over the model's computed or default values,
+        and an imported write-up replaces the shared <b>Expert Notes</b> field for everyone. <b>Personal Notes</b>
+        works differently — it's blank by default and edited directly on the board, not through import, and each
+        person's own edits there stay on their profile even after a re-import.
       </p>
 
       {!canEdit && (
@@ -2004,20 +2015,8 @@ function ImportPanel({ pool, playerImports, onApplyImport, onClearImport, canEdi
                 <button onClick={()=>removeBatch(batch.id)} style={btnStyle("#3a1f1f","#c0453f")}>Remove</button>
               </div>
               <ColMap label="Player name (required)" value={batch.map.name} set={v=>updateBatchMap(batch.id,"name",v)} headers={batch.headers} />
-              <div style={{ fontSize:11, fontWeight:700, opacity:0.7, margin:"10px 0 4px" }}>Raw stats (drives both leagues)</div>
-              <div style={{ display:"flex", flexWrap:"wrap", gap:6 }}>
-                <ColMap label="Pass yds" value={batch.map.passYds} set={v=>updateBatchMap(batch.id,"passYds",v)} headers={batch.headers} compact />
-                <ColMap label="Pass TD" value={batch.map.passTD} set={v=>updateBatchMap(batch.id,"passTD",v)} headers={batch.headers} compact />
-                <ColMap label="INT" value={batch.map.INT} set={v=>updateBatchMap(batch.id,"INT",v)} headers={batch.headers} compact />
-                <ColMap label="Rush yds" value={batch.map.rushYds} set={v=>updateBatchMap(batch.id,"rushYds",v)} headers={batch.headers} compact />
-                <ColMap label="Rush TD" value={batch.map.rushTD} set={v=>updateBatchMap(batch.id,"rushTD",v)} headers={batch.headers} compact />
-                <ColMap label="Receptions" value={batch.map.rec} set={v=>updateBatchMap(batch.id,"rec",v)} headers={batch.headers} compact />
-                <ColMap label="Rec yds" value={batch.map.recYds} set={v=>updateBatchMap(batch.id,"recYds",v)} headers={batch.headers} compact />
-                <ColMap label="Rec TD" value={batch.map.recTD} set={v=>updateBatchMap(batch.id,"recTD",v)} headers={batch.headers} compact />
-                <ColMap label="Fumbles lost" value={batch.map.fumbles} set={v=>updateBatchMap(batch.id,"fumbles",v)} headers={batch.headers} compact />
-              </div>
               <div style={{ fontSize:11, fontWeight:700, opacity:0.7, margin:"10px 0 4px" }}>
-                Fallback: direct point totals (also drives K/DEF)
+                Point totals — required for K/DEF (FantasyPros doesn't project them); optional override for everyone else
               </div>
               <div style={{ display:"flex", flexWrap:"wrap", gap:6 }}>
                 <ColMap label="Half-PPR / Koi pts" value={batch.map.koiPoints} set={v=>updateBatchMap(batch.id,"koiPoints",v)} headers={batch.headers} compact />

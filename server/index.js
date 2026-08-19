@@ -356,10 +356,13 @@ notesRouter.put("/:key", (req, res) => {
 
 app.use("/api/notes", requirePermission("draft"), notesRouter);
 
-// --- Live player pool (name/pos/team/bye/ADP), cached from Fantasy Football
-// Calculator and refreshed daily — see server/adp.js. Draft-prep-only
+// --- Live player pool — canonical id/pool is FantasyPros (server/
+// fantasypros.js) as of Phase 4 of the pool-source switch (was Fantasy
+// Football Calculator). FFC's own pool (server/adp.js) stays alive purely
+// as the ADP-number source, matched in by name+position (attachAdp) —
+// ADP itself didn't move, only the canonical pool/id did. Draft-prep-only
 // data, gated the same way as the rest of the board. ---
-app.get("/api/players", requirePermission("draft"), (req, res) => res.json(getAdpPool()));
+app.get("/api/players", requirePermission("draft"), (req, res) => res.json(attachAdp(getFpPool(), getAdpPool())));
 app.get("/api/players/status", requirePermission("draft"), (req, res) => res.json(getAdpStatus()));
 app.post("/api/players/refresh", requirePermission("draft"), async (req, res) => {
   try {
