@@ -26,6 +26,13 @@ const EXP_TOOLTIP = "A win if your score beat the week's median, a loss if it di
 const OVR_TOOLTIP = "All-play record: how you'd have done playing every other team in the league every week.";
 const WW_TOOLTIP = "Weekly Wins: weeks you had the single highest score in the league.";
 
+// Ties count as half a win — the standard fantasy convention — so "Actual"
+// sorts by true record quality, not just raw win count.
+function winPct(wins, losses, ties) {
+  const games = wins + losses + ties;
+  return games > 0 ? (wins + ties * 0.5) / games : 0;
+}
+
 function probColor(p) {
   if (p == null) return "#9c998e";
   if (p >= 66) return "#7fd18f";
@@ -33,8 +40,56 @@ function probColor(p) {
   return "#e08a8a";
 }
 
-function InfoTh({ label, title }) {
-  return <th style={th()} title={title}>{label} <span style={{ fontSize:10, opacity:0.6 }}>ⓘ</span></th>;
+/** Generic click-to-sort table state — one hook instance per table, since
+ *  the "Individual Seasons" view renders several independent tables (one
+ *  per season) that each need their own sort, not a shared one. Starts
+ *  with no active column (natural/existing row order) so nothing changes
+ *  visually until a user actually clicks a header. `accessors` maps a
+ *  column id to a function pulling that column's comparable value off a
+ *  row; strings sort A→Z first, numbers highest-first — the common
+ *  "click once = best/most on top" convention — and null/undefined always
+ *  sorts to the bottom regardless of direction, so unfinalized/missing
+ *  values don't jump to the top on a descending sort. */
+function useSort(rows, accessors) {
+  const [col, setCol] = useState(null);
+  const [dir, setDir] = useState("desc");
+
+  const sorted = useMemo(() => {
+    const acc = col && accessors[col];
+    if (!acc) return rows;
+    const factor = dir === "asc" ? 1 : -1;
+    return [...rows].sort((a, b) => {
+      const av = acc(a), bv = acc(b);
+      if (av == null && bv == null) return 0;
+      if (av == null) return 1;
+      if (bv == null) return -1;
+      if (typeof av === "string") return factor * av.localeCompare(bv);
+      return factor * (av - bv);
+    });
+  }, [rows, accessors, col, dir]);
+
+  const sortProps = (colId, defaultDir = "desc") => ({
+    active: col === colId,
+    dir,
+    onClick: () => {
+      if (col === colId) setDir(d => (d === "asc" ? "desc" : "asc"));
+      else { setCol(colId); setDir(defaultDir); }
+    },
+  });
+
+  return { sorted, sortProps };
+}
+
+function SortTh({ label, align, title, active, dir, onClick }) {
+  return (
+    <th style={{ ...th(align), cursor:"pointer", userSelect:"none", color: active ? "#f0d97a" : undefined }} title={title} onClick={onClick}>
+      {label}
+      {title && <span style={{ fontSize:10, opacity:0.6 }}> ⓘ</span>}
+      <span style={{ display:"inline-block", width:11, fontSize:9, opacity: active ? 0.9 : 0.35 }}>
+        {active ? (dir === "asc" ? "▲" : "▼") : "⇅"}
+      </span>
+    </th>
+  );
 }
 
 function TeamCell({ ownerGuid, ownerName, teamName, sub, logo }) {
@@ -83,6 +138,70 @@ function PlayoffPill({ probability, sampleSize, expanded, onClick }) {
 }
 
 
+const SEASON_MINI_TABLE_ACCESSORS = {
+  rank: r => r.finalRank,
+  owner: r => r.ownerName || r.teamName,
+  team: r => r.teamName,
+  w: r => r.wins,
+  l: r => r.losses,
+  t: r => r.ties,
+  pf: r => r.pointsFor,
+  pa: r => r.pointsAgainst,
+  high: r => r.high,
+  low: r => r.low,
+};
+
+/** One season's table in the "Individual Seasons" (multi-season/All-Time)
+ *  view — its own component so each season gets independent sort state via
+ *  its own useSort call, instead of one shared sort applying to every
+ *  season's table at once. */
+function SeasonMiniTable({ season, rows, champion, lastPlace }) {
+  const { sorted, sortProps } = useSort(rows, SEASON_MINI_TABLE_ACCESSORS);
+  return (
+    <div style={{ marginBottom:16 }}>
+      <div style={{ fontSize:13, fontWeight:700, marginBottom:6 }}>
+        {season}
+        {champion && (
+          <span style={{ fontWeight:400, fontSize:12, opacity:0.85 }}>
+            {" — 🏆 "}{champion.ownerName || champion.teamName}
+            {lastPlace && lastPlace !== champion && <> · last: {lastPlace.ownerName || lastPlace.teamName}</>}
+          </span>
+        )}
+        {!champion && <span style={{ fontWeight:400, fontSize:12, opacity:0.5 }}> — season in progress, not finalized yet</span>}
+      </div>
+      <div style={{ overflowX:"auto" }}>
+        <table style={{ width:"100%", fontSize:12.5 }}>
+          <thead>
+            <tr style={{ opacity:0.65, textAlign:"left" }}>
+              <SortTh label="Rank" {...sortProps("rank", "asc")} />
+              <SortTh label="Owner" align="left" {...sortProps("owner", "asc")} />
+              <SortTh label="Team" align="left" {...sortProps("team", "asc")} />
+              <SortTh label="W" {...sortProps("w")} /><SortTh label="L" {...sortProps("l")} /><SortTh label="T" {...sortProps("t")} />
+              <SortTh label="Pts For" {...sortProps("pf")} /><SortTh label="Pts Against" {...sortProps("pa")} />
+              <SortTh label="High" {...sortProps("high")} /><SortTh label="Low" {...sortProps("low")} />
+            </tr>
+          </thead>
+          <tbody>
+            {sorted.map(r => (
+              <tr key={`${r.season}-${r.ownerGuid || r.teamName}`}>
+                <td style={{...td(), fontWeight: r.finalRank===1 ? 700 : 400, color: r.finalRank===1 ? "#f0d97a" : undefined}}>
+                  {r.finalRank != null ? (r.finalRank===1 ? "🏆 1" : r.finalRank) : "—"}
+                </td>
+                <td style={td("left")}>{r.ownerName || "—"}</td>
+                <td style={td("left")}>{r.teamName}</td>
+                <td style={td()}>{r.wins}</td><td style={td()}>{r.losses}</td><td style={td()}>{r.ties}</td>
+                <td style={td()}>{r.pointsFor.toFixed(1)}</td><td style={td()}>{r.pointsAgainst.toFixed(1)}</td>
+                <td style={td()}>{r.high != null ? r.high.toFixed(1) : "—"}</td>
+                <td style={td()}>{r.low != null ? r.low.toFixed(1) : "—"}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
 export default function SeasonPage() {
   const { teams, matchups, seasonRecords, seasons, currentLogos } = useOutletContext();
   // Default to the current season, not All-Time — this page is meant to
@@ -112,6 +231,19 @@ export default function SeasonPage() {
   const weeklyStats = useMemo(() => computeFranchiseWeeklyStats(matchups), [matchups]);
   const aggregateRows = useMemo(() => isSingleSeason ? null : computeAggregateStandings(teams, seasonRecords, weeklyStats, activeYears), [teams, seasonRecords, weeklyStats, activeYears, isSingleSeason]);
 
+  const aggregateSortAccessors = useMemo(() => ({
+    team: a => a.teamName,
+    actual: a => winPct(a.wins, a.losses, a.ties),
+    exp: a => a.expW,
+    ovr: a => a.allPlayW,
+    ww: a => a.weeklyHighs,
+    pf: a => a.pointsFor,
+    pa: a => a.pointsAgainst,
+  }), []);
+  // Called unconditionally (aggregateRows is null in single-season view) —
+  // hooks can't be called inside the isSingleSeason branch below.
+  const { sorted: sortedAggregateRows, sortProps: aggregateSortProps } = useSort(aggregateRows || [], aggregateSortAccessors);
+
   // Most recent DECIDED champion, regardless of the current filter — same
   // "reigning champion" idea the Champs page hero uses, just as a small
   // banner subtitle here.
@@ -133,6 +265,35 @@ export default function SeasonPage() {
   const singleRows = isSingleSeason ? (seasonRecords[singleSeason] || []) : [];
   const ranked = singleRows.filter(r => r.finalRank != null);
   const seasonChampion = ranked.find(r => r.finalRank === 1);
+
+  // Precomputed once per row (rather than derived inline during render, as
+  // before) so the sort accessors below and the render loop read the exact
+  // same values — sorting by Exp/Ovr/WW/Playoff% needs w/p resolved up
+  // front, not recomputed after the array's already been reordered.
+  const enrichedSingleRows = useMemo(() => {
+    if (!isSingleSeason) return [];
+    return singleRows.map(r => {
+      const teamRow = teams.find(t => t.season === r.season && (r.ownerGuid ? t.owner_guid === r.ownerGuid : t.team_name === r.teamName));
+      const w = teamRow ? weeklyStats.get(teamKey(r.season, teamRow.espn_team_id)) : null;
+      const games = teamRow ? formGuide?.get(teamRow.espn_team_id) : null;
+      const p = withProbability ? probByGuid.get(r.ownerGuid || r.teamName) : null;
+      return { r, w, games, p, winPct: winPct(r.wins, r.losses, r.ties), rowKey: `${r.season}-${r.ownerGuid || r.teamName}` };
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [singleRows, isSingleSeason, teams, weeklyStats, formGuide, withProbability, probByGuid]);
+
+  const singleSortAccessors = useMemo(() => ({
+    rank: e => e.r.finalRank,
+    team: e => e.r.teamName,
+    actual: e => e.winPct,
+    exp: e => e.w?.expW,
+    ovr: e => e.w?.allPlayW,
+    ww: e => e.w?.weeklyHighs,
+    pf: e => e.r.pointsFor,
+    pa: e => e.r.pointsAgainst,
+    playoff: e => e.p?.probability,
+  }), []);
+  const { sorted: sortedSingleRows, sortProps: singleSortProps } = useSort(enrichedSingleRows, singleSortAccessors);
 
   return (
     <>
@@ -173,20 +334,18 @@ export default function SeasonPage() {
             <table style={{ width:"100%", fontSize:12.5, whiteSpace:"nowrap" }}>
               <thead>
                 <tr style={{ opacity:0.65, textAlign:"left" }}>
-                  <th style={th()}>#</th><th style={th("left")}>Team</th>
-                  <th style={th()}>Actual</th><th style={th()}>Form</th>
-                  <InfoTh label="Exp" title={EXP_TOOLTIP} /><InfoTh label="Ovr" title={OVR_TOOLTIP} /><InfoTh label="WW" title={WW_TOOLTIP} />
-                  <th style={th()}>PF</th><th style={th()}>PA</th>
-                  {withProbability && <th style={th()} title={PROB_TOOLTIP}>Playoff <span style={{ fontSize:10, opacity:0.6 }}>ⓘ</span></th>}
+                  <SortTh label="#" {...singleSortProps("rank", "asc")} />
+                  <SortTh label="Team" align="left" {...singleSortProps("team", "asc")} />
+                  <SortTh label="Actual" {...singleSortProps("actual")} /><th style={th()}>Form</th>
+                  <SortTh label="Exp" title={EXP_TOOLTIP} {...singleSortProps("exp")} />
+                  <SortTh label="Ovr" title={OVR_TOOLTIP} {...singleSortProps("ovr")} />
+                  <SortTh label="WW" title={WW_TOOLTIP} {...singleSortProps("ww")} />
+                  <SortTh label="PF" {...singleSortProps("pf")} /><SortTh label="PA" {...singleSortProps("pa")} />
+                  {withProbability && <SortTh label="Playoff" title={PROB_TOOLTIP} {...singleSortProps("playoff")} />}
                 </tr>
               </thead>
               <tbody>
-                {singleRows.map(r => {
-                  const rowKey = `${r.season}-${r.ownerGuid || r.teamName}`;
-                  const teamRow = teams.find(t => t.season === r.season && (r.ownerGuid ? t.owner_guid === r.ownerGuid : t.team_name === r.teamName));
-                  const w = teamRow ? weeklyStats.get(teamKey(r.season, teamRow.espn_team_id)) : null;
-                  const games = teamRow ? formGuide?.get(teamRow.espn_team_id) : null;
-                  const p = withProbability ? probByGuid.get(r.ownerGuid || r.teamName) : null;
+                {sortedSingleRows.map(({ r, w, games, p, rowKey }) => {
                   const isExpanded = expandedKey === rowKey;
                   return (
                     <React.Fragment key={rowKey}>
@@ -246,14 +405,17 @@ export default function SeasonPage() {
               <table style={{ width:"100%", fontSize:12.5, whiteSpace:"nowrap" }}>
                 <thead>
                   <tr style={{ opacity:0.65, textAlign:"left" }}>
-                    <th style={th()}>#</th><th style={th("left")}>Team</th>
-                    <th style={th()}>Actual</th>
-                    <InfoTh label="Exp" title={EXP_TOOLTIP} /><InfoTh label="Ovr" title={OVR_TOOLTIP} /><InfoTh label="WW" title={WW_TOOLTIP} />
-                    <th style={th()}>PF</th><th style={th()}>PA</th>
+                    <th style={th()}>#</th>
+                    <SortTh label="Team" align="left" {...aggregateSortProps("team", "asc")} />
+                    <SortTh label="Actual" {...aggregateSortProps("actual")} />
+                    <SortTh label="Exp" title={EXP_TOOLTIP} {...aggregateSortProps("exp")} />
+                    <SortTh label="Ovr" title={OVR_TOOLTIP} {...aggregateSortProps("ovr")} />
+                    <SortTh label="WW" title={WW_TOOLTIP} {...aggregateSortProps("ww")} />
+                    <SortTh label="PF" {...aggregateSortProps("pf")} /><SortTh label="PA" {...aggregateSortProps("pa")} />
                   </tr>
                 </thead>
                 <tbody>
-                  {aggregateRows.map((a, i) => (
+                  {sortedAggregateRows.map((a, i) => (
                     <tr key={a.ownerGuid}>
                       <td style={td()}>{i + 1}</td>
                       <TeamCell ownerGuid={a.ownerGuid} ownerName={a.ownerName} teamName={a.teamName} logo={a.logo}
@@ -280,47 +442,7 @@ export default function SeasonPage() {
               const rankedS = rows.filter(r => r.finalRank != null);
               const champion = rankedS.find(r => r.finalRank === 1);
               const lastPlace = rankedS.length ? rankedS.reduce((a, b) => (a.finalRank > b.finalRank ? a : b)) : null;
-              return (
-                <div key={s} style={{ marginBottom:16 }}>
-                  <div style={{ fontSize:13, fontWeight:700, marginBottom:6 }}>
-                    {s}
-                    {champion && (
-                      <span style={{ fontWeight:400, fontSize:12, opacity:0.85 }}>
-                        {" — 🏆 "}{champion.ownerName || champion.teamName}
-                        {lastPlace && lastPlace !== champion && <> · last: {lastPlace.ownerName || lastPlace.teamName}</>}
-                      </span>
-                    )}
-                    {!champion && <span style={{ fontWeight:400, fontSize:12, opacity:0.5 }}> — season in progress, not finalized yet</span>}
-                  </div>
-                  <div style={{ overflowX:"auto" }}>
-                    <table style={{ width:"100%", fontSize:12.5 }}>
-                      <thead>
-                        <tr style={{ opacity:0.65, textAlign:"left" }}>
-                          <th style={th()}>Rank</th><th style={th("left")}>Owner</th><th style={th("left")}>Team</th>
-                          <th style={th()}>W</th><th style={th()}>L</th><th style={th()}>T</th>
-                          <th style={th()}>Pts For</th><th style={th()}>Pts Against</th>
-                          <th style={th()}>High</th><th style={th()}>Low</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {rows.map(r => (
-                          <tr key={`${r.season}-${r.ownerGuid || r.teamName}`}>
-                            <td style={{...td(), fontWeight: r.finalRank===1 ? 700 : 400, color: r.finalRank===1 ? "#f0d97a" : undefined}}>
-                              {r.finalRank != null ? (r.finalRank===1 ? "🏆 1" : r.finalRank) : "—"}
-                            </td>
-                            <td style={td("left")}>{r.ownerName || "—"}</td>
-                            <td style={td("left")}>{r.teamName}</td>
-                            <td style={td()}>{r.wins}</td><td style={td()}>{r.losses}</td><td style={td()}>{r.ties}</td>
-                            <td style={td()}>{r.pointsFor.toFixed(1)}</td><td style={td()}>{r.pointsAgainst.toFixed(1)}</td>
-                            <td style={td()}>{r.high != null ? r.high.toFixed(1) : "—"}</td>
-                            <td style={td()}>{r.low != null ? r.low.toFixed(1) : "—"}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              );
+              return <SeasonMiniTable key={s} season={s} rows={rows} champion={champion} lastPlace={lastPlace} />;
             })}
           </div>
         </>
