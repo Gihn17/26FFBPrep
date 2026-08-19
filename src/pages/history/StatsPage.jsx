@@ -52,7 +52,7 @@ function StatBlock({ icon, iconColor, title, toggleOptions, activeToggle, onTogg
           <div style={{ fontWeight:800, fontSize:16 }}>{title}</div>
         </div>
         {toggleOptions && (
-          <div style={{ display:"flex", gap:8 }}>
+          <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
             {toggleOptions.map(([key, label, ico]) => (
               <button key={key} onClick={()=>onToggle(key)} style={{
                 display:"flex", alignItems:"center", gap:6, padding:"9px 16px", borderRadius:9, fontWeight:700, fontSize:13,
@@ -123,9 +123,9 @@ function ScoresTab({ teamIdx, matchups, seasonRecords, activeYears, currentLogos
   return (
     <>
       <StatBlock icon="💪" iconColor="#3f9e5e" title={scoreView === "high" ? "Most Points (game)" : "Least Points (game)"} rows={scoreRows} currentLogos={currentLogos}
-        toggleOptions={[["high","Juggernaut","💪"],["low","Featherweight","🪶"]]} activeToggle={scoreView} onToggle={setScoreView} />
+        toggleOptions={[["high","Most Points (game)","💪"],["low","Least Points (game)","🪶"]]} activeToggle={scoreView} onToggle={setScoreView} />
       <StatBlock icon="⚡" iconColor="#4f8fd1" title={ppgView === "high" ? "Most PPG" : "Least PPG"} rows={ppgRows} currentLogos={currentLogos}
-        toggleOptions={[["high","Powerhouse","⚡"],["low","Gauntlet","🛡️"]]} activeToggle={ppgView} onToggle={setPpgView} />
+        toggleOptions={[["high","Most PPG","⚡"],["low","Least PPG","🛡️"]]} activeToggle={ppgView} onToggle={setPpgView} />
     </>
   );
 }
@@ -158,9 +158,9 @@ function MatchupsTab({ teamIdx, matchups, activeYears, currentLogos }) {
   return (
     <>
       <StatBlock icon="◎" iconColor="#7fd18f" title={blowoutView === "biggest" ? "Biggest Blowouts" : "Biggest Nailbiter"} rows={blowoutRows} currentLogos={currentLogos}
-        toggleOptions={[["biggest","Cakewalk","🎂"],["closest","Nailbiter","🔍"]]} activeToggle={blowoutView} onToggle={setBlowoutView} />
+        toggleOptions={[["biggest","Biggest Blowouts","🎂"],["closest","Biggest Nailbiter","🔍"]]} activeToggle={blowoutView} onToggle={setBlowoutView} />
       <StatBlock icon="💔" iconColor="#8a63d1" title={lossWinView === "heartbreak" ? "Most Points in a Loss" : "Fewest Points in a Win"} rows={lossWinRows} currentLogos={currentLogos}
-        toggleOptions={[["heartbreak","Heartbreak","💔"],["criminal","Criminal","🕵️"]]} activeToggle={lossWinView} onToggle={setLossWinView} />
+        toggleOptions={[["heartbreak","Most Points in a Loss","💔"],["criminal","Fewest Points in a Win","🕵️"]]} activeToggle={lossWinView} onToggle={setLossWinView} />
     </>
   );
 }
