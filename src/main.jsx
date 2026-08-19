@@ -2,14 +2,14 @@ import "./storagePolyfill.js";
 import React from "react";
 import ReactDOM from "react-dom/client";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
-import { AuthProvider, useAuth } from "./AuthContext.jsx";
+import { AuthProvider } from "./AuthContext.jsx";
 import RequireAuth from "./RequireAuth.jsx";
 import DraftPrepApp from "./App.jsx";
 import Landing from "./pages/Landing.jsx";
 import Login from "./pages/Login.jsx";
 import Admin from "./pages/Admin.jsx";
 import GameDay from "./pages/GameDay.jsx";
-import HistoryLayout, { TABS as HISTORY_NAV_TABS } from "./pages/history/Layout.jsx";
+import HistoryLayout from "./pages/history/Layout.jsx";
 import HomePage from "./pages/history/HomePage.jsx";
 import SeasonPage from "./pages/history/SeasonPage.jsx";
 import StatsPage from "./pages/history/StatsPage.jsx";
@@ -18,16 +18,12 @@ import ChampsPage from "./pages/history/ChampsPage.jsx";
 import TeamsPage from "./pages/history/TeamsPage.jsx";
 import TeamDetailPage from "./pages/history/TeamDetailPage.jsx";
 
-// Home is admin-only (not finished yet) — a true admin lands there by
-// default. Everyone else lands on the first nav tab (Seasons): permission
-// for League History is per-LEAGUE now (see RequireAuth's historyLeague
-// prop on the /league-koi route below), not per-sub-page, so reaching this
-// route at all already means every sub-page is visible — no filtering or
-// loop risk to worry about here anymore.
+// Home is now the real landing page for a league's History — everyone who
+// reaches this route at all (permission is per-LEAGUE, checked once via
+// RequireAuth's historyLeague prop on the /league-koi route below, not
+// per-sub-page) lands there by default, same as anyone else.
 function HistoryIndexRedirect() {
-  const { user } = useAuth();
-  if (user?.role === "admin") return <Navigate to="home" replace />;
-  return <Navigate to={HISTORY_NAV_TABS[0][0]} replace />;
+  return <Navigate to="home" replace />;
 }
 
 ReactDOM.createRoot(document.getElementById("root")).render(
@@ -50,7 +46,7 @@ ReactDOM.createRoot(document.getElementById("root")).render(
               (and no longer have) their own RequireAuth. */}
           <Route path="/league-koi" element={<RequireAuth permission="history" historyLeague="koi"><HistoryLayout /></RequireAuth>}>
             <Route index element={<HistoryIndexRedirect />} />
-            <Route path="home" element={<RequireAuth role="admin"><HomePage /></RequireAuth>} />
+            <Route path="home" element={<HomePage />} />
             <Route path="season" element={<SeasonPage />} />
             <Route path="stats" element={<StatsPage />} />
             <Route path="h2h" element={<H2HPage />} />

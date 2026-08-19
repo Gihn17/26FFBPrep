@@ -60,12 +60,40 @@ function SubTabCheckboxes({ options, selected, onChange, disabled }) {
   );
 }
 
+// Home's two elevated, boolean, account-wide abilities (server/auth.js's
+// file header) — separate from SubTabCheckboxes since these aren't "pick
+// from a list," just two independent on/off switches. Only meaningful
+// once the account can already see Koi's History, so callers only render
+// this once 'koi' is actually checked; `indent` matches that nesting when
+// it's shown under the League History row (not needed for a 'standard'
+// account, which has no area checkboxes to nest under in the first place).
+function HomeAbilityCheckboxes({ homeAdmin, homePoster, onChangeHomeAdmin, onChangeHomePoster, disabled, indent }) {
+  return (
+    <div style={{
+      display:"flex", gap:12, flexWrap:"wrap", marginTop:4,
+      ...(indent ? { paddingLeft:18, borderLeft:"2px solid #2a2c20" } : {}),
+    }}>
+      <label style={{ display:"flex", alignItems:"center", gap:5, fontSize:11.5, opacity: disabled ? 0.4 : 0.85 }}>
+        <input type="checkbox" checked={homeAdmin} disabled={disabled} onChange={e=>onChangeHomeAdmin(e.target.checked)} />
+        Homepage Admin
+      </label>
+      <label style={{ display:"flex", alignItems:"center", gap:5, fontSize:11.5, opacity: disabled ? 0.4 : 0.85 }}>
+        <input type="checkbox" checked={homePoster} disabled={disabled} onChange={e=>onChangeHomePoster(e.target.checked)} />
+        Social Media Poster
+      </label>
+    </div>
+  );
+}
+
 // One row per AREA, stacked vertically, with that area's own sub-
 // permissions (if it has any) nested directly underneath it when checked —
 // replaces cramming every area into one line with all their sub-checkboxes
 // piled below, which made it hard to tell which sub-list belonged to which
 // area. Game Day has no finer grain, so it's just a bare row.
-function PermissionRows({ permissions, onChangePermissions, draftTabs, onChangeDraftTabs, historyLeagues, onChangeHistoryLeagues, disabled }) {
+function PermissionRows({
+  permissions, onChangePermissions, draftTabs, onChangeDraftTabs, historyLeagues, onChangeHistoryLeagues,
+  homeAdmin, homePoster, onChangeHomeAdmin, onChangeHomePoster, disabled,
+}) {
   const toggleArea = (area) => {
     onChangePermissions(permissions.includes(area) ? permissions.filter(a => a !== area) : [...permissions, area]);
   };
@@ -81,7 +109,16 @@ function PermissionRows({ permissions, onChangePermissions, draftTabs, onChangeD
             <SubTabCheckboxes options={DRAFT_TABS} selected={draftTabs} onChange={onChangeDraftTabs} disabled={disabled} />
           )}
           {key === "history" && permissions.includes("history") && (
-            <SubTabCheckboxes options={HISTORY_LEAGUES} selected={historyLeagues} onChange={onChangeHistoryLeagues} disabled={disabled} />
+            <>
+              <SubTabCheckboxes options={HISTORY_LEAGUES} selected={historyLeagues} onChange={onChangeHistoryLeagues} disabled={disabled} />
+              {historyLeagues.includes("koi") && (
+                <HomeAbilityCheckboxes
+                  homeAdmin={homeAdmin} homePoster={homePoster}
+                  onChangeHomeAdmin={onChangeHomeAdmin} onChangeHomePoster={onChangeHomePoster}
+                  disabled={disabled} indent
+                />
+              )}
+            </>
           )}
         </div>
       ))}
@@ -96,6 +133,8 @@ function NewUserForm({ onCreate }) {
   const [permissions, setPermissions] = useState([]);
   const [draftTabs, setDraftTabs] = useState([]);
   const [historyLeagues, setHistoryLeagues] = useState([]);
+  const [homeAdmin, setHomeAdmin] = useState(false);
+  const [homePoster, setHomePoster] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
 
@@ -103,8 +142,9 @@ function NewUserForm({ onCreate }) {
     e.preventDefault();
     setBusy(true); setError(null);
     try {
-      await onCreate({ username, password, role, permissions, draftTabs, historyLeagues });
+      await onCreate({ username, password, role, permissions, draftTabs, historyLeagues, homeAdmin, homePoster });
       setUsername(""); setPassword(""); setRole("limited"); setPermissions([]); setDraftTabs([]); setHistoryLeagues([]);
+      setHomeAdmin(false); setHomePoster(false);
     } catch (e) {
       setError(e.message);
     }
@@ -137,7 +177,14 @@ function NewUserForm({ onCreate }) {
             permissions={permissions} onChangePermissions={setPermissions}
             draftTabs={draftTabs} onChangeDraftTabs={setDraftTabs}
             historyLeagues={historyLeagues} onChangeHistoryLeagues={setHistoryLeagues}
+            homeAdmin={homeAdmin} homePoster={homePoster} onChangeHomeAdmin={setHomeAdmin} onChangeHomePoster={setHomePoster}
           />
+        </label>
+      )}
+      {role === "standard" && (
+        <label style={{ ...lbl(), gap:6 }}>
+          Home page abilities (Koi)
+          <HomeAbilityCheckboxes homeAdmin={homeAdmin} homePoster={homePoster} onChangeHomeAdmin={setHomeAdmin} onChangeHomePoster={setHomePoster} />
         </label>
       )}
       {error && <div style={{ fontSize:12, color:"#e08a8a" }}>{error}</div>}
@@ -185,7 +232,7 @@ function LoginLog({ userId }) {
   );
 }
 
-function UserRow({ u, isSelf, onSetRole, onSetPermissions, onSetDraftTabs, onSetHistoryLeagues, onResetPassword, onDelete }) {
+function UserRow({ u, isSelf, onSetRole, onSetPermissions, onSetDraftTabs, onSetHistoryLeagues, onSetHomeAdmin, onSetHomePoster, onResetPassword, onDelete }) {
   const [newPassword, setNewPassword] = useState("");
   const [showLogins, setShowLogins] = useState(false);
   return (
@@ -208,7 +255,17 @@ function UserRow({ u, isSelf, onSetRole, onSetPermissions, onSetDraftTabs, onSet
             permissions={u.permissions} onChangePermissions={(perms)=>onSetPermissions(u.id, perms)}
             draftTabs={u.draftTabs} onChangeDraftTabs={(tabs)=>onSetDraftTabs(u.id, tabs)}
             historyLeagues={u.historyLeagues} onChangeHistoryLeagues={(leagues)=>onSetHistoryLeagues(u.id, leagues)}
+            homeAdmin={u.homeAdmin} homePoster={u.homePoster}
+            onChangeHomeAdmin={(v)=>onSetHomeAdmin(u.id, v)} onChangeHomePoster={(v)=>onSetHomePoster(u.id, v)}
           />
+        )}
+        {u.role === "standard" && (
+          <div style={{ fontSize:11, opacity:0.6, marginBottom:4 }}>Home page abilities (Koi):
+            <HomeAbilityCheckboxes
+              homeAdmin={u.homeAdmin} homePoster={u.homePoster}
+              onChangeHomeAdmin={(v)=>onSetHomeAdmin(u.id, v)} onChangeHomePoster={(v)=>onSetHomePoster(u.id, v)}
+            />
+          </div>
         )}
       </td>
       <td style={{ padding:"8px 6px", borderBottom:"1px solid #1e2018", verticalAlign:"top" }}>
@@ -246,10 +303,10 @@ export default function Admin() {
   }, []);
   useEffect(load, [load]);
 
-  const createUser = async ({ username, password, role, permissions, draftTabs, historyLeagues }) => {
+  const createUser = async ({ username, password, role, permissions, draftTabs, historyLeagues, homeAdmin, homePoster }) => {
     const res = await fetch("/api/auth/users", {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ username, password, role, permissions, draftTabs, historyLeagues }),
+      body: JSON.stringify({ username, password, role, permissions, draftTabs, historyLeagues, homeAdmin, homePoster }),
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || "failed to create account");
@@ -283,6 +340,20 @@ export default function Admin() {
     setUsers(us => us.map(u => u.id === id ? { ...u, historyLeagues } : u));
     await fetch(`/api/auth/users/${id}/history-leagues`, {
       method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ historyLeagues }),
+    });
+  };
+
+  const setHomeAdmin = async (id, homeAdmin) => {
+    setUsers(us => us.map(u => u.id === id ? { ...u, homeAdmin } : u));
+    await fetch(`/api/auth/users/${id}/home-admin`, {
+      method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ homeAdmin }),
+    });
+  };
+
+  const setHomePoster = async (id, homePoster) => {
+    setUsers(us => us.map(u => u.id === id ? { ...u, homePoster } : u));
+    await fetch(`/api/auth/users/${id}/home-poster`, {
+      method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ homePoster }),
     });
   };
 
@@ -320,8 +391,10 @@ export default function Admin() {
           <div style={{ fontSize:12, opacity:0.65, marginBottom:14 }}>
             Admin sees everything and can manage other accounts. Standard sees everything but can't manage
             accounts. Limited only ever sees the areas checked below — and, within Draft Prep, the specific
-            leagues/tab, or within League History, the specific league's history. All enforced on the server,
-            not just hidden in the UI.
+            leagues/tab, or within League History, the specific league's history. Homepage Admin/Social Media
+            Poster are separate, elevated abilities on top of that — not unlocked automatically, even by
+            Standard — for editing Home's video link and posting/moderating its chat. All enforced on the
+            server, not just hidden in the UI.
           </div>
 
           {loaded && (
@@ -340,6 +413,7 @@ export default function Admin() {
                     <UserRow key={u.id} u={u} isSelf={u.id === user?.id}
                       onSetRole={setRole} onSetPermissions={setPermissions}
                       onSetDraftTabs={setDraftTabs} onSetHistoryLeagues={setHistoryLeagues}
+                      onSetHomeAdmin={setHomeAdmin} onSetHomePoster={setHomePoster}
                       onResetPassword={resetPassword} onDelete={deleteUser} />
                   ))}
                 </tbody>

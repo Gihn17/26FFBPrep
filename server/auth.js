@@ -40,10 +40,21 @@
 //     'limited' account with 'history' sees (Koi is the only one built so
 //     far). Deliberately per-league, not per-sub-page like DRAFT_TABS —
 //     once a league is granted, every sub-page inside it (Season/Stats/
-//     H2H/Champs/Teams) comes with it; there's no finer grant underneath.
-//     "Home" is deliberately NOT part of this list either way — it's
-//     gated to the true admin role only, unfinished, not a grantable
-//     permission (see requireAdmin on its routes in index.js).
+//     H2H/Champs/Teams/Home) comes with it; there's no finer grant needed
+//     just to VIEW Home.
+//
+// Home (the League Social page — featured video + shared chat) has two of
+// its own elevated, boolean, account-wide flags on top of plain viewing —
+// Will's call: everyone who can already see a league's History should be
+// able to see its Home page too, but editing the video link and posting in
+// the chat are separate abilities, not unlocked just by having full
+// content access (same reasoning as the ESPN-cookie-edit/refresh-history
+// actions elsewhere in this app staying strictly elevated even for
+// 'standard'):
+//   - home_admin   can edit Home's settings (the YouTube link) and
+//                  moderate its chat (delete any message). True admin
+//                  always has this regardless of the flag.
+//   - home_poster  can post in Home's chat. home_admin implies this too.
 //
 // Passwords are hashed with Node's built-in scrypt (no new dependency) —
 // per-user random salt, timing-safe comparison. Sessions are opaque random
@@ -69,6 +80,8 @@ CREATE TABLE IF NOT EXISTS auth_users (
                                           -- only meaningful when 'draft' is granted
   history_leagues TEXT,                 -- comma-separated subset of HISTORY_LEAGUES;
                                           -- only meaningful when 'history' is granted
+  home_admin    INTEGER NOT NULL DEFAULT 0,  -- can edit Home's video link + moderate its chat
+  home_poster   INTEGER NOT NULL DEFAULT 0,  -- can post in Home's chat (home_admin implies this)
   created_at    TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
@@ -129,6 +142,12 @@ if (!authUsersCols.includes("history_leagues")) {
     db.exec("ALTER TABLE auth_users ADD COLUMN history_leagues TEXT");
   }
 }
+if (!authUsersCols.includes("home_admin")) {
+  db.exec("ALTER TABLE auth_users ADD COLUMN home_admin INTEGER NOT NULL DEFAULT 0");
+}
+if (!authUsersCols.includes("home_poster")) {
+  db.exec("ALTER TABLE auth_users ADD COLUMN home_poster INTEGER NOT NULL DEFAULT 0");
+}
 // Migration: the role that's now 'limited' used to be called 'restricted'
 // — rename the stored value for every existing account, not just new
 // ones. Safe to run every boot (no-op once there's nothing left to rename).
@@ -167,10 +186,12 @@ function toUserShape(row) {
     permissions: parsePermissions(row.permissions),
     draftTabs: parseDraftTabs(row.draft_tabs),
     historyLeagues: parseHistoryLeagues(row.history_leagues),
+    homeAdmin: !!row.home_admin,
+    homePoster: !!row.home_poster,
   };
 }
 
-export function createAuthUser(username, password, role = "limited", permissions = [], draftTabs = [], historyLeagues = []) {
+export function createAuthUser(username, password, role = "limited", permissions = [], draftTabs = [], historyLeagues = [], homeAdmin = false, homePoster = false) {
   username = normalizeUsername(username);
   if (!username) throw new Error("username required");
   if (!password || password.length < 4) throw new Error("password must be at least 4 characters");
@@ -180,13 +201,15 @@ export function createAuthUser(username, password, role = "limited", permissions
   const perms = serializePermissions(permissions);
   const draftT = serializeDraftTabs(draftTabs);
   const historyL = serializeHistoryLeagues(historyLeagues);
-  const info = db.prepare("INSERT INTO auth_users (username, password_hash, password_salt, role, permissions, draft_tabs, history_leagues) VALUES (?, ?, ?, ?, ?, ?, ?)")
-    .run(username, hash, salt, role, perms, draftT, historyL);
-  return toUserShape({ id: info.lastInsertRowid, username, role, permissions: perms, draft_tabs: draftT, history_leagues: historyL });
+  const homeA = homeAdmin ? 1 : 0;
+  const homeP = homePoster ? 1 : 0;
+  const info = db.prepare("INSERT INTO auth_users (username, password_hash, password_salt, role, permissions, draft_tabs, history_leagues, home_admin, home_poster) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)")
+    .run(username, hash, salt, role, perms, draftT, historyL, homeA, homeP);
+  return toUserShape({ id: info.lastInsertRowid, username, role, permissions: perms, draft_tabs: draftT, history_leagues: historyL, home_admin: homeA, home_poster: homeP });
 }
 
 export function listAuthUsers() {
-  return db.prepare("SELECT id, username, role, permissions, draft_tabs, history_leagues, created_at FROM auth_users ORDER BY id")
+  return db.prepare("SELECT id, username, role, permissions, draft_tabs, history_leagues, home_admin, home_poster, created_at FROM auth_users ORDER BY id")
     .all().map((row) => ({ ...toUserShape(row), created_at: row.created_at }));
 }
 
@@ -230,6 +253,22 @@ export function setAuthUserDraftTabs(id, tabs) {
 export function setAuthUserHistoryLeagues(id, leagues) {
   const value = serializeHistoryLeagues(leagues);
   const result = db.prepare("UPDATE auth_users SET history_leagues = ? WHERE id = ?").run(value, id);
+  if (result.changes === 0) throw new Error("user not found");
+}
+
+/** Can edit Home's video link and moderate its chat (delete any message).
+ *  Independent of history_leagues/role — see the file header. Harmless to
+ *  set on an account that doesn't have 'koi' in history_leagues; the Admin
+ *  UI just doesn't offer the checkbox until it does. */
+export function setAuthUserHomeAdmin(id, value) {
+  const result = db.prepare("UPDATE auth_users SET home_admin = ? WHERE id = ?").run(value ? 1 : 0, id);
+  if (result.changes === 0) throw new Error("user not found");
+}
+
+/** Can post in Home's chat (not edit the video link, not delete others'
+ *  messages — see setAuthUserHomeAdmin above). */
+export function setAuthUserHomePoster(id, value) {
+  const result = db.prepare("UPDATE auth_users SET home_poster = ? WHERE id = ?").run(value ? 1 : 0, id);
   if (result.changes === 0) throw new Error("user not found");
 }
 
@@ -288,7 +327,7 @@ export function deleteSession(token) {
 export function getUserBySession(token) {
   if (!token) return null;
   const row = db.prepare(`
-    SELECT u.id, u.username, u.role, u.permissions, u.draft_tabs, u.history_leagues, s.expires_at
+    SELECT u.id, u.username, u.role, u.permissions, u.draft_tabs, u.history_leagues, u.home_admin, u.home_poster, s.expires_at
     FROM auth_sessions s JOIN auth_users u ON u.id = s.user_id
     WHERE s.token = ?
   `).get(token);
@@ -359,7 +398,7 @@ export function requireAdmin(req, res, next) {
  *  granted permissions. Use this instead of requireAdmin for anything a
  *  non-admin CAN be granted (draft board / Game Day / League History),
  *  and requireAdmin only for things that must always stay admin-only
- *  regardless of permissions (account management, the WIP Home page). */
+ *  regardless of permissions (account management). */
 export function requirePermission(area) {
   return (req, res, next) => {
     if (!req.authUser) return res.status(401).json({ error: "login required" });
@@ -382,6 +421,27 @@ export function requireHistoryLeague(req, res, next) {
   const league = req.params.league;
   if (req.authUser.permissions.includes("history") && req.authUser.historyLeagues.includes(league)) return next();
   res.status(403).json({ error: `access to '${league}' history not granted` });
+}
+
+/** True admin, or an account explicitly granted "Homepage Admin" — can
+ *  edit the League History Home page's settings (the YouTube link) and
+ *  moderate its chat (delete any message). Deliberately NOT unlocked by
+ *  'standard' — same reasoning as the ESPN-cookie-edit/refresh-history
+ *  actions elsewhere staying elevated regardless of otherwise-full
+ *  content access; see the file header. */
+export function requireHomeAdmin(req, res, next) {
+  if (!req.authUser) return res.status(401).json({ error: "login required" });
+  if (req.authUser.role === "admin" || req.authUser.homeAdmin) return next();
+  res.status(403).json({ error: "Homepage Admin access required" });
+}
+
+/** True admin, Homepage Admin, or an account granted "Social Media
+ *  Poster" — can post in Home's chat. Doesn't grant editing the video
+ *  link or deleting others' messages — see requireHomeAdmin above. */
+export function requireHomePoster(req, res, next) {
+  if (!req.authUser) return res.status(401).json({ error: "login required" });
+  if (req.authUser.role === "admin" || req.authUser.homeAdmin || req.authUser.homePoster) return next();
+  res.status(403).json({ error: "posting access required" });
 }
 
 /** Creates the first admin account on a fresh install, with a random

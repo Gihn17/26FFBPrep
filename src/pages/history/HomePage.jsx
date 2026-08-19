@@ -74,7 +74,7 @@ function DivisionStandings({ divisions, currentLogos }) {
   );
 }
 
-function ChatBox({ chat, onPost, onDelete }) {
+function ChatBox({ chat, onPost, onDelete, canPost, canModerate }) {
   const [message, setMessage] = useState("");
   const [posting, setPosting] = useState(false);
 
@@ -98,18 +98,24 @@ function ChatBox({ chat, onPost, onDelete }) {
               <span style={{ fontSize:10.5, opacity:0.5 }}>{timeAgo(m.created_at)}</span>
             </div>
             <div style={{ fontSize:13, marginTop:3, whiteSpace:"pre-wrap", wordBreak:"break-word" }}>{m.message}</div>
-            <button onClick={()=>onDelete(m.id)} style={{ background:"none", border:"none", color:"#9c998e", fontSize:10.5, cursor:"pointer", padding:0, marginTop:4 }}>
-              Delete
-            </button>
+            {canModerate && (
+              <button onClick={()=>onDelete(m.id)} style={{ background:"none", border:"none", color:"#9c998e", fontSize:10.5, cursor:"pointer", padding:0, marginTop:4 }}>
+                Delete
+              </button>
+            )}
           </div>
         ))}
       </div>
-      <div style={{ display:"flex", gap:8 }}>
-        <textarea value={message} onChange={e=>setMessage(e.target.value)} placeholder="Add a note or thought…"
-          onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); submit(); } }}
-          style={{ ...ta(), minHeight:44, resize:"vertical", flex:1 }} />
-        <button onClick={submit} disabled={posting || !message.trim()} style={btnStyle("#2a2a18","#c9a227")}>Post</button>
-      </div>
+      {canPost ? (
+        <div style={{ display:"flex", gap:8 }}>
+          <textarea value={message} onChange={e=>setMessage(e.target.value)} placeholder="Add a note or thought…"
+            onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); submit(); } }}
+            style={{ ...ta(), minHeight:44, resize:"vertical", flex:1 }} />
+          <button onClick={submit} disabled={posting || !message.trim()} style={btnStyle("#2a2a18","#c9a227")}>Post</button>
+        </div>
+      ) : (
+        <div style={{ fontSize:11.5, opacity:0.5 }}>Ask an admin for posting access to add your own notes here.</div>
+      )}
     </div>
   );
 }
@@ -117,6 +123,11 @@ function ChatBox({ chat, onPost, onDelete }) {
 export default function HomePage() {
   const { league, seasonRecords, seasons, currentLogos } = useOutletContext();
   const { user } = useAuth();
+  // True admin always has both; everyone else needs the explicit flag —
+  // deliberately not unlocked just by full content access (see
+  // server/auth.js's file header for why). homeAdmin implies posting too.
+  const canEditVideo = user?.role === "admin" || user?.homeAdmin;
+  const canPost = canEditVideo || user?.homePoster;
   const [settings, setSettings] = useState({ youtubeUrl: null });
   const [chat, setChat] = useState([]);
   const [loaded, setLoaded] = useState(false);
@@ -159,15 +170,11 @@ export default function HomePage() {
 
   return (
     <>
-      <div style={{ background:"#3a1f1f", border:"1px solid #c0453f", borderRadius:8, padding:"8px 14px", fontSize:12, marginBottom:16, color:"#e08a8a" }}>
-        🚧 Admin-only preview — this page isn't finished yet, so it's hidden from everyone else for now.
-      </div>
-
       <div style={panelStyle()}>
         <div style={{ fontSize:11, fontWeight:700, letterSpacing:0.5, color:"#c9a227", marginBottom:10, textTransform:"uppercase" }}>
           League Social
         </div>
-        <VideoEditor youtubeUrl={settings.youtubeUrl} onSave={saveVideo} />
+        {canEditVideo && <VideoEditor youtubeUrl={settings.youtubeUrl} onSave={saveVideo} />}
         {embedUrl ? (
           <div style={{ position:"relative", paddingBottom:"56.25%", height:0, borderRadius:8, overflow:"hidden" }}>
             <iframe src={embedUrl} title="League video" frameBorder="0" allowFullScreen
@@ -193,7 +200,7 @@ export default function HomePage() {
         <div style={{ fontSize:11, fontWeight:700, letterSpacing:0.5, color:"#c9a227", marginBottom:10, textTransform:"uppercase" }}>
           League Chat
         </div>
-        {loaded && <ChatBox chat={chat} onPost={postMessage} onDelete={deleteMessage} />}
+        {loaded && <ChatBox chat={chat} onPost={postMessage} onDelete={deleteMessage} canPost={canPost} canModerate={canEditVideo} />}
       </div>
     </>
   );

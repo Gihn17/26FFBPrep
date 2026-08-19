@@ -199,11 +199,13 @@ export const VALID_TABS = ["koi", "final", "jordan", "how"];
 // the only one with a League History page built so far; extend this list
 // (and Landing.jsx's LEAGUE_HISTORIES / main.jsx's routes) as Final/Jordan
 // get their own. Deliberately per-LEAGUE, not per-sub-page: once a league
-// is granted here, every sub-page inside it (Season/Stats/H2H/Champs/Teams)
-// is visible — there's no finer permission underneath, unlike Draft Prep's
-// VALID_TABS above. "home" isn't a league and never appears here regardless
-// — that page is gated to the true admin role only (see server/auth.js's
-// role comment), not grantable as a permission at all.
+// is granted here, every sub-page inside it (Season/Stats/H2H/Champs/Teams/
+// Home) is visible — there's no finer permission underneath, unlike Draft
+// Prep's VALID_TABS above. "home" isn't a league and never appears in this
+// list — but its two ADDITIONAL, elevated abilities (editing the video
+// link, posting in chat) are their own separate boolean flags on the
+// account (home_admin/home_poster — see server/auth.js's file header), not
+// unlocked by this list at all.
 export const HISTORY_LEAGUES = ["koi"];
 
 /** allowed_tabs is stored as a comma-separated string; NULL/empty means

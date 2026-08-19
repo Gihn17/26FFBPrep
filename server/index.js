@@ -9,9 +9,11 @@ import { refreshLeagueHistory, getLeagueHistory, getWeekMatchups } from "./espn.
 import { getHomeSettings, setHomeSettings, listChatMessages, addChatMessage, deleteChatMessage } from "./leaguehome.js";
 import {
   bootstrapAdmin, attachUser, requireAuth, requireAdmin, requirePermission, requireHistoryLeague,
+  requireHomeAdmin, requireHomePoster,
   verifyLogin, createSession, deleteSession, setSessionCookie, clearSessionCookie, getSessionTokenFromReq,
   listAuthUsers, createAuthUser, setAuthUserPassword, setAuthUserRole, setAuthUserPermissions,
-  setAuthUserDraftTabs, setAuthUserHistoryLeagues, deleteAuthUser, recordLogin, listLoginLog,
+  setAuthUserDraftTabs, setAuthUserHistoryLeagues, setAuthUserHomeAdmin, setAuthUserHomePoster,
+  deleteAuthUser, recordLogin, listLoginLog,
 } from "./auth.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -120,8 +122,8 @@ app.get("/api/auth/users/:id/logins", requireAdmin, (req, res) => {
 
 app.post("/api/auth/users", requireAdmin, (req, res) => {
   try {
-    const { username, password, role, permissions, draftTabs, historyLeagues } = req.body || {};
-    res.json(createAuthUser(username, password, role, permissions, draftTabs, historyLeagues));
+    const { username, password, role, permissions, draftTabs, historyLeagues, homeAdmin, homePoster } = req.body || {};
+    res.json(createAuthUser(username, password, role, permissions, draftTabs, historyLeagues, homeAdmin, homePoster));
   } catch (e) {
     res.status(400).json({ error: e.message });
   }
@@ -177,6 +179,28 @@ app.put("/api/auth/users/:id/draft-tabs", requireAdmin, (req, res) => {
 app.put("/api/auth/users/:id/history-leagues", requireAdmin, (req, res) => {
   try {
     setAuthUserHistoryLeagues(Number(req.params.id), req.body && req.body.historyLeagues);
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(400).json({ error: e.message });
+  }
+});
+
+// Can edit Home's video link + moderate its chat. Independent of role/
+// history_leagues (see server/auth.js's file header) — only meaningful
+// alongside 'koi' in history_leagues, but harmless to set on anyone else.
+app.put("/api/auth/users/:id/home-admin", requireAdmin, (req, res) => {
+  try {
+    setAuthUserHomeAdmin(Number(req.params.id), req.body && req.body.homeAdmin);
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(400).json({ error: e.message });
+  }
+});
+
+// Can post in Home's chat (not edit the link, not delete others' messages).
+app.put("/api/auth/users/:id/home-poster", requireAdmin, (req, res) => {
+  try {
+    setAuthUserHomePoster(Number(req.params.id), req.body && req.body.homePoster);
     res.json({ ok: true });
   } catch (e) {
     res.status(400).json({ error: e.message });
@@ -341,14 +365,15 @@ app.post("/api/history/:league/refresh", requireAdmin, async (req, res) => {
 });
 
 // --- League History "Home" page (League Social — featured video + a
-// shared chat board). Admin-only for now, not just hidden client-side —
-// Will's call, the page isn't finished yet. Once it's ready this can drop
-// to requirePermission("history") to match the rest of League History. ---
-app.get("/api/history/:league/home", requireAdmin, (req, res) => {
+// shared chat board). Viewing is open to anyone with that league's History
+// (same requireHistoryLeague as the rest of League History) — editing the
+// video link and moderating chat need Homepage Admin, posting needs
+// Homepage Admin or Social Media Poster. See server/auth.js's file header. ---
+app.get("/api/history/:league/home", requireHistoryLeague, (req, res) => {
   res.json({ settings: getHomeSettings(req.params.league), chat: listChatMessages(req.params.league) });
 });
 
-app.put("/api/history/:league/home/settings", requireAdmin, (req, res) => {
+app.put("/api/history/:league/home/settings", requireHomeAdmin, (req, res) => {
   try {
     res.json(setHomeSettings(req.params.league, req.body || {}));
   } catch (e) {
@@ -356,7 +381,7 @@ app.put("/api/history/:league/home/settings", requireAdmin, (req, res) => {
   }
 });
 
-app.post("/api/history/:league/home/chat", requireAdmin, (req, res) => {
+app.post("/api/history/:league/home/chat", requireHomePoster, (req, res) => {
   try {
     res.json(addChatMessage(req.params.league, req.authUser.username, req.body && req.body.message));
   } catch (e) {
@@ -364,7 +389,7 @@ app.post("/api/history/:league/home/chat", requireAdmin, (req, res) => {
   }
 });
 
-app.delete("/api/history/:league/home/chat/:id", requireAdmin, (req, res) => {
+app.delete("/api/history/:league/home/chat/:id", requireHomeAdmin, (req, res) => {
   try {
     deleteChatMessage(req.params.league, Number(req.params.id));
     res.json({ ok: true });

@@ -20,9 +20,12 @@ export const TABS = [
   ["teams", "Teams"],
 ];
 
-// Home is admin-only for now (Will's call — not finished yet), so it's
-// prepended separately rather than living in TABS, which every
-// history-permitted visitor sees.
+// Home is the real landing page for a league's History — kept as its own
+// constant (rather than folded into TABS) just because it's always first
+// and always present, not because it's restricted; everyone who reaches
+// this layout sees it, same as every other tab. Editing its video link and
+// posting in its chat are separately gated (home_admin/home_poster —
+// see server/auth.js's file header), but plain viewing isn't.
 const HOME_TAB = ["home", "Home"];
 
 /** Loads {teams, matchups} once, derives the shared shapes every sub-page
@@ -110,7 +113,7 @@ export default function HistoryLayout() {
         )}
 
         <div style={{ display:"flex", gap:8, marginBottom:16, flexWrap:"wrap" }}>
-          {(canEdit ? [HOME_TAB, ...visibleTabs] : visibleTabs).map(([slug, label]) => (
+          {[HOME_TAB, ...visibleTabs].map(([slug, label]) => (
             <NavLink key={slug} to={`/league-koi/${slug}`}
               style={({ isActive }) => ({
                 padding:"8px 16px", borderRadius:8, textDecoration:"none",
