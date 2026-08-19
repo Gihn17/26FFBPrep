@@ -389,6 +389,11 @@ function reconcileSleeperPicks(picks, index, currentDraft, managerNameFor, nameB
 }
 
 
+// Canonical position order — was inlined separately at the posFilter
+// buttons and TeamBudgetsPanel's header; pulled into one shared constant
+// while building the Cheat Sheet view, which needed the same order again.
+const POS_ORDER = ["QB", "RB", "WR", "TE", "K", "DEF"];
+
 // The three actual draft boards — used to gate board-only UI (Export CSV,
 // Reset Draft, the drafted/spent counter, Sleeper sync) and to fall back
 // "league" to a real board whenever the active tab isn't one (how/settings).
@@ -475,6 +480,7 @@ async function setPersonalNotes(value) {
 export default function DraftPrepApp() {
   const [adpPool, setAdpPool] = useState([]); // live pool from GET /api/players (server/adp.js), refreshed daily
   const [view, setView] = useState("koi"); // "koi" | "final" | "jordan" | "how"
+  const [boardMode, setBoardMode] = useState("board"); // "board" | "cheatsheet" — global, not per-league, matches a plain toggle
   const [posFilter, setPosFilter] = useState("ALL");
   const [search, setSearch] = useState("");
   const [sortKey, setSortKey] = useState("vbd");
@@ -913,8 +919,20 @@ export default function DraftPrepApp() {
           }}>{label}</button>
         ))}
         {BOARD_TABS.includes(view) && (
-          <div style={{ marginLeft:"auto", fontSize:13, opacity:0.75, alignSelf:"center" }}>
-            Drafted: {draftedCount} {league==="koi" && <> · Spent: ${spent} / ${teams*200}</>}
+          <div style={{ display:"flex", gap:16, marginLeft:"auto", alignItems:"center" }}>
+            <div style={{ display:"flex", gap:6 }}>
+              {[["board","Board"],["cheatsheet","Cheat Sheet"]].map(([m,label]) => (
+                <button key={m} onClick={()=>setBoardMode(m)} style={{
+                  padding:"6px 14px", borderRadius:20, fontSize:12, fontWeight:700,
+                  border:"1px solid " + (boardMode===m ? "#c9a227" : "#33362a"),
+                  background: boardMode===m ? "#20211a" : "transparent",
+                  color: boardMode===m ? "#f0d97a" : "#9c998e",
+                }}>{label}</button>
+              ))}
+            </div>
+            <div style={{ fontSize:13, opacity:0.75 }}>
+              Drafted: {draftedCount} {league==="koi" && <> · Spent: ${spent} / ${teams*200}</>}
+            </div>
           </div>
         )}
       </div>
@@ -942,10 +960,15 @@ export default function DraftPrepApp() {
           canEditKeepers={isAdmin}
           canEditEspnAccess={isAdmin}
         />
+      ) : boardMode === "cheatsheet" ? (
+        <CheatSheetView
+          league={league} poolFinal={poolFinal} fields={fields} tiers={tiers}
+          draft={draft} auctionValues={auctionValues}
+        />
       ) : (
         <>
           <div style={{ display:"flex", gap:8, marginBottom:14, flexWrap:"wrap", alignItems:"center" }}>
-            {["ALL","QB","RB","WR","TE","K","DEF"].map(p => (
+            {["ALL", ...POS_ORDER].map(p => (
               <button key={p} onClick={()=>setPosFilter(p)} style={{
                 padding:"6px 12px", borderRadius:20, fontSize:12, fontWeight:700,
                 border:"1px solid " + (posFilter===p ? (POS_COLORS[p]||"#c9a227") : "#33362a"),
@@ -1079,14 +1102,85 @@ export default function DraftPrepApp() {
           </div>
 
           <div style={{ fontSize:11, opacity:0.5, marginTop:14, lineHeight:1.6 }}>
-            ADP order and player pool are live half-PPR consensus data from Fantasy Football Calculator, refreshed
-            daily. Points, Pos Rk, VBD, and
-            Auction $ show <b>—</b> until real projection data is imported for that player — there's no synthetic
-            fallback. Import CSVs on the "Calculations" tab's "Import Real Data" section. Owners, drafted marks,
-            and prices are tracked separately per board.
+            Player pool and projections are FantasyPros' consensus rankings/projections; ADP is live half-PPR
+            data from Fantasy Football Calculator, matched onto the same pool by name — both refreshed
+            independently (FantasyPros on demand from Settings, FFC daily). K/DEF have no projection source and
+            show <b>—</b> until points are imported for that player on the "Calculations" tab's "Import Real
+            Data" section. Owners, drafted marks, and prices are tracked separately per board.
           </div>
         </>
       )}
+    </div>
+  );
+}
+
+/* ============================================================
+   CHEAT SHEET — a grouped-by-position, tiered reference view of the whole
+   pool, styled after a classic draft-day cheat sheet. Reuses exactly what
+   the board already computes for the active league (fields/tiers/draft) —
+   no new data pipeline, just a different grouping/rendering layer over the
+   same numbers the table shows flat. Drafted (or kept — a keeper is also
+   `drafted: true`, see mergePicksForLeague) players cross out in place
+   rather than disappearing, so the sheet still reads as a full board.
+   ============================================================ */
+function CheatSheetView({ league, poolFinal, fields, tiers, draft, auctionValues }) {
+  const columns = useMemo(() => {
+    const cols = { Overall: [] };
+    for (const pos of POS_ORDER) cols[pos] = [];
+    for (const p of poolFinal) {
+      const f = fields[p.id];
+      if (!f || f.vbd == null) continue; // unprojected — nothing to rank yet
+      const row = {
+        id: p.id, name: p.name, team: p.team, pos: p.pos,
+        vbd: f.vbd, tier: tiers[p.id],
+        drafted: !!(draft[p.id] && draft[p.id].drafted),
+        value: league === "koi" ? auctionValues[p.id] : (f.pts != null ? Math.round(f.pts) : null),
+      };
+      cols.Overall.push(row);
+      if (cols[p.pos]) cols[p.pos].push(row);
+    }
+    for (const key of Object.keys(cols)) cols[key].sort((a, b) => (b.vbd ?? -Infinity) - (a.vbd ?? -Infinity));
+    return cols;
+  }, [poolFinal, fields, tiers, draft, auctionValues, league]);
+
+  return (
+    <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit, minmax(230px, 1fr))", gap:14, alignItems:"start" }}>
+      {["Overall", ...POS_ORDER].map(key => (
+        <div key={key} style={{ border:"1px solid #2a2c20", borderRadius:10, overflow:"hidden" }}>
+          <div style={{
+            padding:"10px 12px", fontWeight:800, fontSize:13, borderBottom:"1px solid #2a2c20",
+            background: key === "Overall" ? "#20211a" : (POS_COLORS[key] || "#c9a227") + "22",
+            color: key === "Overall" ? "#f0d97a" : (POS_COLORS[key] || "#c9a227"),
+          }}>
+            {key}
+          </div>
+          <div>
+            {columns[key].map((r, i) => (
+              <React.Fragment key={r.id}>
+                {(i === 0 || columns[key][i-1].tier !== r.tier) && (
+                  <div style={{ padding:"4px 12px", fontSize:10, fontWeight:700, letterSpacing:0.5, textTransform:"uppercase", opacity:0.5, background:"#12130f" }}>
+                    Tier {r.tier ?? "—"}
+                  </div>
+                )}
+                <div style={{
+                  display:"flex", justifyContent:"space-between", gap:8, padding:"6px 12px", fontSize:12.5,
+                  borderBottom:"1px solid #1e2018",
+                  opacity: r.drafted ? 0.45 : 1,
+                  textDecoration: r.drafted ? "line-through" : "none",
+                }}>
+                  <span style={{ overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+                    {i + 1}. {r.name} <span style={{ opacity:0.5, fontSize:11 }}>{r.team}</span>
+                  </span>
+                  <span style={{ fontWeight:700, flexShrink:0 }}>
+                    {r.value != null ? (league === "koi" ? `$${r.value}` : r.value) : "—"}
+                  </span>
+                </div>
+              </React.Fragment>
+            ))}
+            {columns[key].length === 0 && <div style={{ padding:12, fontSize:12, opacity:0.5 }}>No projected players yet.</div>}
+          </div>
+        </div>
+      ))}
     </div>
   );
 }
@@ -1138,7 +1232,7 @@ function TeamBudgetsPanel({ managers, draft, pool, rosterSpots }) {
               <th style={{padding:"4px 10px"}}>Remaining</th>
               <th style={{padding:"4px 10px"}}>Max Bid</th>
               <th style={{padding:"4px 10px"}}>Roster</th>
-              {["QB","RB","WR","TE","K","DEF"].map(pos => <th key={pos} style={{padding:"4px 10px", color:POS_COLORS[pos]}}>{pos}</th>)}
+              {POS_ORDER.map(pos => <th key={pos} style={{padding:"4px 10px", color:POS_COLORS[pos]}}>{pos}</th>)}
             </tr>
           </thead>
           <tbody>
@@ -1149,7 +1243,7 @@ function TeamBudgetsPanel({ managers, draft, pool, rosterSpots }) {
                 <td style={{padding:"4px 10px", color: r.remaining <= 20 ? "#e08a8a" : "#7fd18f"}}>${r.remaining}</td>
                 <td style={{padding:"4px 10px", fontWeight:700}}>${r.maxBid}</td>
                 <td style={{padding:"4px 10px"}}>{r.filled} / {rosterSpots}</td>
-                {["QB","RB","WR","TE","K","DEF"].map(pos => (
+                {POS_ORDER.map(pos => (
                   <td key={pos} style={{padding:"4px 10px", opacity: r.posCounts[pos] ? 1 : 0.35}}>{r.posCounts[pos]||0}</td>
                 ))}
               </tr>
