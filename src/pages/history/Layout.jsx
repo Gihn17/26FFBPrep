@@ -1,10 +1,8 @@
 import React, { useState, useEffect, useMemo } from "react";
-import { Link, NavLink, Outlet } from "react-router-dom";
-import { pageShell, panelStyle, btnStyle } from "../../theme.jsx";
+import { Link, NavLink, Outlet, useParams } from "react-router-dom";
+import { pageShell, panelStyle, btnStyle, LEAGUE_LABELS } from "../../theme.jsx";
 import { buildTeamIndex, computeSeasonRecords, computeOwnerOptions, computeCurrentLogos, applyOwnershipCorrections, applyDisplayNames } from "./compute.js";
 import { useAuth } from "../../AuthContext.jsx";
-
-const LEAGUE = "koi"; // only league with an ESPN id on file so far — same code path once Jordan/Final have one
 
 // Pure navigation list now — NOT a permission list. Permission for League
 // History is per-LEAGUE (server/db.js's HISTORY_LEAGUES, checked once via
@@ -20,18 +18,19 @@ export const TABS = [
   ["teams", "Teams"],
 ];
 
-// Home is the real landing page for a league's History — kept as its own
-// constant (rather than folded into TABS) just because it's always first
-// and always present, not because it's restricted; everyone who reaches
-// this layout sees it, same as every other tab. Editing its video link and
-// posting in its chat are separately gated (home_admin/home_poster —
-// see server/auth.js's file header), but plain viewing isn't.
+// Home is Koi-only, Will's call — admin-curated video/chat content, not a
+// feature every league gets automatically just by having History (see
+// main.jsx's HistoryIndexRedirect/HomeRoute, which enforce the same rule
+// at the routing level, not just by hiding this nav entry). Kept as its
+// own constant rather than folded into TABS since it's conditionally
+// prepended below, not universal.
 const HOME_TAB = ["home", "Home"];
 
 /** Loads {teams, matchups} once, derives the shared shapes every sub-page
  *  needs (team index, season records, owner list), and hands it all down
  *  via Outlet context — sub-pages don't each re-fetch or re-derive this. */
 export default function HistoryLayout() {
+  const { leagueSlug: LEAGUE } = useParams();
   const [teams, setTeams] = useState([]);
   const [matchups, setMatchups] = useState([]);
   const [loaded, setLoaded] = useState(false);
@@ -52,7 +51,7 @@ export default function HistoryLayout() {
       setLoaded(true);
     }).catch(() => setLoaded(true));
   };
-  useEffect(load, []);
+  useEffect(load, [LEAGUE]);
 
   const refresh = async () => {
     setRefreshing(true);
@@ -86,7 +85,7 @@ export default function HistoryLayout() {
         <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-end", flexWrap:"wrap", gap:12, marginBottom:16 }}>
           <div>
             <Link to="/" style={{ fontSize:11, color:"#9c998e", textDecoration:"none" }}>&larr; Fantasy HQ</Link>
-            <h1 style={{ margin:"2px 0 0", fontSize:28, fontWeight:800 }}>League History — Koi</h1>
+            <h1 style={{ margin:"2px 0 0", fontSize:28, fontWeight:800 }}>League History — {LEAGUE_LABELS[LEAGUE] || LEAGUE}</h1>
           </div>
           {canEdit && (
             <button onClick={refresh} disabled={refreshing} style={btnStyle()}>
@@ -113,8 +112,8 @@ export default function HistoryLayout() {
         )}
 
         <div style={{ display:"flex", gap:8, marginBottom:16, flexWrap:"wrap" }}>
-          {[HOME_TAB, ...visibleTabs].map(([slug, label]) => (
-            <NavLink key={slug} to={`/league-koi/${slug}`}
+          {(LEAGUE === "koi" ? [HOME_TAB, ...visibleTabs] : visibleTabs).map(([slug, label]) => (
+            <NavLink key={slug} to={`/league/${LEAGUE}/${slug}`}
               style={({ isActive }) => ({
                 padding:"8px 16px", borderRadius:8, textDecoration:"none",
                 border:"1px solid " + (isActive ? "#c9a227" : "#33362a"),
@@ -130,7 +129,7 @@ export default function HistoryLayout() {
           <div style={panelStyle()}>Loading…</div>
         ) : teams.length === 0 ? (
           <div style={panelStyle()}>
-            No history imported yet. {canEdit ? "Hit \"Refresh History\" above to pull it from ESPN." : "Ask Will to run a refresh."}
+            No history imported yet. {canEdit ? "Hit \"Refresh History\" above to pull it in." : "Ask Will to run a refresh."}
           </div>
         ) : (
           <Outlet context={context} />

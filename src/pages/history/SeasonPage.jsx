@@ -92,10 +92,10 @@ function SortTh({ label, align, title, active, dir, onClick }) {
   );
 }
 
-function TeamCell({ ownerGuid, ownerName, teamName, sub, logo }) {
+function TeamCell({ ownerGuid, ownerName, teamName, sub, logo, league }) {
   return (
     <td style={td("left")}>
-      <Link to={ownerGuid ? `/league-koi/teams/${ownerSlug(ownerGuid)}` : "#"} style={{ display:"flex", alignItems:"center", gap:8, textDecoration:"none", color:"inherit", pointerEvents: ownerGuid ? "auto" : "none" }}>
+      <Link to={ownerGuid ? `/league/${league}/teams/${ownerSlug(ownerGuid)}` : "#"} style={{ display:"flex", alignItems:"center", gap:8, textDecoration:"none", color:"inherit", pointerEvents: ownerGuid ? "auto" : "none" }}>
         <TeamAvatar name={teamName} seed={ownerGuid || teamName} size={26} imageUrl={logo} />
         <div>
           <div style={{ fontWeight:700 }}>{teamName}</div>
@@ -203,7 +203,7 @@ function SeasonMiniTable({ season, rows, champion, lastPlace }) {
 }
 
 export default function SeasonPage() {
-  const { teams, matchups, seasonRecords, seasons, currentLogos } = useOutletContext();
+  const { league, teams, matchups, seasonRecords, seasons, currentLogos } = useOutletContext();
   // Default to the current season, not All-Time — this page is meant to
   // answer "how's this year going," Stats/Teams pages are where All-Time
   // browsing lives.
@@ -353,7 +353,7 @@ export default function SeasonPage() {
                         <td style={{...td(), fontWeight: r.finalRank===1 ? 700 : 400, color: r.finalRank===1 ? "#f0d97a" : undefined}}>
                           {r.finalRank != null ? (r.finalRank===1 ? "🏆 1" : r.finalRank) : "—"}
                         </td>
-                        <TeamCell ownerGuid={r.ownerGuid} ownerName={r.ownerName} teamName={r.teamName} logo={currentLogos.get(r.ownerGuid)} />
+                        <TeamCell ownerGuid={r.ownerGuid} ownerName={r.ownerName} teamName={r.teamName} logo={currentLogos.get(r.ownerGuid)} league={league} />
                         <td style={td()}>{r.wins}-{r.losses}{r.ties ? `-${r.ties}` : ""}</td>
                         <FormCells games={games} />
                         <td style={{...td(), opacity:0.75, fontStyle:"italic"}}>{w ? `${w.expW}-${w.expL}` : "—"}</td>
@@ -418,7 +418,7 @@ export default function SeasonPage() {
                   {sortedAggregateRows.map((a, i) => (
                     <tr key={a.ownerGuid}>
                       <td style={td()}>{i + 1}</td>
-                      <TeamCell ownerGuid={a.ownerGuid} ownerName={a.ownerName} teamName={a.teamName} logo={a.logo}
+                      <TeamCell ownerGuid={a.ownerGuid} ownerName={a.ownerName} teamName={a.teamName} logo={a.logo} league={league}
                         sub={a.seasons < activeYears.length ? `${a.ownerName} · ${a.seasons} seasons in range` : a.ownerName} />
                       <td style={td()}>{a.wins}-{a.losses}{a.ties ? `-${a.ties}` : ""}</td>
                       <td style={{...td(), opacity:0.75, fontStyle:"italic"}}>{a.expW}-{a.expL}</td>

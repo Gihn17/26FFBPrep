@@ -49,7 +49,7 @@ function VideoEditor({ youtubeUrl, onSave }) {
   );
 }
 
-function DivisionStandings({ divisions, currentLogos }) {
+function DivisionStandings({ divisions, currentLogos, league }) {
   return (
     <div style={{ display:"flex", gap:14, flexWrap:"wrap" }}>
       {divisions.map(d => (
@@ -57,7 +57,7 @@ function DivisionStandings({ divisions, currentLogos }) {
           <div style={{ background:"#20211a", padding:"8px 12px", fontSize:12, fontWeight:700, color:"#c9a227" }}>{d.name}</div>
           <div style={{ padding:"6px 0" }}>
             {d.rows.map((r, i) => (
-              <Link key={r.ownerGuid || r.teamName} to={r.ownerGuid ? `/league-koi/teams/${ownerSlug(r.ownerGuid)}` : "#"}
+              <Link key={r.ownerGuid || r.teamName} to={r.ownerGuid ? `/league/${league}/teams/${ownerSlug(r.ownerGuid)}` : "#"}
                 style={{ display:"flex", alignItems:"center", gap:8, padding:"6px 12px", textDecoration:"none", color:"inherit" }}>
                 <span style={{ width:16, fontSize:11, opacity:0.5 }}>{i + 1}</span>
                 <TeamAvatar name={r.teamName} seed={r.ownerGuid || r.teamName} size={22} imageUrl={currentLogos.get(r.ownerGuid)} />
@@ -191,7 +191,7 @@ export default function HomePage() {
         <div style={{ fontSize:11, fontWeight:700, letterSpacing:0.5, color:"#c9a227", marginBottom:10, textTransform:"uppercase" }}>
           Current Standings {mostRecentSeason ? `— ${mostRecentSeason}` : ""}
         </div>
-        {loaded && divisions.length > 0 ? <DivisionStandings divisions={divisions} currentLogos={currentLogos} /> : (
+        {loaded && divisions.length > 0 ? <DivisionStandings divisions={divisions} currentLogos={currentLogos} league={league} /> : (
           <div style={{ fontSize:12.5, opacity:0.55 }}>No standings yet.</div>
         )}
       </div>

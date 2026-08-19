@@ -33,7 +33,7 @@ const HELP = { color:"#8a8672", cursor:"help", marginLeft:3, fontSize:10 };
 
 export default function TeamDetailPage() {
   const { slug } = useParams();
-  const { teams, matchups, teamIdx, seasonRecords, ownerOptions } = useOutletContext();
+  const { league, teams, matchups, teamIdx, seasonRecords, ownerOptions } = useOutletContext();
   const [yearFilter, setYearFilter] = useState("all");
   const [expanded, setExpanded] = useState(false);
   const [sortKey, setSortKey] = useState("season");
@@ -111,7 +111,7 @@ export default function TeamDetailPage() {
   }, [seasonRecords, franchise]);
 
   if (!franchise) {
-    return <div style={panelStyle()}>Team not found. <Link to="/league-koi/teams" style={{ color:"#c9a227" }}>Back to Teams</Link></div>;
+    return <div style={panelStyle()}>Team not found. <Link to={`/league/${league}/teams`} style={{ color:"#c9a227" }}>Back to Teams</Link></div>;
   }
 
   const seasons = ownerTeams.map(t => t.season).sort((a, b) => b - a);
@@ -121,7 +121,7 @@ export default function TeamDetailPage() {
 
   return (
     <>
-      <Link to="/league-koi/teams" style={{ fontSize:11, color:"#9c998e", textDecoration:"none" }}>&larr; All Teams</Link>
+      <Link to={`/league/${league}/teams`} style={{ fontSize:11, color:"#9c998e", textDecoration:"none" }}>&larr; All Teams</Link>
 
       <div style={{ ...panelStyle(), textAlign:"center", padding:"26px 14px" }}>
         <div style={{ display:"flex", justifyContent:"center", marginBottom:10 }}>

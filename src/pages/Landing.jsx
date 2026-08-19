@@ -24,7 +24,7 @@ const TOOLS = [
 // its own bare route, no per-league "which sub-page first" decision here.
 const LEAGUE_HISTORIES = [
   {
-    to: "/league-koi", emoji: "📚", title: "League History - Koi", area: "history",
+    to: "/league/koi", emoji: "📚", title: "League History - Koi", area: "history",
     desc: "League Social video and chat, current standings, season records, head-to-head, and more.",
   },
 ];

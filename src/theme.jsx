@@ -11,7 +11,7 @@ export const OUTLOOK_STYLE = {
   purple: { bg:"#241a3a", border:"#8a63d1", label:"Purple — ignore" },
 };
 export const POS_COLORS = { QB:"#d162a4", RB:"#3f9e5e", WR:"#4f8fd1", TE:"#c9a227", K:"#9a9a9a", DEF:"#c0453f" };
-export const LEAGUE_LABELS = { koi:"Koi", final:"Final Fantasy", jordan:"Jordan" };
+export const LEAGUE_LABELS = { koi:"Koi", final:"Final Fantasy", jordan:"Jordan", sinbin:"Sin Bin Dynasty" };
 
 export function btnStyle(bg="#20211a", border="#c9a227") {
   return { padding:"8px 14px", borderRadius:8, border:`1px solid ${border}`, background:bg, color:"#e9e6dd", fontSize:13, fontWeight:600 };

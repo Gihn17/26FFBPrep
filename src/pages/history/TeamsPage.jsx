@@ -12,9 +12,9 @@ function medalRow(f) {
   return parts;
 }
 
-function TeamCard({ f, dim }) {
+function TeamCard({ f, dim, league }) {
   return (
-    <Link to={`/league-koi/teams/${ownerSlug(f.ownerGuid)}`} style={{ textDecoration:"none", color:"inherit" }}>
+    <Link to={`/league/${league}/teams/${ownerSlug(f.ownerGuid)}`} style={{ textDecoration:"none", color:"inherit" }}>
       <div style={{
         ...panelStyle(), marginBottom:0, textAlign:"center", padding:"20px 14px",
         opacity: dim ? 0.6 : 1, transition:"transform .1s, border-color .1s", cursor:"pointer",
@@ -31,7 +31,7 @@ function TeamCard({ f, dim }) {
 }
 
 export default function TeamsPage() {
-  const { teams, seasonRecords } = useOutletContext();
+  const { league, teams, seasonRecords } = useOutletContext();
   const [showInactive, setShowInactive] = useState(false);
 
   const careerStats = useMemo(() => computeCareerStats(teams, seasonRecords), [teams, seasonRecords]);
@@ -59,8 +59,8 @@ export default function TeamsPage() {
       </div>
 
       <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill, minmax(210px, 1fr))", gap:14, marginBottom:12 }}>
-        {active.map(f => <TeamCard key={f.ownerGuid} f={f} />)}
-        {showInactive && inactive.map(f => <TeamCard key={f.ownerGuid} f={f} dim />)}
+        {active.map(f => <TeamCard key={f.ownerGuid} f={f} league={league} />)}
+        {showInactive && inactive.map(f => <TeamCard key={f.ownerGuid} f={f} dim league={league} />)}
       </div>
 
       <div style={{ textAlign:"center", fontSize:12, opacity:0.55 }}>
