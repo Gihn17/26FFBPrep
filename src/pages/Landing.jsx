@@ -17,11 +17,15 @@ const TOOLS = [
 
 // One button per league's own League History — a separate row below the
 // main tools, on purpose, so adding Jordan/Final Fantasy later is just
-// another entry here rather than reshaping a single generic tile.
+// another entry here rather than reshaping a single generic tile. `to` is
+// deliberately the BARE league route (not e.g. "/league-koi/season") —
+// main.jsx's HistoryIndexRedirect sends that straight to the league's own
+// Home page, so a second league later is just another entry pointing at
+// its own bare route, no per-league "which sub-page first" decision here.
 const LEAGUE_HISTORIES = [
   {
-    to: "/league-koi/season", emoji: "📚", title: "League History - Koi", area: "history",
-    desc: "Season records, matchup log, head-to-head, and high/low weekly scores.",
+    to: "/league-koi", emoji: "📚", title: "League History - Koi", area: "history",
+    desc: "League Social video and chat, current standings, season records, head-to-head, and more.",
   },
 ];
 
