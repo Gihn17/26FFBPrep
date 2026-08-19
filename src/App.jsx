@@ -1335,6 +1335,13 @@ function SettingsTab({ teamsByLeague, rosterSpotsByLeague, setTeamsFor, setRoste
         <EspnAccessPanel canEdit={canEditEspnAccess} />
       </div>
 
+      <div style={panelStyle()}>
+        <div style={{ fontSize:11, fontWeight:700, letterSpacing:0.5, color:"#c9a227", marginBottom:10, textTransform:"uppercase" }}>
+          FantasyPros API — secondary ECR/ADP/Auction/Projections alongside UDK &amp; the free feeds
+        </div>
+        <FantasyProsAccessPanel canEdit={canEditEspnAccess} />
+      </div>
+
       <div style={{ fontSize:12, opacity:0.65, lineHeight:1.5 }}>
         Want to see or tweak the actual VBD/scoring/projection math? Open the
         <b style={{color:"#f0d97a"}}> "Calculations"</b> tab instead.
@@ -1630,12 +1637,14 @@ function KeeperImportPanel({ league, setLeague, pool, draftByLeague, onApplyKeep
 
 /* ============================================================
    ESPN ACCESS — espn_s2/SWID cookies for League History (server/espn.js)
-   and the ESPN side of Game Day. Stored via the same shared /api/storage
-   mechanism as everything else in this app (window.storage — always
-   resolves to a single shared record, see storagePolyfill.js), read
-   directly by the server for its own outbound ESPN calls. Only ever
-   needed for seasons ESPN gates behind auth even on a public league
-   (verified: 2018-2023 for Koi) — recent seasons work with nothing set.
+   and the ESPN side of Game Day. Stored via /api/settings/espn-cookies,
+   admin-only server-side (requireAdmin) — deliberately NOT the shared
+   /api/storage mechanism (window.storage) the rest of this app's Settings
+   tab uses, since that's only gated by draft permission and would let any
+   draft-permitted account read the raw cookie value. Read directly by the
+   server for its own outbound ESPN calls. Only ever needed for seasons
+   ESPN gates behind auth even on a public league (verified: 2018-2023 for
+   Koi) — recent seasons work with nothing set.
    ============================================================ */
 function EspnAccessPanel({ canEdit }) {
   const [espnS2, setEspnS2] = useState("");
@@ -1644,18 +1653,19 @@ function EspnAccessPanel({ canEdit }) {
   const [saved, setSaved] = useState(false);
 
   useEffect(() => {
-    window.storage.get("espn-cookies").then(res => {
-      if (!res || !res.value) return;
-      try {
-        const parsed = JSON.parse(res.value);
-        setHasStored(!!(parsed.espn_s2 && parsed.swid));
-      } catch (e) { /* ignore */ }
-    });
+    // Status-only endpoint — never round-trips the actual cookie values to
+    // the browser just to answer "is something set" (the old window.storage
+    // path did, since it was really a generic KV read).
+    fetch("/api/settings/espn-cookies/status").then(r => r.ok ? r.json() : { set: false }).then(d => setHasStored(!!d.set)).catch(() => {});
   }, []);
 
   const save = () => {
     if (!espnS2.trim() || !swid.trim()) return;
-    window.storage.set("espn-cookies", JSON.stringify({ espn_s2: espnS2.trim(), swid: swid.trim() })).then(() => {
+    fetch("/api/settings/espn-cookies", {
+      method: "PUT", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ espn_s2: espnS2.trim(), swid: swid.trim() }),
+    }).then(r => {
+      if (!r.ok) return;
       setHasStored(true);
       setSaved(true);
       setEspnS2(""); setSwid("");
@@ -1688,6 +1698,72 @@ function EspnAccessPanel({ canEdit }) {
               placeholder={hasStored ? "•••••••• (set — paste to replace)" : "{XXXXXXXX-XXXX-...}"} style={inp(220)} />
           </label>
           <button onClick={save} disabled={!espnS2.trim() || !swid.trim()} style={btnStyle("#20211a","#c9a227")}>Save</button>
+          {saved && <span style={{ fontSize:12, color:"#7fd18f" }}>Saved.</span>}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ============================================================
+   FANTASYPROS API — secondary ECR/ADP/Auction/Projections source
+   (server/fantasypros.js), shown alongside UDK (primary projections) and
+   the free ADP/ECR feeds, not replacing them. Stored via
+   /api/settings/fantasypros-key, admin-only server-side (requireAdmin) —
+   same admin-only settings store as ESPN Access above, not the shared
+   /api/storage mechanism. The raw key is never sent back to the browser
+   once saved, only whether one's set.
+   ============================================================ */
+function FantasyProsAccessPanel({ canEdit }) {
+  const [key, setKey] = useState("");
+  const [hasStored, setHasStored] = useState(false);
+  const [saved, setSaved] = useState(false);
+
+  useEffect(() => {
+    fetch("/api/settings/fantasypros-key/status").then(r => r.ok ? r.json() : { set: false }).then(d => setHasStored(!!d.set)).catch(() => {});
+  }, []);
+
+  const save = () => {
+    if (!key.trim()) return;
+    fetch("/api/settings/fantasypros-key", {
+      method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ key: key.trim() }),
+    }).then(r => {
+      if (!r.ok) return;
+      setHasStored(true);
+      setSaved(true);
+      setKey("");
+    });
+  };
+
+  const remove = () => {
+    if (!confirm("Remove the stored FantasyPros API key? Secondary ECR/ADP/Projections data stops refreshing until a new one's set.")) return;
+    fetch("/api/settings/fantasypros-key", { method: "DELETE" }).then(r => {
+      if (r.ok) { setHasStored(false); setSaved(false); }
+    });
+  };
+
+  return (
+    <div>
+      <p style={pText()}>
+        Your FantasyPros API key — used to pull their Expert Consensus Rankings, ADP/Auction values, and
+        projections as a <b>secondary</b> source shown next to UDK and the free feeds already in use, not
+        replacing them.
+      </p>
+      <div style={{ fontSize:12, marginBottom:12 }}>
+        Status: <b style={{ color: hasStored ? "#7fd18f" : "#9c998e" }}>{hasStored ? "Key is set" : "Not set"}</b>
+      </div>
+      {!canEdit ? (
+        <div style={{ ...pText(), background:"#181910", border:"1px solid #2a2c20", borderRadius:8, padding:12, marginBottom:0 }}>
+          Only <b style={{color:"#f0d97a"}}>Will</b> can set this.
+        </div>
+      ) : (
+        <div style={{ display:"flex", gap:12, flexWrap:"wrap", alignItems:"flex-end" }}>
+          <label style={lbl()}>API key
+            <input type="password" value={key} onChange={e=>{ setKey(e.target.value); setSaved(false); }}
+              placeholder={hasStored ? "•••••••••••••••••••• (set — paste to replace)" : "paste key"} style={inp(320)} />
+          </label>
+          <button onClick={save} disabled={!key.trim()} style={btnStyle("#20211a","#c9a227")}>Save</button>
+          {hasStored && <button onClick={remove} style={btnStyle("#3a1f1f","#c0453f")}>Remove</button>}
           {saved && <span style={{ fontSize:12, color:"#7fd18f" }}>Saved.</span>}
         </div>
       )}

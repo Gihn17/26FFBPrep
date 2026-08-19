@@ -21,6 +21,7 @@
 //     confirmed working back to 2011; 2010 and earlier 404 even with
 //     cookies, so that's the real floor for this league.
 import { db, getOrCreateUser } from "./db.js";
+import { getSetting, setSetting } from "./settings.js";
 
 const ESPN_HOST = "https://lm-api-reads.fantasy.espn.com/apis/v3/games/ffl";
 
@@ -82,16 +83,35 @@ if (!historyTeamsCols.includes("division_id")) {
   db.exec("ALTER TABLE history_teams ADD COLUMN division_name TEXT");
 }
 
-/** Cookies live in the same shared user_kv store as everything else (see
- *  server/index.js's storage router) — set once via the Settings tab, read
+// Migration: espn-cookies used to live in the shared user_kv store, gated
+// only by requirePermission("draft") on /api/storage — meaning any
+// 'limited' account with plain draft access (not just admin) could GET it
+// directly. Move whatever's already stored there into app_settings
+// (requireAdmin-only, see server/settings.js) once, then delete the old
+// copy so it stops being readable through the old door. Safe to run every
+// boot — no-op once there's nothing left in the old location.
+(function migrateEspnCookies() {
+  if (getSetting("espn-cookies")) return;
+  try {
+    const will = getOrCreateUser("Will");
+    const row = db.prepare("SELECT value FROM user_kv WHERE user_id = ? AND key = ?").get(will.id, "espn-cookies");
+    if (!row) return;
+    setSetting("espn-cookies", row.value);
+    db.prepare("DELETE FROM user_kv WHERE user_id = ? AND key = ?").run(will.id, "espn-cookies");
+    console.log("Migrated espn-cookies from /api/storage to admin-only settings.");
+  } catch (e) {
+    console.error("espn-cookies migration failed:", e.message);
+  }
+})();
+
+/** Set once via the Settings tab (admin-only, server/settings.js), read
  *  here directly from the DB rather than round-tripping through HTTP.
  *  Absent/incomplete cookies just means "public data only" — never an error. */
 function getEspnCookies() {
   try {
-    const will = getOrCreateUser("Will");
-    const row = db.prepare("SELECT value FROM user_kv WHERE user_id = ? AND key = ?").get(will.id, "espn-cookies");
-    if (!row) return null;
-    const parsed = JSON.parse(row.value);
+    const raw = getSetting("espn-cookies");
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
     return (parsed.espn_s2 && parsed.swid) ? parsed : null;
   } catch (e) {
     return null;

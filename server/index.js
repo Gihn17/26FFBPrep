@@ -7,6 +7,7 @@ import { db, getOrCreateUser } from "./db.js";
 import { getAdpPool, getAdpStatus, refreshAdpPool, startAdpScheduler } from "./adp.js";
 import { refreshLeagueHistory, getLeagueHistory, getWeekMatchups } from "./espn.js";
 import { getHomeSettings, setHomeSettings, listChatMessages, addChatMessage, deleteChatMessage } from "./leaguehome.js";
+import { getSetting, hasSetting, setSetting, deleteSetting } from "./settings.js";
 import {
   bootstrapAdmin, attachUser, requireAuth, requireAdmin, requirePermission, requireHistoryLeague,
   requireHomeAdmin, requireHomePoster,
@@ -215,6 +216,49 @@ app.delete("/api/auth/users/:id", requireAdmin, (req, res) => {
   } catch (e) {
     res.status(400).json({ error: e.message });
   }
+});
+
+// --- Third-party API keys/credentials (FantasyPros, ESPN cookies) —
+// admin-only, see server/settings.js's file header for why this isn't the
+// shared /api/storage mechanism (any draft-permitted account, not just
+// admin, could read a value stored there). The raw value is never sent
+// back to a client once saved, only whether it's set — status route, not
+// a value round-trip. ---
+app.get("/api/settings/fantasypros-key/status", requireAdmin, (req, res) => {
+  res.json({ set: hasSetting("fantasypros-api-key") });
+});
+
+app.put("/api/settings/fantasypros-key", requireAdmin, (req, res) => {
+  const key = req.body && req.body.key;
+  if (!key || typeof key !== "string" || !key.trim()) return res.status(400).json({ error: "key required" });
+  setSetting("fantasypros-api-key", key.trim());
+  res.json({ set: true });
+});
+
+app.delete("/api/settings/fantasypros-key", requireAdmin, (req, res) => {
+  deleteSetting("fantasypros-api-key");
+  res.json({ set: false });
+});
+
+app.get("/api/settings/espn-cookies/status", requireAdmin, (req, res) => {
+  let set = false;
+  try {
+    const raw = hasSetting("espn-cookies") ? JSON.parse(getSetting("espn-cookies")) : null;
+    set = !!(raw && raw.espn_s2 && raw.swid);
+  } catch (e) { /* treat unparsable as not set */ }
+  res.json({ set });
+});
+
+app.put("/api/settings/espn-cookies", requireAdmin, (req, res) => {
+  const { espn_s2, swid } = req.body || {};
+  if (!espn_s2 || !swid) return res.status(400).json({ error: "espn_s2 and swid required" });
+  setSetting("espn-cookies", JSON.stringify({ espn_s2: espn_s2.trim(), swid: swid.trim() }));
+  res.json({ set: true });
+});
+
+app.delete("/api/settings/espn-cookies", requireAdmin, (req, res) => {
+  deleteSetting("espn-cookies");
+  res.json({ set: false });
 });
 
 // --- Storage API (mirrors the shape App.jsx already expects from
