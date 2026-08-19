@@ -166,6 +166,54 @@ export function getFpPool() {
   return db.prepare("SELECT * FROM fp_pool ORDER BY position, rank_ecr").all();
 }
 
+// Server-side copy of App.jsx's normName() (src/App.jsx:306-312) — same
+// manual-sync convention already used for VALID_TABS/ALL_TABS across
+// files. Only used here for the ADP name+position match below. Adds
+// diacritic-stripping on top of the client version — verified live this
+// was a real miss (FFC's "Eddy Piñeiro" vs FantasyPros' accent-free "Eddy
+// Pineiro"), not present in the original since App.jsx's CSV/keeper/
+// Sleeper matching hasn't hit this case yet. Worth carrying back to the
+// client copy too if it ever does.
+function normName(s) {
+  return String(s || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase()
+    .replace(/[.']/g, "")
+    .replace(/\b(jr|sr|ii|iii|iv|v)\b/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/** Matches Fantasy Football Calculator's ADP (server/adp.js's adp_pool —
+ *  still the real ADP source, per Will's call; only the canonical id/pool
+ *  is moving to FantasyPros) onto the FantasyPros-keyed pool by name +
+ *  position — except DEF, matched by team code instead (verified live:
+ *  FFC names defenses "Seattle Defense" while FantasyPros uses the real
+ *  team name "Seattle Seahawks" — name matching misses 25 of 32 team
+ *  defenses; both sides carry the same 3-letter team code, so that's the
+ *  reliable key here, same idea as the Sleeper sync's DEF-by-team-code
+ *  matching in App.jsx's buildPoolMatchIndex). Computed fresh per call,
+ *  never persisted — same "recompute, don't cache" philosophy the
+ *  CSV-import nameIndex in App.jsx already uses. A fp_pool player FFC
+ *  doesn't carry just gets no adp/adp_rank field at all, never an error. */
+// FantasyPros and FFC disagree on Jacksonville's code (JAC vs JAX) —
+// verified live, the only team-code mismatch between the two out of 25
+// FFC-tracked defenses. Normalize both sides through this before matching.
+function normTeam(t) {
+  return t === "JAX" ? "JAC" : t;
+}
+
+export function attachAdp(fpPoolRows, adpRows) {
+  const byNamePos = new Map();
+  const byDefTeam = new Map();
+  for (const a of adpRows) {
+    if (a.position === "DEF") byDefTeam.set(normTeam(a.team), a);
+    else byNamePos.set(normName(a.name) + "|" + a.position, a);
+  }
+  return fpPoolRows.map((p) => {
+    const match = p.position === "DEF" ? byDefTeam.get(normTeam(p.team)) : byNamePos.get(normName(p.name) + "|" + p.position);
+    return match ? { ...p, adp: match.adp, adp_rank: match.adp_rank } : p;
+  });
+}
+
 export function getFpStatus() {
   const count = db.prepare("SELECT COUNT(*) as c FROM fp_pool").get().c;
   return { count, lastRefreshAt, lastRefreshError };

@@ -5,7 +5,7 @@ import { fileURLToPath } from "url";
 import { seedLeagues, getAllLeagues, getLeague } from "./leagues.js";
 import { db, getOrCreateUser } from "./db.js";
 import { getAdpPool, getAdpStatus, refreshAdpPool, startAdpScheduler } from "./adp.js";
-import { getFpPool, getFpStatus, refreshFpPool } from "./fantasypros.js";
+import { getFpPool, getFpStatus, refreshFpPool, attachAdp } from "./fantasypros.js";
 import { refreshLeagueHistory, getLeagueHistory, getWeekMatchups } from "./espn.js";
 import { getHomeSettings, setHomeSettings, listChatMessages, addChatMessage, deleteChatMessage } from "./leaguehome.js";
 import { getSetting, hasSetting, setSetting, deleteSetting } from "./settings.js";
@@ -382,6 +382,9 @@ app.post("/api/fp-pool/refresh", requireAdmin, async (req, res) => {
     res.status(502).json({ error: e.message });
   }
 });
+// Phase 2 staging route — the FantasyPros pool with FFC's ADP matched in,
+// for verifying the match before /api/players actually cuts over to it.
+app.get("/api/fp-pool", requireAdmin, (req, res) => res.json(attachAdp(getFpPool(), getAdpPool())));
 
 app.get("/api/health", (req, res) => res.json({ ok: true, dataFile: DATA_FILE }));
 
