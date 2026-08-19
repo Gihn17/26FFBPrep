@@ -6,6 +6,7 @@ import { seedLeagues, getAllLeagues, getLeague } from "./leagues.js";
 import { db, getOrCreateUser } from "./db.js";
 import { getAdpPool, getAdpStatus, refreshAdpPool, startAdpScheduler } from "./adp.js";
 import { getFpPool, getFpStatus, refreshFpPool, attachAdp } from "./fantasypros.js";
+import { previewMigration, applyMigration } from "./fpMigration.js";
 import { refreshLeagueHistory, getLeagueHistory, getWeekMatchups } from "./espn.js";
 import { getHomeSettings, setHomeSettings, listChatMessages, addChatMessage, deleteChatMessage } from "./leaguehome.js";
 import { getSetting, hasSetting, setSetting, deleteSetting } from "./settings.js";
@@ -385,6 +386,26 @@ app.post("/api/fp-pool/refresh", requireAdmin, async (req, res) => {
 // Phase 2 staging route — the FantasyPros pool with FFC's ADP matched in,
 // for verifying the match before /api/players actually cuts over to it.
 app.get("/api/fp-pool", requireAdmin, (req, res) => res.json(attachAdp(getFpPool(), getAdpPool())));
+
+// Phase 3 — the crosswalk. Preview NEVER mutates anything, it's purely a
+// report for review. Apply only runs against an explicitly-approved
+// mapping (built from that report, e.g. Object.fromEntries(matched.map(m
+// => [m.oldId, m.newId])), reviewed with Will before this is ever called).
+app.get("/api/fp-pool/migration-preview", requireAdmin, (req, res) => {
+  try {
+    res.json(previewMigration());
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+app.post("/api/fp-pool/migration-apply", requireAdmin, (req, res) => {
+  try {
+    const mapping = (req.body && req.body.mapping) || {};
+    res.json(applyMigration(mapping));
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
 
 app.get("/api/health", (req, res) => res.json({ ok: true, dataFile: DATA_FILE }));
 

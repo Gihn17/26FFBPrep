@@ -174,7 +174,7 @@ export function getFpPool() {
 // Pineiro"), not present in the original since App.jsx's CSV/keeper/
 // Sleeper matching hasn't hit this case yet. Worth carrying back to the
 // client copy too if it ever does.
-function normName(s) {
+export function normName(s) {
   return String(s || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase()
     .replace(/[.']/g, "")
     .replace(/\b(jr|sr|ii|iii|iv|v)\b/g, "")
@@ -197,7 +197,7 @@ function normName(s) {
 // FantasyPros and FFC disagree on Jacksonville's code (JAC vs JAX) —
 // verified live, the only team-code mismatch between the two out of 25
 // FFC-tracked defenses. Normalize both sides through this before matching.
-function normTeam(t) {
+export function normTeam(t) {
   return t === "JAX" ? "JAC" : t;
 }
 
