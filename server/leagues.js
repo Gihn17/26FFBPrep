@@ -65,6 +65,27 @@ export const LEAGUE_DEFAULTS = {
     },
   },
 
+  sinbin: {
+    id: "sinbin",
+    display_name: "Sin Bin Dynasty",
+    // League History only — this league isn't a Draft Prep board (that's
+    // BOARD_TABS/ALL_TABS in src/App.jsx, untouched by this entry), so
+    // draft_type/roster_spots/replacement below are unused placeholders,
+    // not real config — kept non-null purely because seedLeagues() reads
+    // cfg.replacement.* directly without an optional-chain guard.
+    draft_type: "snake",
+    source_platform: "sleeper",
+    source_league_id: "1318295412985049088",
+    source_team_id: "1", // Will's roster_id
+    teams: 12,
+    roster_spots: null,
+    auction_budget: null,
+    keeper_enabled: false,
+    keeper_max: null,
+    keeper_rule: null,
+    replacement: { qb: 0, rb: 0, wr: 0, te: 0, k: 0, def: 0 },
+  },
+
   jordan: {
     id: "jordan",
     display_name: "Jordan's",

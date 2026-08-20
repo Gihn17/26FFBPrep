@@ -8,6 +8,7 @@ import { getAdpPool, getAdpStatus, refreshAdpPool, startAdpScheduler } from "./a
 import { getFpPool, getFpStatus, refreshFpPool, attachAdp } from "./fantasypros.js";
 import { previewMigration, applyMigration } from "./fpMigration.js";
 import { refreshLeagueHistory, getLeagueHistory, getWeekMatchups } from "./espn.js";
+import { refreshSleeperHistory } from "./sleeperHistory.js";
 import { getHomeSettings, setHomeSettings, listChatMessages, addChatMessage, deleteChatMessage } from "./leaguehome.js";
 import { getSetting, hasSetting, setSetting, deleteSetting } from "./settings.js";
 import {
@@ -416,34 +417,43 @@ app.get("/api/health", (req, res) => res.json({ ok: true, dataFile: DATA_FILE })
 // any logged-in user, since Game Day (restricted-accessible) needs it. ---
 app.get("/api/leagues", requireAuth, (req, res) => res.json(getAllLeagues()));
 
-// --- League History (ESPN leagues only — Koi now, Jordan once its ESPN
-// league id is on file). See server/espn.js. Gated on both the 'history'
-// area AND the specific league (requireHistoryLeague) — a real data
-// boundary, not just nav-hiding, so a friend granted Koi's history can't
-// pull a different league's data by changing the URL once more leagues
-// exist. Only admin can trigger a refresh against ESPN regardless of
-// permissions (that's a write against an external API + cookies, not just
-// a view). ---
+// --- League History (Koi/Jordan on ESPN, Final Fantasy/Sin Bin Dynasty on
+// Sleeper — see server/espn.js and server/sleeperHistory.js). Gated on
+// both the 'history' area AND the specific league (requireHistoryLeague) —
+// a real data boundary, not just nav-hiding, so a friend granted one
+// league's history can't pull a different league's data by changing the
+// URL. Only admin can trigger a refresh regardless of permissions (that's
+// a write against an external API, not just a view). ---
 app.get("/api/history/:league", requireHistoryLeague, (req, res) => {
   res.json(getLeagueHistory(req.params.league));
 });
 
 app.post("/api/history/:league/refresh", requireAdmin, async (req, res) => {
   const league = getLeague(req.params.league);
-  if (!league || league.source_platform !== "espn" || !league.source_league_id) {
-    return res.status(400).json({ error: `${req.params.league} has no ESPN league id on file yet` });
+  if (!league || !league.source_league_id) {
+    return res.status(400).json({ error: `${req.params.league} has no league id on file yet` });
   }
-  const currentYear = new Date().getFullYear();
-  // 2011 is Koi's real floor, not a guess — verified directly: 2010 and
-  // earlier 404 even with valid cookies (the league didn't exist yet).
-  // Starting there instead of scanning further back saves a dozen-plus
-  // guaranteed-empty HTTP round-trips on every refresh. Still overridable
-  // via the request body for whenever a second ESPN league (Jordan) with a
-  // different history is wired up here.
-  const startYear = Number(req.body?.startYear) || 2011;
-  const endYear = Number(req.body?.endYear) || currentYear;
   try {
-    const result = await refreshLeagueHistory(req.params.league, league.source_league_id, startYear, endYear);
+    let result;
+    if (league.source_platform === "espn") {
+      const currentYear = new Date().getFullYear();
+      // 2011 is Koi's real floor, not a guess — verified directly: 2010 and
+      // earlier 404 even with valid cookies (the league didn't exist yet).
+      // Starting there instead of scanning further back saves a dozen-plus
+      // guaranteed-empty HTTP round-trips on every refresh. Still overridable
+      // via the request body for whenever a second ESPN league (Jordan) with a
+      // different history is wired up here.
+      const startYear = Number(req.body?.startYear) || 2011;
+      const endYear = Number(req.body?.endYear) || currentYear;
+      result = await refreshLeagueHistory(req.params.league, league.source_league_id, startYear, endYear);
+    } else if (league.source_platform === "sleeper") {
+      // No year range needed — Sleeper's previous_league_id chain is self-
+      // terminating (verified live: both Final Fantasy and Sin Bin Dynasty
+      // cleanly stop at their real first season, not a failed fetch).
+      result = await refreshSleeperHistory(req.params.league, league.source_league_id);
+    } else {
+      return res.status(400).json({ error: `unsupported source platform: ${league.source_platform}` });
+    }
     res.json(result);
   } catch (e) {
     res.status(502).json({ error: e.message });

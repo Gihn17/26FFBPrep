@@ -195,18 +195,20 @@ if (!defaultUser) {
 // used for the checkbox UI and the nav-filtering fallback.
 export const VALID_TABS = ["koi", "final", "jordan", "how"];
 
-// Which whole league's League History a 'limited' account can see — Koi is
-// the only one with a League History page built so far; extend this list
-// (and Landing.jsx's LEAGUE_HISTORIES / main.jsx's routes) as Final/Jordan
-// get their own. Deliberately per-LEAGUE, not per-sub-page: once a league
-// is granted here, every sub-page inside it (Season/Stats/H2H/Champs/Teams/
-// Home) is visible — there's no finer permission underneath, unlike Draft
-// Prep's VALID_TABS above. "home" isn't a league and never appears in this
-// list — but its two ADDITIONAL, elevated abilities (editing the video
-// link, posting in chat) are their own separate boolean flags on the
-// account (home_admin/home_poster — see server/auth.js's file header), not
-// unlocked by this list at all.
-export const HISTORY_LEAGUES = ["koi"];
+// Which whole league's League History a 'limited' account can see — Koi
+// (ESPN), Final Fantasy and Sin Bin Dynasty (both Sleeper) all have one
+// now; extend this list (and Landing.jsx's LEAGUE_HISTORIES) as more
+// leagues get their own. Deliberately per-LEAGUE, not per-sub-page: once a
+// league is granted here, every sub-page inside it (Season/Stats/H2H/
+// Champs/Teams, plus Home for Koi specifically) is visible — there's no
+// finer permission underneath, unlike Draft Prep's VALID_TABS above.
+// "home" isn't a league and never appears in this list — it's Koi-only by
+// design (main.jsx's HistoryIndexRedirect/HomeRoute), and its two
+// ADDITIONAL, elevated abilities (editing the video link, posting in
+// chat) are their own separate boolean flags on the account (home_admin/
+// home_poster — see server/auth.js's file header), not unlocked by this
+// list at all.
+export const HISTORY_LEAGUES = ["koi", "final", "sinbin"];
 
 /** allowed_tabs is stored as a comma-separated string; NULL/empty means
  *  "all tabs" (the default, so existing single-user setups are never

@@ -29,7 +29,8 @@ const DRAFT_TABS = [
 ];
 const HISTORY_LEAGUES = [
   ["koi", "Koi"],
-  // Add Final Fantasy/Jordan here once they get their own League History page.
+  ["final", "Final Fantasy"],
+  ["sinbin", "Sin Bin Dynasty"],
 ];
 
 function RoleSelect({ value, onChange, disabled }) {
