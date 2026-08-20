@@ -2108,7 +2108,11 @@ function ImportPanel({ pool, playerImports, onApplyImport, onClearImport, canEdi
           {importCount > 0 ? `${importCount} players currently have imported data` : "No import applied yet"}
         </span>
         {canEdit && importCount > 0 && (
-          <button onClick={()=>{ onClearImport(); setResult(null); }} style={btnStyle("#3a1f1f","#c0453f")}>Clear all imports</button>
+          <button onClick={()=>{
+            if (confirm(`Clear all ${importCount} imported players' auction $/risk/upside/tier/outlook data? This can't be undone.`)) {
+              onClearImport(); setResult(null);
+            }
+          }} style={btnStyle("#3a1f1f","#c0453f")}>Clear all imports</button>
         )}
       </div>
 
