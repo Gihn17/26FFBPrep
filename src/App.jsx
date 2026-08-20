@@ -1130,7 +1130,7 @@ export default function DraftPrepApp() {
    ============================================================ */
 function CheatSheetView({ league, poolFinal, fields, tiers, draft, auctionValues }) {
   const columns = useMemo(() => {
-    const cols = { Overall: [] };
+    const cols = {};
     for (const pos of POS_ORDER) cols[pos] = [];
     for (const p of poolFinal) {
       const f = fields[p.id];
@@ -1158,7 +1158,6 @@ function CheatSheetView({ league, poolFinal, fields, tiers, draft, auctionValues
         drafted: !!(draft[p.id] && draft[p.id].drafted),
         value: league === "koi" ? auctionValues[p.id] : (f?.pts != null ? Math.round(f.pts) : null),
       };
-      cols.Overall.push(row);
       if (cols[p.pos]) cols[p.pos].push(row);
     }
     const sortRows = (a, b) => {
@@ -1171,9 +1170,9 @@ function CheatSheetView({ league, poolFinal, fields, tiers, draft, auctionValues
       if (ra !== rb) return ra - rb;
       return (b.value ?? -Infinity) - (a.value ?? -Infinity);
     };
-    // Capped per column (Overall included) — a cheat sheet is meant to be
-    // scanned, not scrolled through the entire draftable pool; anyone past
-    // 100 at a position is deep-bench/waiver-tier noise for this view.
+    // Capped per column — a cheat sheet is meant to be scanned, not
+    // scrolled through the entire draftable pool; anyone past 100 at a
+    // position is deep-bench/waiver-tier noise for this view.
     const MAX_PER_COLUMN = 100;
     for (const key of Object.keys(cols)) cols[key] = cols[key].sort(sortRows).slice(0, MAX_PER_COLUMN);
     return cols;
@@ -1181,12 +1180,12 @@ function CheatSheetView({ league, poolFinal, fields, tiers, draft, auctionValues
 
   return (
     <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit, minmax(230px, 1fr))", gap:14, alignItems:"start" }}>
-      {["Overall", ...POS_ORDER].map(key => (
+      {POS_ORDER.map(key => (
         <div key={key} style={{ border:"1px solid #2a2c20", borderRadius:10, overflow:"hidden" }}>
           <div style={{
             padding:"10px 12px", fontWeight:800, fontSize:13, borderBottom:"1px solid #2a2c20",
-            background: key === "Overall" ? "#20211a" : (POS_COLORS[key] || "#c9a227") + "22",
-            color: key === "Overall" ? "#f0d97a" : (POS_COLORS[key] || "#c9a227"),
+            background: (POS_COLORS[key] || "#c9a227") + "22",
+            color: POS_COLORS[key] || "#c9a227",
           }}>
             {key}
           </div>
