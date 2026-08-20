@@ -1167,7 +1167,11 @@ function CheatSheetView({ league, poolFinal, fields, tiers, draft, auctionValues
       if (ra !== rb) return ra - rb;
       return (b.value ?? -Infinity) - (a.value ?? -Infinity);
     };
-    for (const key of Object.keys(cols)) cols[key].sort(sortRows);
+    // Capped per column (Overall included) — a cheat sheet is meant to be
+    // scanned, not scrolled through the entire draftable pool; anyone past
+    // 100 at a position is deep-bench/waiver-tier noise for this view.
+    const MAX_PER_COLUMN = 100;
+    for (const key of Object.keys(cols)) cols[key] = cols[key].sort(sortRows).slice(0, MAX_PER_COLUMN);
     return cols;
   }, [poolFinal, fields, tiers, draft, auctionValues, league]);
 
