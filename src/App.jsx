@@ -1146,7 +1146,11 @@ function CheatSheetView({ league, poolFinal, fields, tiers, draft, auctionValues
       if ((!f || f.vbd == null) && !(isKDef && hasUdkRankOrValue)) continue;
       const row = {
         id: p.id, name: p.name, team: p.team, pos: p.pos,
-        vbd: f?.vbd ?? null, tier: tiers[p.id] ?? null,
+        // Same precedence as the board table (App.jsx:698) — a UDK-imported
+        // tier wins over the computed VBD tier, not the other way around.
+        // Missed here originally, which meant the Cheat Sheet silently
+        // ignored any imported tier and always showed the computed one.
+        vbd: f?.vbd ?? null, tier: p.tierOverride != null ? p.tierOverride : (tiers[p.id] ?? null),
         // Falls back to the UDK-imported rank (e.g. "K12") when there's no
         // computed posRank to fall back on — same value already shown on
         // the board itself for these players.
