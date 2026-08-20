@@ -200,7 +200,12 @@ function buildPool(adpPool) {
     const [pos1, neg1, outlook1] = noteFor(p.position, p.name, p.adp_rank);
     players.push({
       id: p.id, pos: p.position, name: p.name, team: p.team, bye: p.bye, adpRank: p.adp_rank,
-      stats: fpStatsOverride(p), flatPts: null,
+      // K/DEF: FantasyPros' own pre-computed points_half, straight from
+      // fp_pool's flat_pts column — same flat-value concept a UDK import
+      // has always used for these two positions (no raw-stat scoring
+      // pipeline applies to them). null when FantasyPros hasn't got them
+      // covered — a UDK flatPtsOverride still wins when present either way.
+      stats: fpStatsOverride(p), flatPts: p.flat_pts ?? null,
       // FantasyPros' own signal — informational, doesn't touch this app's
       // existing tier/posRank display (that stays computed from VBD, same
       // as always; a UDK tier/posRank import still overrides it exactly
@@ -1129,17 +1134,40 @@ function CheatSheetView({ league, poolFinal, fields, tiers, draft, auctionValues
     for (const pos of POS_ORDER) cols[pos] = [];
     for (const p of poolFinal) {
       const f = fields[p.id];
-      if (!f || f.vbd == null) continue; // unprojected — nothing to rank yet
+      // K/DEF never get a FantasyPros projection (confirmed live — their
+      // consensus rankings don't cover either position at all), so a UDK
+      // import for them is often just an auction $/tier/rank, no points —
+      // meaning vbd stays null even though there's real data worth
+      // showing. Everyone else with no projection genuinely has nothing
+      // to rank yet, so they still stay excluded.
+      const isKDef = p.pos === "K" || p.pos === "DEF";
+      const hasUdkRankOrValue = p.posRankOverride != null || auctionValues[p.id] != null;
+      if (!f && !isKDef) continue;
+      if ((!f || f.vbd == null) && !(isKDef && hasUdkRankOrValue)) continue;
       const row = {
         id: p.id, name: p.name, team: p.team, pos: p.pos,
-        vbd: f.vbd, tier: tiers[p.id],
+        vbd: f?.vbd ?? null, tier: tiers[p.id] ?? null,
+        // Falls back to the UDK-imported rank (e.g. "K12") when there's no
+        // computed posRank to fall back on — same value already shown on
+        // the board itself for these players.
+        importedRank: p.posRankOverride != null ? parseInt(String(p.posRankOverride).replace(/[^0-9]/g, ""), 10) : null,
         drafted: !!(draft[p.id] && draft[p.id].drafted),
-        value: league === "koi" ? auctionValues[p.id] : (f.pts != null ? Math.round(f.pts) : null),
+        value: league === "koi" ? auctionValues[p.id] : (f?.pts != null ? Math.round(f.pts) : null),
       };
       cols.Overall.push(row);
       if (cols[p.pos]) cols[p.pos].push(row);
     }
-    for (const key of Object.keys(cols)) cols[key].sort((a, b) => (b.vbd ?? -Infinity) - (a.vbd ?? -Infinity));
+    const sortRows = (a, b) => {
+      if (a.vbd != null && b.vbd != null) return b.vbd - a.vbd;
+      if (a.vbd != null) return -1; // any real projection ranks above an unprojected K/DEF
+      if (b.vbd != null) return 1;
+      // Both unprojected (K/DEF with only UDK rank/$ data) — sort by their
+      // imported rank first, falling back to auction $ if rank's missing.
+      const ra = a.importedRank ?? Infinity, rb = b.importedRank ?? Infinity;
+      if (ra !== rb) return ra - rb;
+      return (b.value ?? -Infinity) - (a.value ?? -Infinity);
+    };
+    for (const key of Object.keys(cols)) cols[key].sort(sortRows);
     return cols;
   }, [poolFinal, fields, tiers, draft, auctionValues, league]);
 
