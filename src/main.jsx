@@ -8,6 +8,7 @@ import DraftPrepApp from "./App.jsx";
 import Landing from "./pages/Landing.jsx";
 import Login from "./pages/Login.jsx";
 import Admin from "./pages/Admin.jsx";
+import GmTab from "./pages/GmTab.jsx";
 import GameDay from "./pages/GameDay.jsx";
 import HistoryLayout from "./pages/history/Layout.jsx";
 import HomePage from "./pages/history/HomePage.jsx";
@@ -66,6 +67,7 @@ ReactDOM.createRoot(document.getElementById("root")).render(
           <Route path="/login" element={<Login />} />
           <Route path="/" element={<RequireAuth><Landing /></RequireAuth>} />
           <Route path="/admin" element={<RequireAuth role="admin"><Admin /></RequireAuth>} />
+          <Route path="/gm" element={<RequireAuth role="admin"><GmTab /></RequireAuth>} />
           <Route path="/draft" element={<RequireAuth permission="draft"><DraftPrepApp /></RequireAuth>} />
           <Route path="/gameday" element={<RequireAuth permission="gameday"><GameDay /></RequireAuth>} />
           {/* One route tree per league, parameterized by :leagueSlug (was

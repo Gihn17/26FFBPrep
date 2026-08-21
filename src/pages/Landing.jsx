@@ -71,6 +71,13 @@ export default function Landing() {
             <h1 style={{ margin:"2px 0 24px", fontSize:34, fontWeight:800, letterSpacing:0.5 }}>Fantasy HQ</h1>
           </div>
           <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+            {/* Deliberately NOT the canSee/TOOLS pattern below — canSee auto-grants
+                every listed tile to the "standard" role too, not just admin. This
+                tile is meant to be Will-only by default, same reasoning as the
+                Admin link right next to it (also a direct role check, not canSee). */}
+            {user?.role === "admin" && (
+              <Link to="/gm" title="GM Tab" style={{ ...btnStyle(), textDecoration:"none", fontSize:16, padding:"6px 10px" }}>🧠</Link>
+            )}
             {user?.role === "admin" && (
               <Link to="/admin" title="Admin" style={{ ...btnStyle(), textDecoration:"none", fontSize:16, padding:"6px 10px" }}>⚙️</Link>
             )}
