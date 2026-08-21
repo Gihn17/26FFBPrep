@@ -17,6 +17,44 @@
 // same HTTP surface, never a second process touching this DB file
 // directly (see fantasy-gm's plan file for why).
 import { db } from "./db.js";
+import { getFpPool } from "./fantasypros.js";
+
+// --- Current keepers (JS port of fantasy-gm's scripts/keeper_value_join.py) ---
+// Real finding from building the terminal agent system: server/keepers.js's
+// computeKoiKeeperBoard() joins the relational `keepers`/`players` tables,
+// but both are empty (0 rows) — schema built, never backfilled. The real,
+// currently-live keeper data lives in user_kv's 'ffb-draft-state' blob:
+// draftByLeague[league][<fp_pool id>].viaKeeper, keyed directly by
+// fp_pool's id (no fuzzy name matching needed). This mirrors that script
+// exactly rather than querying the empty tables.
+export function getCurrentKeepers(leagueId = "koi") {
+  const row = db.prepare("SELECT value FROM user_kv WHERE key = 'ffb-draft-state'").get();
+  if (!row) return [];
+  const state = JSON.parse(row.value);
+  const leagueDraft = (state.draftByLeague || {})[leagueId] || {};
+  const keeperIds = Object.keys(leagueDraft).filter(id => leagueDraft[id]?.viaKeeper);
+  if (!keeperIds.length) return [];
+
+  const fpById = new Map(getFpPool().map(p => [p.id, p]));
+  return keeperIds.map(id => {
+    const pid = Number(id);
+    const fp = fpById.get(pid);
+    return {
+      fpPoolId: pid,
+      name: fp?.name ?? null,
+      position: fp?.position ?? null,
+      team: fp?.team ?? null,
+      paidThisSeason: leagueDraft[id].paid,
+      manager: leagueDraft[id].manager,
+      rankEcr: fp?.rank_ecr ?? null,
+      rankEcrPos: fp?.rank_ecr_pos ?? null,
+      tier: fp?.tier ?? null,
+      // Not tracked anywhere — see data-access notes in fantasy-gm.
+      yearsKept: null,
+      originalDraftPrice: null,
+    };
+  });
+}
 
 db.exec(`
 CREATE TABLE IF NOT EXISTS gm_keeper_notes (

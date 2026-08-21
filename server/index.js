@@ -17,6 +17,7 @@ import {
   listTradeProposals, createTradeProposal, updateTradeProposal,
   listTransactions, appendTransaction,
 } from "./gm.js";
+import { runChat } from "./chat.js";
 import {
   bootstrapAdmin, attachUser, requireAuth, requireAdmin, requirePermission, requireHistoryLeague,
   requireHomeAdmin, requireHomePoster,
@@ -249,6 +250,26 @@ app.delete("/api/settings/fantasypros-key", requireAdmin, (req, res) => {
   res.json({ set: false });
 });
 
+// Anthropic API key — powers the GM Tab / Draft Prep chat assistant
+// (server/chat.js). A real, separate cost from the Claude Code subscription
+// the terminal-based fantasy-gm agents run under — genuine live chat in a
+// browser needs a live backend LLM call, which Claude Code alone can't do.
+app.get("/api/settings/anthropic-key/status", requireAdmin, (req, res) => {
+  res.json({ set: hasSetting("anthropic-api-key") });
+});
+
+app.put("/api/settings/anthropic-key", requireAdmin, (req, res) => {
+  const key = req.body && req.body.key;
+  if (!key || typeof key !== "string" || !key.trim()) return res.status(400).json({ error: "key required" });
+  setSetting("anthropic-api-key", key.trim());
+  res.json({ set: true });
+});
+
+app.delete("/api/settings/anthropic-key", requireAdmin, (req, res) => {
+  deleteSetting("anthropic-api-key");
+  res.json({ set: false });
+});
+
 app.get("/api/settings/espn-cookies/status", requireAdmin, (req, res) => {
   let set = false;
   try {
@@ -384,6 +405,21 @@ gmRouter.post("/waiver-wire/refresh", async (req, res) => {
       note: p.percentOwned != null ? `${p.percentOwned.toFixed(1)}% owned` : null,
     }));
     res.json(replaceWaiverWire(leagueId, entries));
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Chat — the browser-side conversational assistant (GM Tab and Draft
+// Prep both call this same route/logic). Stateless server-side: the
+// client sends the full running message history each turn (standard
+// Anthropic Messages API pattern), same as any other multi-turn chat.
+gmRouter.post("/chat", async (req, res) => {
+  const history = Array.isArray(req.body.messages) ? req.body.messages : null;
+  if (!history || !history.length) return res.status(400).json({ error: "messages array required" });
+  try {
+    const { reply, history: fullHistory } = await runChat(history);
+    res.json({ reply, messages: fullHistory });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
