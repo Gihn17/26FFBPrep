@@ -251,6 +251,27 @@ app.delete("/api/settings/fantasypros-key", requireAdmin, (req, res) => {
   res.json({ set: false });
 });
 
+// Anthropic API key — powers the GM Tab / Draft Prep chat assistant
+// (server/chat.js). Real, metered cost, separate from the Claude Code
+// subscription the fantasy-gm terminal agents run under — see chat.js's
+// header for why the subscription-covered approach that was tried first
+// doesn't actually work for an unattended backend process.
+app.get("/api/settings/anthropic-key/status", requireAdmin, (req, res) => {
+  res.json({ set: hasSetting("anthropic-api-key") });
+});
+
+app.put("/api/settings/anthropic-key", requireAdmin, (req, res) => {
+  const key = req.body && req.body.key;
+  if (!key || typeof key !== "string" || !key.trim()) return res.status(400).json({ error: "key required" });
+  setSetting("anthropic-api-key", key.trim());
+  res.json({ set: true });
+});
+
+app.delete("/api/settings/anthropic-key", requireAdmin, (req, res) => {
+  deleteSetting("anthropic-api-key");
+  res.json({ set: false });
+});
+
 app.get("/api/settings/espn-cookies/status", requireAdmin, (req, res) => {
   let set = false;
   try {

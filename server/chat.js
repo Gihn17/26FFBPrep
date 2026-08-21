@@ -1,40 +1,24 @@
 // The GM Tab / Draft Prep chat assistant — real-time back-and-forth in the
 // browser, which needs a live backend LLM call (nothing about Claude Code
-// CAN do that from inside a web page in the normal interactive sense —
-// see fantasy-gm's plan file for the terminal-based agents this
-// complements, not replaces).
+// can do that from inside a web page — see fantasy-gm's plan file for the
+// terminal-based agents this complements, not replaces).
 //
-// Authenticates via an ISOLATED Claude Code login profile
-// ("fantasy-gm-container"), not a metered Anthropic API key — draws on
-// Will's Claude subscription, same as the terminal agents. Created via
-// `ant auth login --profile fantasy-gm-container`, deliberately separate
-// from Will's own interactive session (~/.claude/.credentials.json,
-// untouched) so a compromise of this container is independently
-// revocable without touching his main login. Mounted read-only in
-// docker-compose.yml at /anthropic-config; ANTHROPIC_CONFIG_DIR/
-// ANTHROPIC_PROFILE env vars there select it.
-//
-// The Anthropic SDK itself only reads ANTHROPIC_API_KEY/ANTHROPIC_AUTH_TOKEN
-// — it does NOT resolve a profile file on its own (confirmed live: a bare
-// `new Anthropic()` 500'd with "Could not resolve authentication method"
-// even with the profile mounted and the env vars set). The `ant` CLI is
-// what actually understands profiles and the OAuth refresh dance, so
-// getClient() shells out to `ant auth print-credentials --access-token`
-// for a fresh short-lived bearer token on every call (the token isn't
-// long-lived enough to cache across requests) and passes it as
-// `authToken`, plus the `anthropic-beta: oauth-2025-04-20` header the
-// docs say /v1/messages requires for OAuth-token requests specifically
-// (it's silently NOT required on some other endpoints, but always sent
-// here since messages.create is the only call this file makes).
-//
-// This whole approach is a deliberate departure from the Anthropic API's
-// own docs, which steer servers/containers toward Workload Identity
-// Federation instead of OAuth login — WIF needs a cloud IAM provider a
-// home server doesn't have, and Will made this tradeoff knowingly rather
-// than pay per-use for what's a low-volume personal chat.
-import { execFile } from "child_process";
-import { promisify } from "util";
-const execFileAsync = promisify(execFile);
+// Authenticates with a real Anthropic API key, billed per use — separate
+// from the Claude Code subscription the terminal agents run under. This
+// project previously tried an isolated Claude Code login profile (`ant
+// auth login --profile fantasy-gm-container`) to avoid that cost, mounted
+// read-only via docker-compose.yml. Verified live that it doesn't work
+// the way it looked like it should: `ant auth status` shows that
+// profile's token carries `scope: user:developer` — Anthropic's metered
+// developer-API scope, not a subscription entitlement, confirmed by
+// hitting a real "credit balance too low" error with both a raw SDK call
+// AND the actual `claude -p` binary using that same profile. Every
+// request through it was quietly billing against real API credits the
+// whole time, not the subscription — the opposite of the goal. Reverted
+// to a real key (Will's own choice, after seeing that finding) rather
+// than keep chasing a subscription-covered path that doesn't appear to
+// exist for an unattended backend process with the tools available here.
+import { getSetting } from "./settings.js";
 //
 // One assistant, not six separate agents — a single system prompt covers
 // the same judgment areas (keeper strategy, trade evaluation, roster/
@@ -64,15 +48,10 @@ import {
 const MODEL = "claude-opus-5";
 const MAX_TOOL_ITERATIONS = 8; // hard stop so a runaway loop can't rack up unbounded cost
 
-async function getClient() {
-  const { stdout } = await execFileAsync("ant", ["auth", "print-credentials", "--access-token"]);
-  const token = stdout.trim();
-  if (!token) throw new Error("ant auth print-credentials returned no token — check the mounted fantasy-gm-container profile hasn't been revoked");
-  return new Anthropic({
-    authToken: token,
-    apiKey: null, // explicit — an ANTHROPIC_API_KEY env var would otherwise take precedence and silently switch this back to metered billing
-    defaultHeaders: { "anthropic-beta": "oauth-2025-04-20" },
-  });
+function getClient() {
+  const key = getSetting("anthropic-api-key");
+  if (!key) throw new Error("no Anthropic API key set — add one in Calculations → Chat Assistant");
+  return new Anthropic({ apiKey: key });
 }
 
 function resolvePlayerByName(name) {
@@ -362,7 +341,7 @@ async function executeTool(name, input) {
  *  caller. Returns { reply, history } — history includes everything
  *  (tool calls and results) so the caller can persist/replay it. */
 export async function runChat(history) {
-  const client = await getClient();
+  const client = getClient();
   const messages = [...history];
 
   for (let i = 0; i < MAX_TOOL_ITERATIONS; i++) {
@@ -381,21 +360,26 @@ export async function runChat(history) {
       return { reply: text, history: messages };
     }
 
+    // Run every tool call in this turn concurrently, not one at a time —
+    // asking about 3 keepers means 3 independent get_keeper_draft_history
+    // calls (each its own multi-season ESPN walk-back), and running them
+    // sequentially was the real cause of a 2-minute response (verified
+    // live) that a reverse proxy or the browser itself was timing out on
+    // before the real, correct answer ever arrived.
     const toolUseBlocks = response.content.filter(b => b.type === "tool_use");
-    const toolResults = [];
-    for (const block of toolUseBlocks) {
+    const toolResults = await Promise.all(toolUseBlocks.map(async (block) => {
       let result;
       try {
         result = await executeTool(block.name, block.input);
       } catch (e) {
         result = { error: e.message };
       }
-      toolResults.push({
+      return {
         type: "tool_result",
         tool_use_id: block.id,
         content: JSON.stringify(result ?? null),
-      });
-    }
+      };
+    }));
     messages.push({ role: "user", content: toolResults });
   }
 

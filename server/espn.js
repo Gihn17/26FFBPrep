@@ -348,16 +348,34 @@ export async function getFreeAgents(espnLeagueId, year, limit = 50) {
  *  jump between one draft-day price and the next that isn't explained by
  *  the flat +$10/yr keeper rule usually means a waiver move happened in
  *  between that this data is blind to. */
+// A completed season's draft is immutable — never refetch one within
+// this process's lifetime. Also collapses redundant fetches when
+// multiple tool calls in one chat turn hit the same season concurrently
+// (e.g. asking about 3 keepers each walking back through the same
+// recent years). Only caches completed drafts; the current in-progress
+// season is never memoized since it can change.
+const draftDetailCache = new Map(); // `${espnLeagueId}:${year}` -> detail | Promise<detail>
+
 async function fetchDraftDetail(espnLeagueId, year) {
-  const cookies = getEspnCookies();
-  const headers = {};
-  if (cookies) headers.Cookie = `espn_s2=${cookies.espn_s2}; SWID=${cookies.swid}`;
-  const url = `${ESPN_HOST}/seasons/${year}/segments/0/leagues/${espnLeagueId}?view=mDraftDetail&view=mTeam`;
-  const res = await fetch(url, { headers });
-  if (!res.ok) return null;
-  const data = await res.json();
-  const teamNameById = new Map((data.teams || []).map(t => [t.id, t.name || `${t.location || ""} ${t.nickname || ""}`.trim()]));
-  return { drafted: !!data.draftDetail?.drafted, picks: data.draftDetail?.picks || [], teamNameById };
+  const cacheKey = `${espnLeagueId}:${year}`;
+  if (draftDetailCache.has(cacheKey)) return draftDetailCache.get(cacheKey);
+
+  const promise = (async () => {
+    const cookies = getEspnCookies();
+    const headers = {};
+    if (cookies) headers.Cookie = `espn_s2=${cookies.espn_s2}; SWID=${cookies.swid}`;
+    const url = `${ESPN_HOST}/seasons/${year}/segments/0/leagues/${espnLeagueId}?view=mDraftDetail&view=mTeam`;
+    const res = await fetch(url, { headers });
+    if (!res.ok) return null;
+    const data = await res.json();
+    const teamNameById = new Map((data.teams || []).map(t => [t.id, t.name || `${t.location || ""} ${t.nickname || ""}`.trim()]));
+    return { drafted: !!data.draftDetail?.drafted, picks: data.draftDetail?.picks || [], teamNameById };
+  })();
+  draftDetailCache.set(cacheKey, promise);
+
+  const result = await promise;
+  if (!result || !result.drafted) draftDetailCache.delete(cacheKey); // don't cache a miss/in-progress season
+  return result;
 }
 
 /** Walks one player's real draft-day price back through past completed
@@ -370,9 +388,17 @@ async function fetchDraftDetail(espnLeagueId, year) {
  *  trusting the number. */
 export async function getDraftPriceHistory(espnLeagueId, espnPlayerId, maxYears = 6) {
   const startYear = new Date().getFullYear();
+  const years = Array.from({ length: maxYears }, (_, i) => startYear - i);
+  // All candidate seasons fetched concurrently rather than one at a time
+  // with an early-exit — verified live this was the real cause of a
+  // 2-minute chat response (3 keepers x sequential multi-year walks).
+  // The draftDetailCache above also means this costs nothing extra when
+  // another tool call in the same turn already fetched the same season.
+  const details = await Promise.all(years.map(year => fetchDraftDetail(espnLeagueId, year)));
+
   const trail = [];
-  for (let year = startYear; year > startYear - maxYears; year--) {
-    const detail = await fetchDraftDetail(espnLeagueId, year);
+  for (let i = 0; i < years.length; i++) {
+    const year = years[i], detail = details[i];
     if (!detail || !detail.drafted) continue; // this season hasn't happened/finished yet
     const pick = detail.picks.find(p => p.playerId === espnPlayerId);
     if (!pick) continue; // not in this draft at all — likely wasn't rostered yet

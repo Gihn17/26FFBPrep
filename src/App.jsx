@@ -1512,12 +1512,7 @@ function SettingsTab({ teamsByLeague, rosterSpotsByLeague, setTeamsFor, setRoste
         <div style={{ fontSize:11, fontWeight:700, letterSpacing:0.5, color:"#c9a227", marginBottom:10, textTransform:"uppercase" }}>
           Chat Assistant — powers the chat box on the GM Tab and Koi board
         </div>
-        <p style={pText()}>
-          Runs under Will's Claude subscription via an isolated login profile mounted into the
-          container (docker-compose.yml) — no API key to manage here, and no per-use billing.
-          Nothing to configure; if the chat box errors, check that the container's mounted
-          credential (<code>fantasy-gm-container</code> profile) hasn't been revoked or expired.
-        </p>
+        <AnthropicKeyPanel canEdit={canEditEspnAccess} />
       </div>
 
       <div style={{ fontSize:12, opacity:0.65, lineHeight:1.5 }}>
@@ -1974,6 +1969,73 @@ function FantasyProsAccessPanel({ canEdit }) {
             {refreshMsg && <span style={{ fontSize:12, color: refreshMsg.startsWith("Refreshed") ? "#7fd18f" : "#e08a8a" }}>{refreshMsg}</span>}
           </div>
         </>
+      )}
+    </div>
+  );
+}
+
+/* ============================================================
+   ANTHROPIC API KEY — powers server/chat.js, the real-time chat box on
+   the GM Tab and the Koi board. A real, metered cost, separate from
+   Claude Code's own subscription (which the fantasy-gm terminal agents
+   run under) — real-time browser chat needs a live backend LLM call,
+   which nothing about Claude Code's subscription can cover for an
+   unattended backend process (verified live — see server/chat.js's
+   header for what was tried first and why it didn't work). Stored the
+   same admin-only way as the FantasyPros key above.
+   ============================================================ */
+function AnthropicKeyPanel({ canEdit }) {
+  const [key, setKey] = useState("");
+  const [hasStored, setHasStored] = useState(false);
+  const [saved, setSaved] = useState(false);
+
+  useEffect(() => {
+    fetch("/api/settings/anthropic-key/status").then(r => r.ok ? r.json() : { set: false }).then(d => setHasStored(!!d.set)).catch(() => {});
+  }, []);
+
+  const save = () => {
+    if (!key.trim()) return;
+    fetch("/api/settings/anthropic-key", {
+      method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ key: key.trim() }),
+    }).then(r => {
+      if (!r.ok) return;
+      setHasStored(true);
+      setSaved(true);
+      setKey("");
+    });
+  };
+
+  const remove = () => {
+    if (!confirm("Remove the stored Anthropic API key? The chat assistant stops working until a new one's set.")) return;
+    fetch("/api/settings/anthropic-key", { method: "DELETE" }).then(r => {
+      if (r.ok) { setHasStored(false); setSaved(false); }
+    });
+  };
+
+  return (
+    <div>
+      <p style={pText()}>
+        A real Anthropic API key, billed per use — separate from any Claude Code subscription. Powers
+        real-time chat with an assistant that has live access to keeper costs, player values, your
+        roster, and the waiver wire, and can log keeper notes/transactions/trade proposals for you.
+      </p>
+      <div style={{ fontSize:12, marginBottom:12 }}>
+        Status: <b style={{ color: hasStored ? "#7fd18f" : "#9c998e" }}>{hasStored ? "Key is set" : "Not set"}</b>
+      </div>
+      {!canEdit ? (
+        <div style={{ ...pText(), background:"#181910", border:"1px solid #2a2c20", borderRadius:8, padding:12, marginBottom:0 }}>
+          Only <b style={{color:"#f0d97a"}}>Will</b> can set this.
+        </div>
+      ) : (
+        <div style={{ display:"flex", gap:12, flexWrap:"wrap", alignItems:"flex-end" }}>
+          <label style={lbl()}>API key
+            <input type="password" value={key} onChange={e=>{ setKey(e.target.value); setSaved(false); }}
+              placeholder={hasStored ? "•••••••••••••••••••• (set — paste to replace)" : "paste key"} style={inp(320)} />
+          </label>
+          <button onClick={save} disabled={!key.trim()} style={btnStyle("#20211a","#c9a227")}>Save</button>
+          {hasStored && <button onClick={remove} style={btnStyle("#3a1f1f","#c0453f")}>Remove</button>}
+          {saved && <span style={{ fontSize:12, color:"#7fd18f" }}>Saved.</span>}
+        </div>
       )}
     </div>
   );
