@@ -5,9 +5,9 @@ import { fileURLToPath } from "url";
 import { seedLeagues, getAllLeagues, getLeague } from "./leagues.js";
 import { db, getOrCreateUser } from "./db.js";
 import { getAdpPool, getAdpStatus, refreshAdpPool, startAdpScheduler } from "./adp.js";
-import { getFpPool, getFpStatus, refreshFpPool, attachAdp } from "./fantasypros.js";
+import { getFpPool, getFpStatus, refreshFpPool, attachAdp, normName, normTeam } from "./fantasypros.js";
 import { previewMigration, applyMigration } from "./fpMigration.js";
-import { refreshLeagueHistory, getLeagueHistory, getWeekMatchups } from "./espn.js";
+import { refreshLeagueHistory, getLeagueHistory, getWeekMatchups, getRoster, getFreeAgents } from "./espn.js";
 import { refreshSleeperHistory } from "./sleeperHistory.js";
 import { getHomeSettings, setHomeSettings, listChatMessages, addChatMessage, deleteChatMessage } from "./leaguehome.js";
 import { getSetting, hasSetting, setSetting, deleteSetting } from "./settings.js";
@@ -337,6 +337,56 @@ gmRouter.post("/transactions", (req, res) => {
   const { eventType, playerId, detail, status, relatedId } = req.body || {};
   if (!eventType) return res.status(400).json({ error: "eventType required" });
   res.json(appendTransaction(league, { eventType, playerId, detail, status, relatedId }));
+});
+
+// Live ESPN roster lookup — not persisted (a point-in-time read, unlike
+// waiver-wire below which snapshots into gm_waiver_wire). Matches each
+// entry to fp_pool by normalized name+position so the response lines up
+// with the same player ids keeper-notes/trade-proposals use — no
+// fantasypros_id crosswalk exists anywhere else to lean on (see
+// fpMigration.js's buildFpIndex() for the same pattern this borrows).
+gmRouter.get("/roster", async (req, res) => {
+  const league = getLeague(req.query.league || "koi");
+  if (!league) return res.status(404).json({ error: "unknown league" });
+  try {
+    const { status, roster } = await getRoster(league.source_league_id, league.source_team_id, Number(req.query.year) || undefined);
+    if (status !== 200) return res.status(status).json({ error: `ESPN returned HTTP ${status}` });
+    const fpByNamePos = new Map();
+    for (const p of getFpPool()) fpByNamePos.set(normName(p.name) + "|" + p.position, p.id);
+    const matched = roster.map(r => ({
+      ...r,
+      fpPoolId: r.position ? (fpByNamePos.get(normName(r.name) + "|" + r.position) ?? null) : null,
+    }));
+    res.json(matched);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Refreshes gm_waiver_wire from ESPN's live free-agent list — same
+// refresh-then-persist pattern as /api/fp-pool/refresh and
+// /api/history/:league/refresh elsewhere in this file.
+gmRouter.post("/waiver-wire/refresh", async (req, res) => {
+  const leagueId = req.body.league || "koi";
+  const league = getLeague(leagueId);
+  if (!league) return res.status(404).json({ error: "unknown league" });
+  try {
+    const { status, players } = await getFreeAgents(league.source_league_id, Number(req.body.year) || undefined, Number(req.body.limit) || 50);
+    if (status !== 200) return res.status(status).json({ error: `ESPN returned HTTP ${status}` });
+    const fpByNamePos = new Map();
+    for (const p of getFpPool()) fpByNamePos.set(normName(p.name) + "|" + p.position, p.id);
+    const entries = players.map(p => ({
+      playerId: p.position ? (fpByNamePos.get(normName(p.name) + "|" + p.position) ?? null) : null,
+      espnPlayerId: p.espnPlayerId,
+      name: p.name,
+      position: p.position,
+      team: null,
+      note: p.percentOwned != null ? `${p.percentOwned.toFixed(1)}% owned` : null,
+    }));
+    res.json(replaceWaiverWire(leagueId, entries));
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
 });
 
 app.use("/api/gm", requireAdmin, gmRouter);

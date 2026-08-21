@@ -148,18 +148,48 @@ function TransactionsPanel({ playersById }) {
 }
 
 function WaiverWirePanel() {
-  const [wire, error] = useGmData(`/api/gm/waiver-wire?league=${LEAGUE}`);
+  const [wire, error, reload] = useGmData(`/api/gm/waiver-wire?league=${LEAGUE}`);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const refresh = () => {
+    setRefreshing(true);
+    fetch("/api/gm/waiver-wire/refresh", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ league: LEAGUE, limit: 30 }),
+    }).then(reload).finally(() => setRefreshing(false));
+  };
+
   return (
     <div style={panelStyle()}>
-      <div style={{ fontWeight:700, marginBottom:10 }}>Waiver Wire — {LEAGUE}</div>
+      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:10 }}>
+        <div style={{ fontWeight:700 }}>Waiver Wire — {LEAGUE}</div>
+        <button onClick={refresh} disabled={refreshing} style={btnStyle()}>{refreshing ? "Refreshing…" : "Refresh from ESPN"}</button>
+      </div>
       {error && <div style={{ color:"#c0453f", fontSize:12 }}>{error}</div>}
-      {(wire || []).length === 0 && <div style={{ fontSize:12, opacity:0.6 }}>Empty — no free-agent fetch has run yet (later build phase).</div>}
+      {(wire || []).length === 0 && <div style={{ fontSize:12, opacity:0.6 }}>Empty — hit refresh to pull live free agents from ESPN.</div>}
       {(wire || []).map(w => (
         <div key={w.id} style={{ padding:"4px 0", borderTop:"1px solid #2a2c20", fontSize:12.5 }}>
-          {w.name} <span style={{ opacity:0.6 }}>({w.position}, {w.team})</span>
+          {w.name} <span style={{ opacity:0.6 }}>({w.position}{w.team ? `, ${w.team}` : ""})</span>
           {w.note && <span style={{ opacity:0.75 }}> — {w.note}</span>}
         </div>
       ))}
+    </div>
+  );
+}
+
+function RosterPanel() {
+  const [roster, error] = useGmData(`/api/gm/roster?league=${LEAGUE}`);
+  return (
+    <div style={panelStyle()}>
+      <div style={{ fontWeight:700, marginBottom:10 }}>Current Roster — {LEAGUE} (live from ESPN)</div>
+      {error && <div style={{ color:"#c0453f", fontSize:12 }}>{error}</div>}
+      {(roster || []).map(p => (
+        <div key={p.espnPlayerId} style={{ display:"flex", justifyContent:"space-between", padding:"4px 0", borderTop:"1px solid #2a2c20", fontSize:12.5 }}>
+          <span>{p.name} <span style={{ opacity:0.6 }}>({p.position})</span></span>
+          <span style={{ opacity:0.6 }}>{p.acquisitionType}{p.injuryStatus && p.injuryStatus !== "NORMAL" ? ` · ${p.injuryStatus}` : ""}</span>
+        </div>
+      ))}
+      {(roster || []).length === 0 && !error && <div style={{ fontSize:12, opacity:0.6 }}>Loading…</div>}
     </div>
   );
 }
@@ -191,6 +221,7 @@ export default function GmTab() {
           </div>
           <Link to="/" style={{ ...btnStyle(), textDecoration:"none" }}>← Home</Link>
         </div>
+        <RosterPanel />
         <KeeperNotesPanel playersById={playersById} />
         <TradeProposalsPanel playersById={playersById} />
         <TransactionsPanel playersById={playersById} />

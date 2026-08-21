@@ -255,3 +255,85 @@ export async function getWeekMatchups(espnLeagueId, week, year) {
     }));
   return { status: 200, week: targetWeek, matchups };
 }
+
+// ESPN's defaultPositionId scheme — standard across the platform, not
+// league-specific. Confirmed live against Koi's real roster (RB=2, K=5
+// matched real players; DEF=16 is ESPN's well-documented convention,
+// not independently re-verified here since no DEF appeared in the
+// free-agent sample pulled).
+const POSITION_ID_MAP = { 1: "QB", 2: "RB", 3: "WR", 4: "TE", 5: "K", 16: "DEF" };
+
+/** Current roster for one team — genuinely new, nothing in this file
+ *  fetched mRoster before (verified live: added for the fantasy-gm GM
+ *  Tab's roster lookup, spike-tested against Koi's real team 11 first).
+ *  Returns null fields gracefully rather than throwing on an unexpected
+ *  shape — ESPN's roster JSON is deep and not worth hard-failing on a
+ *  missing sub-field. */
+export async function getRoster(espnLeagueId, teamId, year) {
+  const targetYear = year || new Date().getFullYear();
+  const cookies = getEspnCookies();
+  const headers = {};
+  if (cookies) headers.Cookie = `espn_s2=${cookies.espn_s2}; SWID=${cookies.swid}`;
+
+  const url = `${ESPN_HOST}/seasons/${targetYear}/segments/0/leagues/${espnLeagueId}?view=mRoster&view=mTeam`;
+  const res = await fetch(url, { headers });
+  if (res.status === 401 || res.status === 404) return { status: res.status, roster: [] };
+  if (!res.ok) throw new Error(`ESPN API returned HTTP ${res.status} fetching roster`);
+  const data = await res.json();
+  const team = (data.teams || []).find(t => String(t.id) === String(teamId));
+  if (!team || !team.roster) return { status: 200, roster: [] };
+
+  const roster = team.roster.entries.map(entry => {
+    const p = entry.playerPoolEntry?.player || {};
+    return {
+      espnPlayerId: p.id ?? null,
+      name: p.fullName ?? null,
+      position: POSITION_ID_MAP[p.defaultPositionId] ?? null,
+      acquisitionType: entry.acquisitionType ?? null,   // DRAFT | TRADE | ADD | ...
+      injuryStatus: entry.injuryStatus ?? null,
+      // ESPN's own built-in keeper-value fields — a real find worth
+      // surfacing, NOT yet confirmed to correspond to this league's
+      // actual espn_dollar custom keeper rule (koiKeeperCost in
+      // server/keepers.js) rather than ESPN's generic default keeper
+      // feature. Pass through as informational only until cross-checked
+      // against a real keeper decision.
+      espnKeeperValue: entry.playerPoolEntry?.keeperValue ?? null,
+      espnKeeperValueFuture: entry.playerPoolEntry?.keeperValueFuture ?? null,
+    };
+  });
+  return { status: 200, roster };
+}
+
+/** Available free agents / waiver-wire players. Spike-tested live against
+ *  Koi — the view exists and works, but ESPN 400s without a `sort` field
+ *  in the filter (undocumented, discovered by testing, not in any spec).
+ *  Sorted by percent-owned descending — the most rosterable/relevant
+ *  free agents first, not an arbitrary API-default order. */
+export async function getFreeAgents(espnLeagueId, year, limit = 50) {
+  const targetYear = year || new Date().getFullYear();
+  const cookies = getEspnCookies();
+  const headers = {};
+  if (cookies) headers.Cookie = `espn_s2=${cookies.espn_s2}; SWID=${cookies.swid}`;
+  const filter = {
+    players: {
+      filterStatus: { value: ["FREEAGENT", "WAIVERS"] },
+      sortPercOwned: { sortAsc: false, sortPriority: 1 },
+      limit,
+    },
+  };
+  headers["x-fantasy-filter"] = JSON.stringify(filter);
+
+  const url = `${ESPN_HOST}/seasons/${targetYear}/segments/0/leagues/${espnLeagueId}?view=kona_player_info`;
+  const res = await fetch(url, { headers });
+  if (res.status === 401 || res.status === 404) return { status: res.status, players: [] };
+  if (!res.ok) throw new Error(`ESPN API returned HTTP ${res.status} fetching free agents`);
+  const data = await res.json();
+  const players = (data.players || []).map(entry => ({
+    espnPlayerId: entry.player?.id ?? null,
+    name: entry.player?.fullName ?? null,
+    position: POSITION_ID_MAP[entry.player?.defaultPositionId] ?? null,
+    percentOwned: entry.player?.ownership?.percentOwned ?? null,
+    status: entry.status ?? null,
+  }));
+  return { status: 200, players };
+}
