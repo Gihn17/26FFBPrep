@@ -337,3 +337,65 @@ export async function getFreeAgents(espnLeagueId, year, limit = 50) {
   }));
   return { status: 200, players };
 }
+
+/** One season's completed draft results (mDraftDetail) — every pick,
+ *  real price, team, keeper flag, round/pick number. Spike-tested live:
+ *  a completed season returns drafted:true and 180 real picks; the
+ *  current not-yet-drafted season returns drafted:false with placeholder
+ *  picks (playerId -1). The one thing this view can NEVER see is a
+ *  mid-season waiver transaction — verified by testing (no ESPN view
+ *  found that exposes historical transaction/waiver prices) — so a price
+ *  jump between one draft-day price and the next that isn't explained by
+ *  the flat +$10/yr keeper rule usually means a waiver move happened in
+ *  between that this data is blind to. */
+async function fetchDraftDetail(espnLeagueId, year) {
+  const cookies = getEspnCookies();
+  const headers = {};
+  if (cookies) headers.Cookie = `espn_s2=${cookies.espn_s2}; SWID=${cookies.swid}`;
+  const url = `${ESPN_HOST}/seasons/${year}/segments/0/leagues/${espnLeagueId}?view=mDraftDetail&view=mTeam`;
+  const res = await fetch(url, { headers });
+  if (!res.ok) return null;
+  const data = await res.json();
+  const teamNameById = new Map((data.teams || []).map(t => [t.id, t.name || `${t.location || ""} ${t.nickname || ""}`.trim()]));
+  return { drafted: !!data.draftDetail?.drafted, picks: data.draftDetail?.picks || [], teamNameById };
+}
+
+/** Walks one player's real draft-day price back through past completed
+ *  seasons — up to `maxYears` back, stopping early once enough history
+ *  is gathered. Returns the most recent price as `previousYearPrice`
+ *  (the only number koiKeeperCost actually needs — see server/keepers.js
+ *  for why this is a flat, non-compounding rule) plus the full trail for
+ *  transparency, and flags a jump that isn't explained by +$10/yr as a
+ *  likely (invisible-to-this-data) waiver move rather than silently
+ *  trusting the number. */
+export async function getDraftPriceHistory(espnLeagueId, espnPlayerId, maxYears = 6) {
+  const startYear = new Date().getFullYear();
+  const trail = [];
+  for (let year = startYear; year > startYear - maxYears; year--) {
+    const detail = await fetchDraftDetail(espnLeagueId, year);
+    if (!detail || !detail.drafted) continue; // this season hasn't happened/finished yet
+    const pick = detail.picks.find(p => p.playerId === espnPlayerId);
+    if (!pick) continue; // not in this draft at all — likely wasn't rostered yet
+    trail.push({
+      year, team: detail.teamNameById.get(pick.teamId) || `Team ${pick.teamId}`,
+      price: pick.bidAmount, keeper: pick.keeper, round: pick.roundId, pickInRound: pick.roundPickNumber,
+    });
+    if (trail.length >= 4) break; // enough to see the pattern without walking the whole league history
+  }
+
+  let flag = null;
+  if (trail.length >= 2) {
+    const [mostRecent, prior] = trail;
+    const expected = prior.price + 10;
+    if (mostRecent.keeper && mostRecent.price !== expected) {
+      flag = `Jump from $${prior.price} (${prior.year}) to $${mostRecent.price} (${mostRecent.year}) doesn't match the flat +$10/yr rule (expected $${expected}) — likely a waiver move happened in between that draft data can't see. Confirm with Will before trusting this price.`;
+    }
+  }
+
+  return {
+    previousYearPrice: trail[0]?.price ?? null,
+    previousYearWasKeeper: trail[0]?.keeper ?? null,
+    trail,
+    flag,
+  };
+}

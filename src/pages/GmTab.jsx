@@ -67,7 +67,7 @@ function KeeperNotesPanel({ playersById }) {
         <label style={lbl()}>Years kept
           <input style={inp(70)} value={form.yearsKept} onChange={e=>setForm(f=>({...f, yearsKept:e.target.value}))} />
         </label>
-        <label style={lbl()}>Original draft $
+        <label style={lbl()}>Previous year's price ($)
           <input style={inp(90)} value={form.originalDraftPrice} onChange={e=>setForm(f=>({...f, originalDraftPrice:e.target.value}))} />
         </label>
         <label style={{...lbl(), flex:1, minWidth:200}}>Rationale
@@ -83,7 +83,7 @@ function KeeperNotesPanel({ playersById }) {
             {playersById[n.player_id] && <span style={{ opacity:0.6 }}> ({playersById[n.player_id].position})</span>}
             {" — "}<span style={{ textTransform:"capitalize" }}>{n.leaning || "undecided"}</span>
             {n.years_kept != null && <span style={{ opacity:0.6 }}> · {n.years_kept}yr kept</span>}
-            {n.original_draft_price != null && <span style={{ opacity:0.6 }}> · orig ${n.original_draft_price}</span>}
+            {n.original_draft_price != null && <span style={{ opacity:0.6 }}> · prev yr ${n.original_draft_price}</span>}
             {n.rationale && <div style={{ opacity:0.75, marginTop:2 }}>{n.rationale}</div>}
           </div>
           <button onClick={()=>remove(n.player_id)} style={{...btnStyle("#3a1f1f","#c0453f"), fontSize:11, padding:"4px 8px", alignSelf:"flex-start"}}>Remove</button>

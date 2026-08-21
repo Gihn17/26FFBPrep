@@ -52,7 +52,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { db } from "./db.js";
 import { getLeague } from "./leagues.js";
 import { getFpPool, normName } from "./fantasypros.js";
-import { getRoster, getFreeAgents } from "./espn.js";
+import { getRoster, getFreeAgents, getDraftPriceHistory } from "./espn.js";
 import { koiKeeperCost } from "./keepers.js";
 import { buildKoiValueTable, auctionInflationSnapshot } from "./valueModel.js";
 import {
@@ -85,14 +85,26 @@ function resolvePlayerByName(name) {
   return hit || null;
 }
 
-const SYSTEM_PROMPT = `You are the Koi assistant — an in-season and draft-day fantasy football advisor for one specific league: Koi, ESPN-hosted, 12 teams, $200 auction, keepers on (max 3, cost = max(price paid, original draft price) + $10/yr, no cap on years).
+/** fp_pool has no ESPN id column — resolves via the live roster (which
+ *  already carries espnPlayerId, matched to fp_pool by name+position in
+ *  the /api/gm/roster route). Only works for players currently on the
+ *  roster, which is the only case a keeper-cost question actually needs. */
+async function resolveEspnPlayerId(fpPoolPlayer) {
+  const league = getLeague("koi");
+  const { roster } = await getRoster(league.source_league_id, league.source_team_id);
+  const target = normName(fpPoolPlayer.name);
+  const hit = roster.find(r => normName(r.name) === target);
+  return hit?.espnPlayerId ?? null;
+}
+
+const SYSTEM_PROMPT = `You are the Koi assistant — an in-season and draft-day fantasy football advisor for one specific league: Koi, ESPN-hosted, 12 teams, $200 auction, keepers on (max 3, cost = max(waiver cost paid, previous year's actual draft/keeper price) + $10 flat — NOT compounding by years kept, confirmed directly by Will against real draft history, do not add any years-based multiplier on top of this).
 
 You cover the same ground four separate terminal-based agents (GM, Analyst, Trade Negotiator, Draft Expert) handle in this app's companion Claude Code project — keeper strategy, player value, trade evaluation, waiver targets, and draft-day budget pacing — as one assistant here since this is a live chat, not a multi-agent terminal session.
 
 Hard rules, not suggestions:
 - You can never execute a roster move. Neither ESPN's nor Sleeper's API supports it. If asked to do something in the ESPN app, describe the exact steps — you are not the one clicking anything.
-- A keeper's escalated cost needs years already kept and the original (pre-escalation) draft price. Neither is tracked automatically anywhere in this app. If a keeper question needs that history and it isn't in the conversation, ask for it — never assume 0 years or guess a price.
-- ESPN's own roster data carries a keeperValue field. It is NOT confirmed to match this league's actual $10/yr rule — it may just be ESPN's generic default keeper feature. Never use it as a substitute for compute_keeper_cost's real number; mention it only as a caveat if it comes up.
+- A keeper's cost needs the previous year's actual price (from get_keeper_draft_history — try this before asking the user) and, if the player was waiver-added, what was paid for that. ESPN's draft data can never see a mid-season waiver transaction — if get_keeper_draft_history returns a flag about an unexplained price jump, say so and ask the user to confirm rather than trusting the number.
+- ESPN's own roster data carries a keeperValue field. It is NOT confirmed to match this league's actual keeper rule — it may just be ESPN's generic default keeper feature. Never use it as a substitute for compute_keeper_cost's real number; mention it only as a caveat if it comes up.
 - All player value/VBD/tier/auction-$ numbers come from the tools below, which run the same verified pipeline the live draft board uses — never estimate a number yourself when a tool can give the real one.
 - Before writing anything (a keeper note, a transaction, a trade proposal), be reasonably sure that's what the user actually wants recorded — these show up in the GM Tab as real records, not scratch notes.
 
@@ -142,16 +154,23 @@ const TOOLS = [
   },
   {
     name: "compute_keeper_cost",
-    description: "Koi's real espn_dollar keeper-cost formula. Needs years already kept and the ORIGINAL (pre-escalation) price — ask the user for these if not already given, never assume.",
+    description: "Koi's real keeper-cost formula: cost = max(waiver cost paid, previous year's actual draft/keeper price) + $10 flat. NOT compounding by years kept — confirmed directly by Will against real draft history, don't apply any additional years-based multiplier on top of this. Use get_keeper_draft_history first to get the real previous-year price when possible, rather than asking the user for it.",
     input_schema: {
       type: "object",
       properties: {
-        pricePaid: { type: "number", description: "What was paid for this player most recently." },
-        originalDraftPrice: { type: "number", description: "The original, pre-escalation draft price." },
-        isWaiverAdd: { type: "boolean", description: "True if this player was a waiver pickup, not an original draft pick." },
-        yearsKept: { type: "integer", description: "Consecutive prior seasons already kept, before this one." },
+        waiverCostPaid: { type: "number", description: "What was paid to add this player via waiver, if applicable. Omit/null if never waiver-added." },
+        previousYearPrice: { type: "number", description: "This player's actual draft or keeper price last season, wherever they were. Omit/null if they have no draft history." },
       },
-      required: ["pricePaid", "originalDraftPrice", "isWaiverAdd", "yearsKept"], additionalProperties: false,
+      additionalProperties: false,
+    },
+  },
+  {
+    name: "get_keeper_draft_history",
+    description: "Real ESPN draft-day price history for one player, walking back through past completed drafts. Gives the previous year's actual price to feed compute_keeper_cost — use this before asking the user, since it's usually reliable. Cannot see mid-season waiver pickups (ESPN doesn't expose that data) — if the price history looks like it jumped unexplainably, say so and ask the user to confirm rather than guessing.",
+    input_schema: {
+      type: "object",
+      properties: { playerName: { type: "string" } },
+      required: ["playerName"], additionalProperties: false,
     },
   },
   {
@@ -178,8 +197,8 @@ const TOOLS = [
         playerName: { type: "string" },
         leaning: { type: "string", enum: ["keep", "cut", "undecided"] },
         rationale: { type: "string" },
-        yearsKept: { type: "integer" },
-        originalDraftPrice: { type: "number" },
+        yearsKept: { type: "integer", description: "Informational only, not a cost input — how many consecutive seasons this will make." },
+        previousYearPrice: { type: "number", description: "The actual cost basis used for this decision — from get_keeper_draft_history or a waiver price." },
       },
       required: ["playerName", "leaning"], additionalProperties: false,
     },
@@ -253,9 +272,17 @@ async function executeTool(name, input) {
 
     case "compute_keeper_cost":
       return { cost: koiKeeperCost({
-        pricePaid: input.pricePaid, originalDraftPrice: input.originalDraftPrice,
-        isWaiverAdd: input.isWaiverAdd, yearsKept: input.yearsKept,
+        waiverCostPaid: input.waiverCostPaid, previousYearPrice: input.previousYearPrice,
       }) };
+
+    case "get_keeper_draft_history": {
+      const p = resolvePlayerByName(input.playerName);
+      if (!p) return { error: `No player matching "${input.playerName}" in the current pool.` };
+      const espnId = await resolveEspnPlayerId(p);
+      if (!espnId) return { error: `Couldn't resolve an ESPN player id for ${p.name} — not on the current roster, so no ESPN id to look up.` };
+      const league = getLeague("koi");
+      return await getDraftPriceHistory(league.source_league_id, espnId);
+    }
 
     case "get_roster": {
       const league = getLeague("koi");
@@ -285,7 +312,7 @@ async function executeTool(name, input) {
       const season = new Date().getFullYear();
       return upsertKeeperNote("koi", p.id, season, {
         leaning: input.leaning, rationale: input.rationale ?? null,
-        yearsKept: input.yearsKept ?? null, originalDraftPrice: input.originalDraftPrice ?? null,
+        yearsKept: input.yearsKept ?? null, originalDraftPrice: input.previousYearPrice ?? null,
       });
     }
 

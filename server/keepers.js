@@ -6,10 +6,22 @@
 // pick whose escalated cost would hit round 1).
 //
 // KOI (ESPN, auction):
-//   cost = max(price_paid, original_draft_price) + $10 per year kept
-//   Linear escalation, NO expiry — stays keepable indefinitely as long
-//   as (projected value - cost) is still positive. A $0 waiver pickup
-//   enters at $10.
+//   cost = max(waiver cost paid, previous year's actual draft/keeper
+//   price) + $10 flat. NOT compounding — corrected after checking the
+//   originally-documented "+$10 per year kept" version against Will's
+//   real ESPN draft history and finding it doesn't match. The flat rule
+//   matched exactly on 3 of 3 clean real transitions (no intervening
+//   waiver move): Bowers 2024 $5 -> 2025 $15; Cook 2023 $22 -> 2024 $32;
+//   Cook 2024 $32 -> 2025 $42. The compounding version predicted $42/
+//   $62/$62 for those — wrong every time bar coincidence. "Previous
+//   year's price" already reflects every prior year's escalation on its
+//   own (it was itself computed the same way), so no separate years-kept
+//   multiplier is needed or correct. Confirmed explicitly by Will twice
+//   ("it doesn't matter anything other than what the previous year's
+//   price was + $10" / "stop compounding it") — do not reintroduce a
+//   years-based term here.
+//   No expiry — stays keepable indefinitely as long as (projected value
+//   - cost) is still positive.
 //
 // FINAL FANTASY (Sleeper, snake):
 //   cost = original_round - (years_kept + 1)
@@ -25,21 +37,17 @@
 import { db } from "./db.js";
 
 const WAIVER_ROUND_FF = 8;   // Final Fantasy: waiver pickups cost an 8th
-const WAIVER_BONUS_KOI = 10; // Koi: a $0 waiver pickup keeps for $10
 
-/** Koi: dollar-based keeper cost. No cap on years kept — eligibility is
- *  purely an economic question the caller (or the UI) decides by comparing
- *  this cost against projected auction value, not a hard rule enforced here. */
-export function koiKeeperCost({ pricePaid, originalDraftPrice, isWaiverAdd, yearsKept }) {
-  const years = yearsKept || 0;
-
-  if (isWaiverAdd) {
-    const basis = Math.max(pricePaid || 0, 0);
-    return basis + WAIVER_BONUS_KOI + years * 10;
-  }
-
-  const basis = Math.max(pricePaid || 0, originalDraftPrice || 0);
-  return basis + 10 + years * 10;
+/** Koi: dollar-based keeper cost. `waiverCostPaid` and `previousYearPrice`
+ *  are independent — either or both may be null/0 (e.g. a rookie with no
+ *  draft history yet, or a player never picked up via waiver). Whichever
+ *  is higher sets the basis; +$10 flat on top, no compounding. No cap on
+ *  years kept — eligibility is purely an economic question the caller
+ *  (or the UI) decides by comparing this cost against projected auction
+ *  value, not a hard rule enforced here. */
+export function koiKeeperCost({ waiverCostPaid, previousYearPrice }) {
+  const basis = Math.max(waiverCostPaid || 0, previousYearPrice || 0);
+  return basis + 10;
 }
 
 /** Final Fantasy: round-based keeper cost.
@@ -126,10 +134,8 @@ export function computeKoiKeeperBoard(season) {
     player: r.full_name,
     position: r.position,
     cost: koiKeeperCost({
-      pricePaid: r.original_cost,
-      originalDraftPrice: r.original_cost,
-      isWaiverAdd: !!r.is_waiver_add,
-      yearsKept: r.years_kept,
+      waiverCostPaid: r.is_waiver_add ? r.original_cost : null,
+      previousYearPrice: r.is_waiver_add ? null : r.original_cost,
     }),
   }));
 }
