@@ -20,6 +20,7 @@ export const KOI_WEIGHTS = {
 };
 export const KOI_REPLACEMENT = { QB: 15, RB: 60, WR: 66, TE: 15, K: 12, DEF: 12 };
 export const KOI_TEAMS = 12;
+export const KOI_ROSTER_SPOTS = 15;
 export const KOI_TIER_PARAMS = { minGap: 4, pctGap: 0.14 };
 
 function fpStatsOverride(p) {
@@ -91,31 +92,65 @@ export function computeTiers(players, fields, tierParams = KOI_TIER_PARAMS) {
   return tiers;
 }
 
-export function computeAuctionValues(players, fields, teams = KOI_TEAMS) {
+/** Port of App.jsx's computeAuctionValues() (line 288) — INCLUDING the
+ *  UDK-imported auction-$ override path, which the first version of this
+ *  file dropped ("fantasy-gm has no UDK-import concept" — true for the
+ *  Python side, not true here: this runs inside ffb-docker itself, which
+ *  has real UDK imports). Missing this was a real bug, caught when Will
+ *  asked why the chat's $ values didn't reflect UDK's own real auction
+ *  values — verified live, 179 of the current pool have a real
+ *  UDK-imported auction $ that this function was silently ignoring,
+ *  computing its own VBD-proportional split instead. An override wins
+ *  outright; the remaining budget for everyone else is what's left after
+ *  every imported $ and roster spot is accounted for, exactly matching
+ *  the live board's own math. */
+export function computeAuctionValues(players, fields, teams = KOI_TEAMS, rosterSpots = KOI_ROSTER_SPOTS, auctionOverrides = {}) {
   const totalPool = teams * 200;
-  const draftable = players.filter(p => fields[p.id].vbd > 0);
-  const sumVbd = draftable.reduce((s,p) => s + fields[p.id].vbd, 0) || 1;
-  const remaining = Math.max(0, totalPool);
+  const totalSpots = teams * rosterSpots;
+  const hasOverride = (id) => auctionOverrides && auctionOverrides[id] != null;
+  const importedTotal = players.reduce((s, p) => s + (hasOverride(p.id) ? auctionOverrides[p.id] : 0), 0);
+  const importedSpots = players.filter(p => hasOverride(p.id)).length;
+  const draftable = players.filter(p => !hasOverride(p.id) && fields[p.id].vbd > 0);
+  const sumVbd = draftable.reduce((s, p) => s + fields[p.id].vbd, 0) || 1;
+  const remaining = Math.max(0, totalPool - importedTotal - Math.max(0, totalSpots - importedSpots) * 1);
   const values = {};
   for (const p of players) {
+    if (hasOverride(p.id)) { values[p.id] = auctionOverrides[p.id]; continue; }
     if (fields[p.id].vbd == null) { values[p.id] = null; continue; }
-    values[p.id] = fields[p.id].vbd > 0 ? Math.max(1, Math.round(1 + (fields[p.id].vbd/sumVbd)*remaining)) : 1;
+    values[p.id] = fields[p.id].vbd > 0 ? Math.max(1, Math.round(1 + (fields[p.id].vbd / sumVbd) * remaining)) : 1;
   }
   return values;
 }
 
-/** Full VBD/tier/auction-value pipeline for Koi, from live fp_pool.
- *  Returns {byId: {id: {name,pos,team,vbd,tier,pts,value}}}. */
+/** Real UDK-imported auction $ overrides, straight from the same
+ *  playerImports blob the live board reads (user_kv's ffb-draft-state) —
+ *  keyed by fp_pool id already, no matching needed. */
+function getAuctionOverrides() {
+  const row = db.prepare("SELECT value FROM user_kv WHERE key = 'ffb-draft-state'").get();
+  if (!row) return {};
+  const state = JSON.parse(row.value);
+  const overrides = {};
+  for (const [id, imp] of Object.entries(state.playerImports || {})) {
+    if (imp.auction != null) overrides[id] = imp.auction;
+  }
+  return overrides;
+}
+
+/** Full VBD/tier/auction-value pipeline for Koi, from live fp_pool —
+ *  now including real UDK auction-$ overrides where they exist, same as
+ *  the live board. Returns {byId: {id: {name,pos,team,vbd,tier,pts,value,valueSource}}}. */
 export function buildKoiValueTable() {
   const pool = buildPool(getFpPool());
   const fields = computeLeagueFields(pool);
   const tiers = computeTiers(pool, fields);
-  const values = computeAuctionValues(pool, fields);
+  const overrides = getAuctionOverrides();
+  const values = computeAuctionValues(pool, fields, KOI_TEAMS, KOI_ROSTER_SPOTS, overrides);
   const byId = {};
   for (const p of pool) {
     byId[p.id] = {
       name: p.name, pos: p.pos, team: p.team,
       vbd: fields[p.id].vbd, tier: tiers[p.id], pts: fields[p.id].pts, value: values[p.id],
+      valueSource: overrides[p.id] != null ? "udk_import" : "computed",
     };
   }
   return byId;
