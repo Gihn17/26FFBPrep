@@ -12,6 +12,12 @@ import { refreshSleeperHistory } from "./sleeperHistory.js";
 import { getHomeSettings, setHomeSettings, listChatMessages, addChatMessage, deleteChatMessage } from "./leaguehome.js";
 import { getSetting, hasSetting, setSetting, deleteSetting } from "./settings.js";
 import {
+  listKeeperNotes, upsertKeeperNote, deleteKeeperNote,
+  listWaiverWire, replaceWaiverWire,
+  listTradeProposals, createTradeProposal, updateTradeProposal,
+  listTransactions, appendTransaction,
+} from "./gm.js";
+import {
   bootstrapAdmin, attachUser, requireAuth, requireAdmin, requirePermission, requireHistoryLeague,
   requireHomeAdmin, requireHomePoster,
   verifyLogin, createSession, deleteSession, setSessionCookie, clearSessionCookie, getSessionTokenFromReq,
@@ -263,6 +269,77 @@ app.delete("/api/settings/espn-cookies", requireAdmin, (req, res) => {
   deleteSetting("espn-cookies");
   res.json({ set: false });
 });
+
+// --- GM Tab API — in-season state for the fantasy-gm agent system
+// (/home/gihn/fantasy-gm), Koi-only for v1. requireAdmin, not
+// requirePermission("draft") — this is a Will-only surface by design
+// (see src/pages/Landing.jsx's tile check), same reasoning as the
+// FantasyPros-key/ESPN-cookie settings routes above: sensitive-adjacent,
+// single-owner. Both the GM Tab's own React page and fantasy-gm's agents
+// (via scripts/gm_api_client.py) call these same routes. ---
+const gmRouter = express.Router();
+
+gmRouter.get("/keeper-notes", (req, res) => {
+  const league = req.query.league || "koi";
+  const season = Number(req.query.season) || new Date().getFullYear();
+  res.json(listKeeperNotes(league, season));
+});
+
+gmRouter.put("/keeper-notes/:playerId", (req, res) => {
+  const league = req.body.league || "koi";
+  const season = Number(req.body.season) || new Date().getFullYear();
+  const { leaning, rationale, yearsKept, originalDraftPrice } = req.body || {};
+  const row = upsertKeeperNote(league, Number(req.params.playerId), season, { leaning, rationale, yearsKept, originalDraftPrice });
+  res.json(row);
+});
+
+gmRouter.delete("/keeper-notes/:playerId", (req, res) => {
+  const league = req.query.league || "koi";
+  const season = Number(req.query.season) || new Date().getFullYear();
+  deleteKeeperNote(league, Number(req.params.playerId), season);
+  res.json({ deleted: true });
+});
+
+gmRouter.get("/waiver-wire", (req, res) => {
+  res.json(listWaiverWire(req.query.league || "koi"));
+});
+
+gmRouter.put("/waiver-wire", (req, res) => {
+  const league = req.body.league || "koi";
+  const entries = Array.isArray(req.body.entries) ? req.body.entries : [];
+  res.json(replaceWaiverWire(league, entries));
+});
+
+gmRouter.get("/trade-proposals", (req, res) => {
+  res.json(listTradeProposals(req.query.league || "koi"));
+});
+
+gmRouter.post("/trade-proposals", (req, res) => {
+  const league = req.body.league || "koi";
+  const { giveIds, getIds, counterparty, analysis } = req.body || {};
+  res.json(createTradeProposal(league, { giveIds, getIds, counterparty, analysis }));
+});
+
+gmRouter.put("/trade-proposals/:id", (req, res) => {
+  const { status, analysis, historyEntry } = req.body || {};
+  const row = updateTradeProposal(Number(req.params.id), { status, analysis, historyEntry });
+  if (!row) return res.status(404).json({ error: "not found" });
+  res.json(row);
+});
+
+gmRouter.get("/transactions", (req, res) => {
+  const limit = Math.min(Number(req.query.limit) || 100, 500);
+  res.json(listTransactions(req.query.league || "koi", limit));
+});
+
+gmRouter.post("/transactions", (req, res) => {
+  const league = req.body.league || "koi";
+  const { eventType, playerId, detail, status, relatedId } = req.body || {};
+  if (!eventType) return res.status(400).json({ error: "eventType required" });
+  res.json(appendTransaction(league, { eventType, playerId, detail, status, relatedId }));
+});
+
+app.use("/api/gm", requireAdmin, gmRouter);
 
 // --- Storage API (mirrors the shape App.jsx already expects from
 // window.storage) — single shared source of truth for the draft board,
