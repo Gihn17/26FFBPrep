@@ -6,6 +6,19 @@ services:
       - "9090:3000"
     volumes:
       - ffb-data:/app/data
+      # Isolated Claude Code auth profile for the chat assistant
+      # (server/chat.js) -- a SEPARATE login from Will's own interactive
+      # session (~/.claude/.credentials.json, untouched), created via
+      # `ant auth login --profile fantasy-gm-container`. Draws on the
+      # Claude subscription, not a metered API key -- if this container
+      # is ever compromised, only this profile is exposed, independently
+      # revocable without touching Will's main session. Mounted read-only,
+      # surgically (just these two files, not the whole ~/.config/anthropic).
+      - /home/gihn/.config/anthropic/configs/fantasy-gm-container.json:/anthropic-config/configs/fantasy-gm-container.json:ro
+      - /home/gihn/.config/anthropic/credentials/fantasy-gm-container.json:/anthropic-config/credentials/fantasy-gm-container.json:ro
+    environment:
+      - ANTHROPIC_CONFIG_DIR=/anthropic-config
+      - ANTHROPIC_PROFILE=fantasy-gm-container
     restart: unless-stopped
 
 volumes:
