@@ -45,7 +45,7 @@ import {
   upsertKeeperNote, appendTransaction, createTradeProposal,
 } from "./gm.js";
 
-const MODEL = "claude-opus-5";
+const MODEL = "claude-sonnet-5"; // Will's explicit call — cheaper per-token and noticeably faster than Opus 5 for this chat, which matters given the multi-tool-call latency this feature already has
 const MAX_TOOL_ITERATIONS = 8; // hard stop so a runaway loop can't rack up unbounded cost
 
 function getClient() {
