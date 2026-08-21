@@ -399,3 +399,46 @@ export async function getDraftPriceHistory(espnLeagueId, espnPlayerId, maxYears 
     flag,
   };
 }
+
+/** One completed season's full draft, every pick joined to a real
+ *  name/position. mDraftDetail alone has no position field per pick, and
+ *  the obvious join (that season's end-of-year rosters) misses anyone
+ *  cut/dropped/IR'd before the season ended — verified live: 53 of 180
+ *  picks in a real season, including real stars (Tyreek Hill, Mahomes,
+ *  Alvin Kamara) who'd been injured and dropped. The fix: batch every
+ *  unique playerId from the draft through kona_player_info's filterIds,
+ *  which finds a player regardless of current roster status — verified
+ *  live, 168/168 matched in one call, no per-player fetches needed. */
+export async function getSeasonDraftWithPositions(espnLeagueId, year) {
+  const detail = await fetchDraftDetail(espnLeagueId, year);
+  if (!detail || !detail.drafted) return { drafted: false, picks: [] };
+
+  const cookies = getEspnCookies();
+  const headers = {};
+  if (cookies) headers.Cookie = `espn_s2=${cookies.espn_s2}; SWID=${cookies.swid}`;
+
+  const ids = [...new Set(detail.picks.filter(p => p.playerId > 0).map(p => p.playerId))];
+  const filter = { players: { filterIds: { value: ids } } };
+  const url = `${ESPN_HOST}/seasons/${year}/segments/0/leagues/${espnLeagueId}?view=kona_player_info`;
+  const res = await fetch(url, { headers: { ...headers, "x-fantasy-filter": JSON.stringify(filter) } });
+  if (!res.ok) throw new Error(`ESPN API returned HTTP ${res.status} looking up ${ids.length} draft-pick players for ${year}`);
+  const playerData = await res.json();
+  const idToPlayer = new Map((playerData.players || []).map(entry => [entry.player.id, entry.player]));
+
+  const picks = detail.picks
+    .filter(p => p.playerId > 0)
+    .map(p => {
+      const player = idToPlayer.get(p.playerId);
+      return {
+        espnPlayerId: p.playerId,
+        name: player?.fullName ?? null,
+        position: player ? (POSITION_ID_MAP[player.defaultPositionId] ?? null) : null,
+        team: detail.teamNameById.get(p.teamId) || `Team ${p.teamId}`,
+        price: p.bidAmount,
+        keeper: p.keeper,
+        round: p.roundId,
+        overallPick: p.overallPickNumber,
+      };
+    });
+  return { drafted: true, picks };
+}

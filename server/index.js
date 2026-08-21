@@ -7,7 +7,7 @@ import { db, getOrCreateUser } from "./db.js";
 import { getAdpPool, getAdpStatus, refreshAdpPool, startAdpScheduler } from "./adp.js";
 import { getFpPool, getFpStatus, refreshFpPool, attachAdp, normName, normTeam } from "./fantasypros.js";
 import { previewMigration, applyMigration } from "./fpMigration.js";
-import { refreshLeagueHistory, getLeagueHistory, getWeekMatchups, getRoster, getFreeAgents } from "./espn.js";
+import { refreshLeagueHistory, getLeagueHistory, getWeekMatchups, getRoster, getFreeAgents, getSeasonDraftWithPositions } from "./espn.js";
 import { refreshSleeperHistory } from "./sleeperHistory.js";
 import { getHomeSettings, setHomeSettings, listChatMessages, addChatMessage, deleteChatMessage } from "./leaguehome.js";
 import { getSetting, hasSetting, setSetting, deleteSetting } from "./settings.js";
@@ -18,6 +18,7 @@ import {
   listTransactions, appendTransaction,
 } from "./gm.js";
 import { runChat } from "./chat.js";
+import { replaceSeasonDraftHistory, getDraftHistorySeasons, getPositionalTrends } from "./draftHistory.js";
 import {
   bootstrapAdmin, attachUser, requireAuth, requireAdmin, requirePermission, requireHistoryLeague,
   requireHomeAdmin, requireHomePoster,
@@ -403,6 +404,40 @@ gmRouter.post("/chat", async (req, res) => {
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
+});
+
+// Historical positional draft-cost trends — pulls real completed
+// seasons from ESPN and persists them (real work, not repeated per
+// query, same pattern as fp_pool/waiver-wire refresh).
+gmRouter.post("/draft-history/refresh", async (req, res) => {
+  const leagueId = req.body.league || "koi";
+  const league = getLeague(leagueId);
+  if (!league) return res.status(404).json({ error: "unknown league" });
+  const years = Array.isArray(req.body.years) && req.body.years.length
+    ? req.body.years
+    : [2022, 2023, 2024, 2025];
+  try {
+    const results = {};
+    for (const year of years) {
+      const { drafted, picks } = await getSeasonDraftWithPositions(league.source_league_id, year);
+      if (drafted) replaceSeasonDraftHistory(leagueId, year, picks);
+      results[year] = { drafted, picksStored: drafted ? picks.filter(p => p.name).length : 0 };
+    }
+    res.json({ seasons: getDraftHistorySeasons(leagueId), results });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+gmRouter.get("/draft-history/trends", (req, res) => {
+  const leagueId = req.query.league || "koi";
+  const position = req.query.position;
+  if (!position) return res.status(400).json({ error: "position required" });
+  res.json(getPositionalTrends(leagueId, position, Number(req.query.maxRank) || 10));
+});
+
+gmRouter.get("/draft-history/seasons", (req, res) => {
+  res.json({ seasons: getDraftHistorySeasons(req.query.league || "koi") });
 });
 
 app.use("/api/gm", requireAdmin, gmRouter);

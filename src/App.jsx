@@ -6,6 +6,7 @@ import {
   pText, inp, ta, th, td, SortTh, badgeSup,
 } from "./theme.jsx";
 import ChatPanel from "./ChatPanel.jsx";
+import DraftTrendsPanel from "./DraftTrendsPanel.jsx";
 
 /* ============================================================
    DEFAULT ADJUSTABLE PARAMETERS
@@ -949,7 +950,10 @@ export default function DraftPrepApp() {
           the assistant reads it fresh on every question — no separate
           sync step needed here unlike fantasy-gm's offline snapshot. */}
       {view === "koi" && (
-        <div style={{ marginBottom:14 }}><ChatPanel /></div>
+        <div style={{ display:"flex", gap:14, marginBottom:14, flexWrap:"wrap", alignItems:"flex-start" }}>
+          <ChatPanel />
+          <DraftTrendsPanel />
+        </div>
       )}
 
       {view === "how" ? (

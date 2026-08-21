@@ -53,6 +53,7 @@ import { db } from "./db.js";
 import { getLeague } from "./leagues.js";
 import { getFpPool, normName } from "./fantasypros.js";
 import { getRoster, getFreeAgents, getDraftPriceHistory } from "./espn.js";
+import { getPositionalTrends } from "./draftHistory.js";
 import { koiKeeperCost } from "./keepers.js";
 import { buildKoiValueTable, auctionInflationSnapshot } from "./valueModel.js";
 import {
@@ -174,6 +175,18 @@ const TOOLS = [
     },
   },
   {
+    name: "get_positional_draft_trends",
+    description: "Historical auction price by position and rank, from real completed Koi drafts (2022-2025) — 'what does the 3rd RB usually cost'. Returns mean/median/min/max per rank across seasons plus real examples, so you can tell an actual outlier from normal spread. Use this to sanity-check a live or planned bid against real history, not just this year's static value. If the trend data hasn't been refreshed yet, say so and suggest hitting Refresh in the Draft Trends panel.",
+    input_schema: {
+      type: "object",
+      properties: {
+        position: { type: "string", enum: ["QB", "RB", "WR", "TE", "K", "DEF"] },
+        maxRank: { type: "integer", description: "How many ranks deep to return, default 10." },
+      },
+      required: ["position"], additionalProperties: false,
+    },
+  },
+  {
     name: "get_roster",
     description: "Current 14-man Koi roster, live from ESPN — who, position, how acquired, injury status.",
     input_schema: { type: "object", properties: {}, additionalProperties: false },
@@ -282,6 +295,12 @@ async function executeTool(name, input) {
       if (!espnId) return { error: `Couldn't resolve an ESPN player id for ${p.name} — not on the current roster, so no ESPN id to look up.` };
       const league = getLeague("koi");
       return await getDraftPriceHistory(league.source_league_id, espnId);
+    }
+
+    case "get_positional_draft_trends": {
+      const trends = getPositionalTrends("koi", input.position, input.maxRank || 10);
+      if (!trends.seasonsIncluded.length) return { error: "No draft history stored yet — refresh it first (Draft Trends panel or POST /api/gm/draft-history/refresh)." };
+      return trends;
     }
 
     case "get_roster": {
