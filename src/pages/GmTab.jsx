@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { Link } from "react-router-dom";
 import { pageShell, panelStyle, btnStyle, inp, ta, lbl } from "../theme.jsx";
-import ChatPanel from "../ChatPanel.jsx";
 
 // GM Tab — in-season state for the fantasy-gm agent system
 // (/home/gihn/fantasy-gm). Will-only, gated at the route (main.jsx's
@@ -222,7 +221,6 @@ export default function GmTab() {
           </div>
           <Link to="/" style={{ ...btnStyle(), textDecoration:"none" }}>← Home</Link>
         </div>
-        <div style={{ marginBottom: 14 }}><ChatPanel /></div>
         <RosterPanel />
         <KeeperNotesPanel playersById={playersById} />
         <TradeProposalsPanel playersById={playersById} />

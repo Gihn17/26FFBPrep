@@ -5,7 +5,6 @@ import {
   OUTLOOK_STYLE, POS_COLORS, LEAGUE_LABELS, btnStyle, panelStyle, lbl, lblSmall,
   pText, inp, ta, th, td, SortTh, badgeSup,
 } from "./theme.jsx";
-import ChatPanel from "./ChatPanel.jsx";
 import DraftTrendsPanel from "./DraftTrendsPanel.jsx";
 
 /* ============================================================
@@ -944,14 +943,11 @@ export default function DraftPrepApp() {
         )}
       </div>
 
-      {/* Koi only, v1 — same scope as the rest of the assistant. Live
-          board context (drafted picks, $ spent, real auction values) is
-          already in this app's own DB the moment a pick's entered, so
-          the assistant reads it fresh on every question — no separate
-          sync step needed here unlike fantasy-gm's offline snapshot. */}
+      {/* Koi only, v1. Chat assistant (server/chat.js) removed — real
+          per-use API cost, Will's call. Draft Trends stays: pure
+          historical ESPN data + a stored table, no LLM calls, free. */}
       {view === "koi" && (
-        <div style={{ display:"flex", gap:14, marginBottom:14, flexWrap:"wrap", alignItems:"flex-start" }}>
-          <ChatPanel />
+        <div style={{ marginBottom:14 }}>
           <DraftTrendsPanel />
         </div>
       )}
@@ -1508,13 +1504,6 @@ function SettingsTab({ teamsByLeague, rosterSpotsByLeague, setTeamsFor, setRoste
         <FantasyProsAccessPanel canEdit={canEditEspnAccess} />
       </div>
 
-      <div style={panelStyle()}>
-        <div style={{ fontSize:11, fontWeight:700, letterSpacing:0.5, color:"#c9a227", marginBottom:10, textTransform:"uppercase" }}>
-          Chat Assistant — powers the chat box on the GM Tab and Koi board
-        </div>
-        <AnthropicKeyPanel canEdit={canEditEspnAccess} />
-      </div>
-
       <div style={{ fontSize:12, opacity:0.65, lineHeight:1.5 }}>
         Want to see or tweak the actual VBD/scoring/projection math? Open the
         <b style={{color:"#f0d97a"}}> "Calculations"</b> tab instead.
@@ -1969,73 +1958,6 @@ function FantasyProsAccessPanel({ canEdit }) {
             {refreshMsg && <span style={{ fontSize:12, color: refreshMsg.startsWith("Refreshed") ? "#7fd18f" : "#e08a8a" }}>{refreshMsg}</span>}
           </div>
         </>
-      )}
-    </div>
-  );
-}
-
-/* ============================================================
-   ANTHROPIC API KEY — powers server/chat.js, the real-time chat box on
-   the GM Tab and the Koi board. A real, metered cost, separate from
-   Claude Code's own subscription (which the fantasy-gm terminal agents
-   run under) — real-time browser chat needs a live backend LLM call,
-   which nothing about Claude Code's subscription can cover for an
-   unattended backend process (verified live — see server/chat.js's
-   header for what was tried first and why it didn't work). Stored the
-   same admin-only way as the FantasyPros key above.
-   ============================================================ */
-function AnthropicKeyPanel({ canEdit }) {
-  const [key, setKey] = useState("");
-  const [hasStored, setHasStored] = useState(false);
-  const [saved, setSaved] = useState(false);
-
-  useEffect(() => {
-    fetch("/api/settings/anthropic-key/status").then(r => r.ok ? r.json() : { set: false }).then(d => setHasStored(!!d.set)).catch(() => {});
-  }, []);
-
-  const save = () => {
-    if (!key.trim()) return;
-    fetch("/api/settings/anthropic-key", {
-      method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ key: key.trim() }),
-    }).then(r => {
-      if (!r.ok) return;
-      setHasStored(true);
-      setSaved(true);
-      setKey("");
-    });
-  };
-
-  const remove = () => {
-    if (!confirm("Remove the stored Anthropic API key? The chat assistant stops working until a new one's set.")) return;
-    fetch("/api/settings/anthropic-key", { method: "DELETE" }).then(r => {
-      if (r.ok) { setHasStored(false); setSaved(false); }
-    });
-  };
-
-  return (
-    <div>
-      <p style={pText()}>
-        A real Anthropic API key, billed per use — separate from any Claude Code subscription. Powers
-        real-time chat with an assistant that has live access to keeper costs, player values, your
-        roster, and the waiver wire, and can log keeper notes/transactions/trade proposals for you.
-      </p>
-      <div style={{ fontSize:12, marginBottom:12 }}>
-        Status: <b style={{ color: hasStored ? "#7fd18f" : "#9c998e" }}>{hasStored ? "Key is set" : "Not set"}</b>
-      </div>
-      {!canEdit ? (
-        <div style={{ ...pText(), background:"#181910", border:"1px solid #2a2c20", borderRadius:8, padding:12, marginBottom:0 }}>
-          Only <b style={{color:"#f0d97a"}}>Will</b> can set this.
-        </div>
-      ) : (
-        <div style={{ display:"flex", gap:12, flexWrap:"wrap", alignItems:"flex-end" }}>
-          <label style={lbl()}>API key
-            <input type="password" value={key} onChange={e=>{ setKey(e.target.value); setSaved(false); }}
-              placeholder={hasStored ? "•••••••••••••••••••• (set — paste to replace)" : "paste key"} style={inp(320)} />
-          </label>
-          <button onClick={save} disabled={!key.trim()} style={btnStyle("#20211a","#c9a227")}>Save</button>
-          {hasStored && <button onClick={remove} style={btnStyle("#3a1f1f","#c0453f")}>Remove</button>}
-          {saved && <span style={{ fontSize:12, color:"#7fd18f" }}>Saved.</span>}
-        </div>
       )}
     </div>
   );
