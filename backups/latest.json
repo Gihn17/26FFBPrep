@@ -17654,9 +17654,9 @@
         "position": "K",
         "team": "ATL",
         "bye": 11,
-        "adp": 173.2,
-        "adp_rank": 23,
-        "updated_at": "2026-08-23 06:07:30"
+        "adp": 167.1,
+        "adp_rank": 19,
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 1004,
@@ -17664,9 +17664,9 @@
         "position": "QB",
         "team": "PIT",
         "bye": 9,
-        "adp": 161.7,
-        "adp_rank": 26,
-        "updated_at": "2026-08-23 06:07:30"
+        "adp": 164.8,
+        "adp_rank": 27,
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 1303,
@@ -17674,9 +17674,9 @@
         "position": "DEF",
         "team": "BUF",
         "bye": 7,
-        "adp": 159.7,
-        "adp_rank": 14,
-        "updated_at": "2026-08-23 06:07:30"
+        "adp": 160,
+        "adp_rank": 15,
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 1305,
@@ -17684,9 +17684,9 @@
         "position": "DEF",
         "team": "CHI",
         "bye": 10,
-        "adp": 169,
+        "adp": 170.1,
         "adp_rank": 20,
-        "updated_at": "2026-08-23 06:07:30"
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 1306,
@@ -17694,9 +17694,9 @@
         "position": "DEF",
         "team": "CIN",
         "bye": 6,
-        "adp": 170.8,
-        "adp_rank": 21,
-        "updated_at": "2026-08-23 06:07:30"
+        "adp": 173,
+        "adp_rank": 23,
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 1307,
@@ -17704,9 +17704,9 @@
         "position": "DEF",
         "team": "CLE",
         "bye": 11,
-        "adp": 160,
-        "adp_rank": 15,
-        "updated_at": "2026-08-23 06:07:30"
+        "adp": 159.6,
+        "adp_rank": 14,
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 1308,
@@ -17714,9 +17714,9 @@
         "position": "DEF",
         "team": "DAL",
         "bye": 14,
-        "adp": 164.9,
-        "adp_rank": 17,
-        "updated_at": "2026-08-23 06:07:30"
+        "adp": 166.2,
+        "adp_rank": 18,
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 1309,
@@ -17724,9 +17724,9 @@
         "position": "DEF",
         "team": "DEN",
         "bye": 10,
-        "adp": 87.9,
+        "adp": 88.4,
         "adp_rank": 2,
-        "updated_at": "2026-08-23 06:07:30"
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 1310,
@@ -17734,9 +17734,9 @@
         "position": "DEF",
         "team": "DET",
         "bye": 6,
-        "adp": 129.4,
+        "adp": 128.9,
         "adp_rank": 7,
-        "updated_at": "2026-08-23 06:07:30"
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 1311,
@@ -17744,9 +17744,9 @@
         "position": "DEF",
         "team": "GB",
         "bye": 11,
-        "adp": 154.6,
+        "adp": 154.8,
         "adp_rank": 12,
-        "updated_at": "2026-08-23 06:07:30"
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 1312,
@@ -17754,9 +17754,9 @@
         "position": "DEF",
         "team": "HOU",
         "bye": 8,
-        "adp": 97,
+        "adp": 97.3,
         "adp_rank": 3,
-        "updated_at": "2026-08-23 06:07:30"
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 1314,
@@ -17764,9 +17764,9 @@
         "position": "DEF",
         "team": "JAX",
         "bye": 7,
-        "adp": 156.7,
+        "adp": 156.6,
         "adp_rank": 13,
-        "updated_at": "2026-08-23 06:07:30"
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 1315,
@@ -17774,9 +17774,9 @@
         "position": "DEF",
         "team": "KC",
         "bye": 5,
-        "adp": 167,
-        "adp_rank": 18,
-        "updated_at": "2026-08-23 06:07:30"
+        "adp": 161.3,
+        "adp_rank": 16,
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 1317,
@@ -17786,7 +17786,7 @@
         "bye": 6,
         "adp": 108.2,
         "adp_rank": 4,
-        "updated_at": "2026-08-23 06:07:30"
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 1318,
@@ -17794,9 +17794,9 @@
         "position": "DEF",
         "team": "NE",
         "bye": 11,
-        "adp": 126.2,
+        "adp": 127.8,
         "adp_rank": 6,
-        "updated_at": "2026-08-23 06:07:30"
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 1319,
@@ -17804,9 +17804,9 @@
         "position": "DEF",
         "team": "NO",
         "bye": 8,
-        "adp": 172.8,
-        "adp_rank": 23,
-        "updated_at": "2026-08-23 06:07:30"
+        "adp": 172.9,
+        "adp_rank": 22,
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 1320,
@@ -17814,9 +17814,9 @@
         "position": "DEF",
         "team": "NYG",
         "bye": 8,
-        "adp": 168,
+        "adp": 166.5,
         "adp_rank": 19,
-        "updated_at": "2026-08-23 06:07:30"
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 1323,
@@ -17824,9 +17824,9 @@
         "position": "DEF",
         "team": "PHI",
         "bye": 10,
-        "adp": 137.7,
+        "adp": 139.1,
         "adp_rank": 9,
-        "updated_at": "2026-08-23 06:07:30"
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 1324,
@@ -17834,9 +17834,9 @@
         "position": "DEF",
         "team": "PIT",
         "bye": 9,
-        "adp": 133.3,
+        "adp": 132.4,
         "adp_rank": 8,
-        "updated_at": "2026-08-23 06:07:30"
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 1325,
@@ -17844,9 +17844,9 @@
         "position": "DEF",
         "team": "LAC",
         "bye": 7,
-        "adp": 143,
+        "adp": 142.6,
         "adp_rank": 10,
-        "updated_at": "2026-08-23 06:07:30"
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 1326,
@@ -17856,7 +17856,7 @@
         "bye": 8,
         "adp": 153.9,
         "adp_rank": 11,
-        "updated_at": "2026-08-23 06:07:30"
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 1327,
@@ -17866,7 +17866,7 @@
         "bye": 11,
         "adp": 82.9,
         "adp_rank": 1,
-        "updated_at": "2026-08-23 06:07:30"
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 1328,
@@ -17874,9 +17874,9 @@
         "position": "DEF",
         "team": "LAR",
         "bye": 11,
-        "adp": 108.3,
+        "adp": 108.9,
         "adp_rank": 5,
-        "updated_at": "2026-08-23 06:07:30"
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 1330,
@@ -17884,9 +17884,9 @@
         "position": "DEF",
         "team": "TEN",
         "bye": 9,
-        "adp": 172.6,
-        "adp_rank": 22,
-        "updated_at": "2026-08-23 06:07:30"
+        "adp": 171.9,
+        "adp_rank": 21,
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 1331,
@@ -17894,9 +17894,9 @@
         "position": "DEF",
         "team": "WAS",
         "bye": 7,
-        "adp": 193.4,
+        "adp": 191.3,
         "adp_rank": 25,
-        "updated_at": "2026-08-23 06:07:30"
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 1332,
@@ -17904,9 +17904,9 @@
         "position": "DEF",
         "team": "BAL",
         "bye": 13,
-        "adp": 162.7,
-        "adp_rank": 16,
-        "updated_at": "2026-08-23 06:07:30"
+        "adp": 163.5,
+        "adp_rank": 17,
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 1334,
@@ -17914,9 +17914,9 @@
         "position": "DEF",
         "team": "ATL",
         "bye": 11,
-        "adp": 177.1,
+        "adp": 176.6,
         "adp_rank": 24,
-        "updated_at": "2026-08-23 06:07:30"
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 1664,
@@ -17924,9 +17924,9 @@
         "position": "QB",
         "team": "LAR",
         "bye": 11,
-        "adp": 77.4,
+        "adp": 77.2,
         "adp_rank": 7,
-        "updated_at": "2026-08-23 06:07:30"
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 1989,
@@ -17934,9 +17934,9 @@
         "position": "TE",
         "team": "KC",
         "bye": 5,
-        "adp": 109.6,
-        "adp_rank": 9,
-        "updated_at": "2026-08-23 06:07:30"
+        "adp": 109,
+        "adp_rank": 10,
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 1992,
@@ -17944,9 +17944,9 @@
         "position": "WR",
         "team": "IND",
         "bye": 13,
-        "adp": 129.3,
-        "adp_rank": 59,
-        "updated_at": "2026-08-23 06:07:30"
+        "adp": 130.1,
+        "adp_rank": 60,
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 2111,
@@ -17954,9 +17954,9 @@
         "position": "WR",
         "team": "SF",
         "bye": 8,
-        "adp": 52.9,
+        "adp": 53.6,
         "adp_rank": 27,
-        "updated_at": "2026-08-23 06:07:30"
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 2125,
@@ -17964,9 +17964,9 @@
         "position": "WR",
         "team": "LAR",
         "bye": 11,
-        "adp": 41.6,
+        "adp": 41.8,
         "adp_rank": 21,
-        "updated_at": "2026-08-23 06:07:30"
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 2316,
@@ -17974,9 +17974,9 @@
         "position": "WR",
         "team": "WAS",
         "bye": 7,
-        "adp": 91.4,
+        "adp": 91.2,
         "adp_rank": 43,
-        "updated_at": "2026-08-23 06:07:30"
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 2335,
@@ -17984,9 +17984,9 @@
         "position": "K",
         "team": "CHI",
         "bye": 10,
-        "adp": 166.8,
-        "adp_rank": 20,
-        "updated_at": "2026-08-23 06:07:30"
+        "adp": 165.6,
+        "adp_rank": 18,
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 2340,
@@ -17994,9 +17994,9 @@
         "position": "K",
         "team": "PIT",
         "bye": 9,
-        "adp": 157.1,
-        "adp_rank": 14,
-        "updated_at": "2026-08-23 06:07:30"
+        "adp": 157.2,
+        "adp_rank": 13,
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 2350,
@@ -18004,9 +18004,9 @@
         "position": "RB",
         "team": "BAL",
         "bye": 13,
-        "adp": 17.7,
+        "adp": 17.6,
         "adp_rank": 9,
-        "updated_at": "2026-08-23 06:07:30"
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 2351,
@@ -18014,9 +18014,9 @@
         "position": "QB",
         "team": "DET",
         "bye": 6,
-        "adp": 100.1,
+        "adp": 99.7,
         "adp_rank": 12,
-        "updated_at": "2026-08-23 06:07:30"
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 2354,
@@ -18024,9 +18024,9 @@
         "position": "TE",
         "team": "NE",
         "bye": 11,
-        "adp": 158.4,
+        "adp": 156.8,
         "adp_rank": 20,
-        "updated_at": "2026-08-23 06:07:30"
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 2365,
@@ -18034,9 +18034,9 @@
         "position": "QB",
         "team": "ARI",
         "bye": 14,
-        "adp": 167.8,
-        "adp_rank": 27,
-        "updated_at": "2026-08-23 06:07:30"
+        "adp": 167,
+        "adp_rank": 28,
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 2377,
@@ -18044,9 +18044,9 @@
         "position": "QB",
         "team": "DAL",
         "bye": 14,
-        "adp": 65,
+        "adp": 65.3,
         "adp_rank": 5,
-        "updated_at": "2026-08-23 06:07:30"
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 2424,
@@ -18054,9 +18054,9 @@
         "position": "K",
         "team": "SEA",
         "bye": 11,
-        "adp": 139.4,
+        "adp": 138.3,
         "adp_rank": 2,
-        "updated_at": "2026-08-23 06:07:30"
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 2434,
@@ -18064,9 +18064,9 @@
         "position": "RB",
         "team": "SF",
         "bye": 8,
-        "adp": 6.5,
+        "adp": 6.6,
         "adp_rank": 3,
-        "updated_at": "2026-08-23 06:07:30"
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 2439,
@@ -18074,9 +18074,29 @@
         "position": "RB",
         "team": "NO",
         "bye": 8,
-        "adp": 142.8,
-        "adp_rank": 44,
-        "updated_at": "2026-08-23 06:07:30"
+        "adp": 143.1,
+        "adp_rank": 45,
+        "updated_at": "2026-08-24 06:07:31"
+      },
+      {
+        "id": 2441,
+        "name": "Samaje Perine",
+        "position": "RB",
+        "team": "CIN",
+        "bye": 6,
+        "adp": 169,
+        "adp_rank": 67,
+        "updated_at": "2026-08-24 06:07:31"
+      },
+      {
+        "id": 2448,
+        "name": "David Njoku",
+        "position": "TE",
+        "team": "LAC",
+        "bye": 7,
+        "adp": 136,
+        "adp_rank": 14,
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 2449,
@@ -18084,9 +18104,9 @@
         "position": "WR",
         "team": "SEA",
         "bye": 11,
-        "adp": 150.7,
+        "adp": 151.5,
         "adp_rank": 71,
-        "updated_at": "2026-08-23 06:07:30"
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 2462,
@@ -18096,7 +18116,7 @@
         "bye": 5,
         "adp": 101.9,
         "adp_rank": 13,
-        "updated_at": "2026-08-23 06:07:30"
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 2465,
@@ -18104,9 +18124,9 @@
         "position": "WR",
         "team": "TB",
         "bye": 10,
-        "adp": 80.5,
+        "adp": 80.4,
         "adp_rank": 39,
-        "updated_at": "2026-08-23 06:07:30"
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 2470,
@@ -18114,9 +18134,9 @@
         "position": "RB",
         "team": "ARI",
         "bye": 14,
-        "adp": 159.2,
-        "adp_rank": 58,
-        "updated_at": "2026-08-23 06:07:30"
+        "adp": 160.3,
+        "adp_rank": 60,
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 2499,
@@ -18124,9 +18144,9 @@
         "position": "TE",
         "team": "SF",
         "bye": 8,
-        "adp": 118.2,
+        "adp": 117.9,
         "adp_rank": 11,
-        "updated_at": "2026-08-23 06:07:30"
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 2507,
@@ -18134,9 +18154,9 @@
         "position": "RB",
         "team": "MIN",
         "bye": 6,
-        "adp": 100.8,
+        "adp": 101.6,
         "adp_rank": 35,
-        "updated_at": "2026-08-23 06:07:30"
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 2514,
@@ -18144,9 +18164,9 @@
         "position": "K",
         "team": "KC",
         "bye": 5,
-        "adp": 159.4,
-        "adp_rank": 15,
-        "updated_at": "2026-08-23 06:07:30"
+        "adp": 159.3,
+        "adp_rank": 14,
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 2522,
@@ -18154,19 +18174,9 @@
         "position": "K",
         "team": "DEN",
         "bye": 10,
-        "adp": 160.8,
-        "adp_rank": 16,
-        "updated_at": "2026-08-23 06:07:30"
-      },
-      {
-        "id": 2529,
-        "name": "Jake Elliott",
-        "position": "K",
-        "team": "PHI",
-        "bye": 10,
-        "adp": 153.2,
-        "adp_rank": 9,
-        "updated_at": "2026-08-23 06:07:30"
+        "adp": 159.4,
+        "adp_rank": 15,
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 2531,
@@ -18174,9 +18184,9 @@
         "position": "K",
         "team": "HOU",
         "bye": 8,
-        "adp": 143.6,
+        "adp": 142.2,
         "adp_rank": 3,
-        "updated_at": "2026-08-23 06:07:30"
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 2860,
@@ -18184,9 +18194,9 @@
         "position": "RB",
         "team": "PHI",
         "bye": 10,
-        "adp": 19.8,
+        "adp": 19.7,
         "adp_rank": 10,
-        "updated_at": "2026-08-23 06:07:30"
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 2862,
@@ -18194,9 +18204,9 @@
         "position": "WR",
         "team": "DEN",
         "bye": 10,
-        "adp": 60.4,
+        "adp": 60.3,
         "adp_rank": 30,
-        "updated_at": "2026-08-23 06:07:30"
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 2866,
@@ -18204,19 +18214,9 @@
         "position": "WR",
         "team": "TEN",
         "bye": 9,
-        "adp": 144.7,
+        "adp": 144.2,
         "adp_rank": 66,
-        "updated_at": "2026-08-23 06:07:30"
-      },
-      {
-        "id": 2870,
-        "name": "Christian Kirk",
-        "position": "WR",
-        "team": "SF",
-        "bye": 8,
-        "adp": 169.8,
-        "adp_rank": 91,
-        "updated_at": "2026-08-23 06:07:30"
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 2872,
@@ -18224,9 +18224,9 @@
         "position": "TE",
         "team": "BAL",
         "bye": 13,
-        "adp": 129.4,
+        "adp": 128.8,
         "adp_rank": 12,
-        "updated_at": "2026-08-23 06:07:30"
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 2876,
@@ -18234,9 +18234,9 @@
         "position": "WR",
         "team": "BUF",
         "bye": 7,
-        "adp": 49,
+        "adp": 48.9,
         "adp_rank": 25,
-        "updated_at": "2026-08-23 06:07:30"
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 2884,
@@ -18244,9 +18244,9 @@
         "position": "QB",
         "team": "SEA",
         "bye": 11,
-        "adp": 141.3,
+        "adp": 141.4,
         "adp_rank": 20,
-        "updated_at": "2026-08-23 06:07:30"
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 2885,
@@ -18254,9 +18254,9 @@
         "position": "QB",
         "team": "BUF",
         "bye": 7,
-        "adp": 33.6,
+        "adp": 33.7,
         "adp_rank": 1,
-        "updated_at": "2026-08-23 06:07:30"
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 2886,
@@ -18264,9 +18264,9 @@
         "position": "QB",
         "team": "TB",
         "bye": 10,
-        "adp": 129.5,
+        "adp": 129.3,
         "adp_rank": 17,
-        "updated_at": "2026-08-23 06:07:30"
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 2888,
@@ -18274,9 +18274,9 @@
         "position": "QB",
         "team": "BAL",
         "bye": 13,
-        "adp": 56.8,
-        "adp_rank": 4,
-        "updated_at": "2026-08-23 06:07:30"
+        "adp": 56.7,
+        "adp_rank": 3,
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 2896,
@@ -18284,9 +18284,9 @@
         "position": "TE",
         "team": "PHI",
         "bye": 10,
-        "adp": 110.1,
-        "adp_rank": 10,
-        "updated_at": "2026-08-23 06:07:30"
+        "adp": 105.3,
+        "adp_rank": 9,
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 2977,
@@ -18294,9 +18294,9 @@
         "position": "TE",
         "team": "HOU",
         "bye": 8,
-        "adp": 163.5,
-        "adp_rank": 23,
-        "updated_at": "2026-08-23 06:07:30"
+        "adp": 163.7,
+        "adp_rank": 25,
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 3097,
@@ -18304,9 +18304,9 @@
         "position": "K",
         "team": "SF",
         "bye": 8,
-        "adp": 165.2,
-        "adp_rank": 19,
-        "updated_at": "2026-08-23 06:07:30"
+        "adp": 168.4,
+        "adp_rank": 20,
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 3238,
@@ -18314,9 +18314,9 @@
         "position": "RB",
         "team": "HOU",
         "bye": 8,
-        "adp": 58.3,
+        "adp": 58.4,
         "adp_rank": 24,
-        "updated_at": "2026-08-23 06:07:30"
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 3239,
@@ -18324,9 +18324,9 @@
         "position": "WR",
         "team": "PIT",
         "bye": 9,
-        "adp": 65,
+        "adp": 64.8,
         "adp_rank": 33,
-        "updated_at": "2026-08-23 06:07:30"
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 3246,
@@ -18334,9 +18334,9 @@
         "position": "WR",
         "team": "SF",
         "bye": 8,
-        "adp": 113.3,
-        "adp_rank": 52,
-        "updated_at": "2026-08-23 06:07:30"
+        "adp": 112.4,
+        "adp_rank": 51,
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 3247,
@@ -18344,9 +18344,9 @@
         "position": "WR",
         "team": "NE",
         "bye": 11,
-        "adp": 18.1,
+        "adp": 18.2,
         "adp_rank": 9,
-        "updated_at": "2026-08-23 06:07:30"
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 3255,
@@ -18354,9 +18354,9 @@
         "position": "RB",
         "team": "GB",
         "bye": 11,
-        "adp": 31.2,
+        "adp": 30.9,
         "adp_rank": 14,
-        "updated_at": "2026-08-23 06:07:30"
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 3264,
@@ -18364,9 +18364,9 @@
         "position": "QB",
         "team": "IND",
         "bye": 13,
-        "adp": 159.7,
-        "adp_rank": 23,
-        "updated_at": "2026-08-23 06:07:30"
+        "adp": 160.1,
+        "adp_rank": 25,
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 3266,
@@ -18374,9 +18374,9 @@
         "position": "RB",
         "team": "BAL",
         "bye": 13,
-        "adp": 167.9,
-        "adp_rank": 65,
-        "updated_at": "2026-08-23 06:07:30"
+        "adp": 168.8,
+        "adp_rank": 66,
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 3299,
@@ -18384,9 +18384,9 @@
         "position": "QB",
         "team": "MIN",
         "bye": 6,
-        "adp": 133.5,
+        "adp": 133.3,
         "adp_rank": 18,
-        "updated_at": "2026-08-23 06:07:30"
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 3307,
@@ -18394,9 +18394,9 @@
         "position": "TE",
         "team": "MIN",
         "bye": 6,
-        "adp": 166.8,
-        "adp_rank": 25,
-        "updated_at": "2026-08-23 06:07:30"
+        "adp": 166.9,
+        "adp_rank": 26,
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 3435,
@@ -18404,9 +18404,9 @@
         "position": "RB",
         "team": "TEN",
         "bye": 9,
-        "adp": 68.3,
+        "adp": 68.4,
         "adp_rank": 27,
-        "updated_at": "2026-08-23 06:07:30"
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 3437,
@@ -18414,9 +18414,9 @@
         "position": "WR",
         "team": "NYG",
         "bye": 8,
-        "adp": 181.6,
-        "adp_rank": 96,
-        "updated_at": "2026-08-23 06:07:30"
+        "adp": 184.7,
+        "adp_rank": 95,
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 3449,
@@ -18426,7 +18426,7 @@
         "bye": 7,
         "adp": 46.7,
         "adp_rank": 24,
-        "updated_at": "2026-08-23 06:07:30"
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 3453,
@@ -18434,9 +18434,9 @@
         "position": "RB",
         "team": "BUF",
         "bye": 7,
-        "adp": 169.7,
-        "adp_rank": 66,
-        "updated_at": "2026-08-23 06:07:30"
+        "adp": 182.4,
+        "adp_rank": 68,
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 3496,
@@ -18444,9 +18444,9 @@
         "position": "WR",
         "team": "JAX",
         "bye": 7,
-        "adp": 88.9,
+        "adp": 88.5,
         "adp_rank": 42,
-        "updated_at": "2026-08-23 06:07:30"
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 4861,
@@ -18454,9 +18454,9 @@
         "position": "WR",
         "team": "CLE",
         "bye": 11,
-        "adp": 127.6,
+        "adp": 126.4,
         "adp_rank": 57,
-        "updated_at": "2026-08-23 06:07:30"
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 4862,
@@ -18464,9 +18464,9 @@
         "position": "RB",
         "team": "CHI",
         "bye": 10,
-        "adp": 45.9,
+        "adp": 45.8,
         "adp_rank": 21,
-        "updated_at": "2026-08-23 06:07:30"
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 4863,
@@ -18474,9 +18474,9 @@
         "position": "RB",
         "team": "NO",
         "bye": 8,
-        "adp": 41.4,
+        "adp": 40.7,
         "adp_rank": 19,
-        "updated_at": "2026-08-23 06:07:30"
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 4864,
@@ -18484,9 +18484,9 @@
         "position": "RB",
         "team": "IND",
         "bye": 13,
-        "adp": 7.4,
+        "adp": 7.5,
         "adp_rank": 4,
-        "updated_at": "2026-08-23 06:07:30"
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 4865,
@@ -18494,9 +18494,9 @@
         "position": "K",
         "team": "TB",
         "bye": 10,
-        "adp": 154.3,
-        "adp_rank": 12,
-        "updated_at": "2026-08-23 06:07:30"
+        "adp": 154.4,
+        "adp_rank": 11,
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 4868,
@@ -18505,8 +18505,8 @@
         "team": "TEN",
         "bye": 9,
         "adp": 150.5,
-        "adp_rank": 6,
-        "updated_at": "2026-08-23 06:07:30"
+        "adp_rank": 7,
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 4869,
@@ -18514,9 +18514,9 @@
         "position": "WR",
         "team": "DAL",
         "bye": 14,
-        "adp": 10.5,
+        "adp": 10.6,
         "adp_rank": 6,
-        "updated_at": "2026-08-23 06:07:30"
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 4870,
@@ -18524,9 +18524,19 @@
         "position": "WR",
         "team": "CIN",
         "bye": 6,
-        "adp": 35.8,
-        "adp_rank": 18,
-        "updated_at": "2026-08-23 06:07:30"
+        "adp": 36.2,
+        "adp_rank": 19,
+        "updated_at": "2026-08-24 06:07:31"
+      },
+      {
+        "id": 4872,
+        "name": "Najee Harris",
+        "position": "RB",
+        "team": "NYG",
+        "bye": 8,
+        "adp": 163.6,
+        "adp_rank": 64,
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 4873,
@@ -18534,9 +18544,9 @@
         "position": "RB",
         "team": "CAR",
         "bye": 5,
-        "adp": 77.8,
+        "adp": 78.5,
         "adp_rank": 30,
-        "updated_at": "2026-08-23 06:07:30"
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 4876,
@@ -18546,7 +18556,7 @@
         "bye": 6,
         "adp": 11.7,
         "adp_rank": 7,
-        "updated_at": "2026-08-23 06:07:30"
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 4880,
@@ -18556,7 +18566,7 @@
         "bye": 9,
         "adp": 74.6,
         "adp_rank": 36,
-        "updated_at": "2026-08-23 06:07:30"
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 4882,
@@ -18564,9 +18574,9 @@
         "position": "QB",
         "team": "CIN",
         "bye": 6,
-        "adp": 56.7,
-        "adp_rank": 3,
-        "updated_at": "2026-08-23 06:07:30"
+        "adp": 57.4,
+        "adp_rank": 4,
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 4883,
@@ -18574,9 +18584,9 @@
         "position": "WR",
         "team": "PHI",
         "bye": 10,
-        "adp": 29.3,
+        "adp": 29.6,
         "adp_rank": 16,
-        "updated_at": "2026-08-23 06:07:30"
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 4887,
@@ -18584,9 +18594,9 @@
         "position": "QB",
         "team": "LAC",
         "bye": 7,
-        "adp": 106.1,
+        "adp": 105.8,
         "adp_rank": 14,
-        "updated_at": "2026-08-23 06:07:30"
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 4888,
@@ -18594,9 +18604,9 @@
         "position": "RB",
         "team": "DEN",
         "bye": 10,
-        "adp": 93.3,
+        "adp": 91.5,
         "adp_rank": 34,
-        "updated_at": "2026-08-23 06:07:30"
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 4891,
@@ -18606,7 +18616,7 @@
         "bye": 8,
         "adp": 156.8,
         "adp_rank": 74,
-        "updated_at": "2026-08-23 06:07:30"
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 4892,
@@ -18614,9 +18624,9 @@
         "position": "QB",
         "team": "GB",
         "bye": 11,
-        "adp": 145.3,
+        "adp": 146.3,
         "adp_rank": 21,
-        "updated_at": "2026-08-23 06:07:30"
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 5020,
@@ -18624,9 +18634,9 @@
         "position": "WR",
         "team": "MIN",
         "bye": 6,
-        "adp": 148.5,
-        "adp_rank": 67,
-        "updated_at": "2026-08-23 06:07:30"
+        "adp": 148.9,
+        "adp_rank": 68,
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 5025,
@@ -18634,9 +18644,9 @@
         "position": "QB",
         "team": "PHI",
         "bye": 10,
-        "adp": 80.3,
+        "adp": 79.7,
         "adp_rank": 8,
-        "updated_at": "2026-08-23 06:07:30"
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 5036,
@@ -18644,9 +18654,9 @@
         "position": "K",
         "team": "BUF",
         "bye": 7,
-        "adp": 156.6,
-        "adp_rank": 13,
-        "updated_at": "2026-08-23 06:07:30"
+        "adp": 156.1,
+        "adp_rank": 12,
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 5095,
@@ -18654,9 +18664,9 @@
         "position": "RB",
         "team": "PIT",
         "bye": 9,
-        "adp": 75.4,
+        "adp": 74.9,
         "adp_rank": 29,
-        "updated_at": "2026-08-23 06:07:30"
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 5151,
@@ -18664,9 +18674,9 @@
         "position": "TE",
         "team": "NO",
         "bye": 8,
-        "adp": 139.9,
-        "adp_rank": 15,
-        "updated_at": "2026-08-23 06:07:30"
+        "adp": 141,
+        "adp_rank": 16,
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 5177,
@@ -18676,7 +18686,7 @@
         "bye": 6,
         "adp": 3.9,
         "adp_rank": 2,
-        "updated_at": "2026-08-23 06:07:30"
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 5178,
@@ -18684,9 +18694,9 @@
         "position": "WR",
         "team": "DEN",
         "bye": 10,
-        "adp": 45.9,
+        "adp": 46,
         "adp_rank": 23,
-        "updated_at": "2026-08-23 06:07:30"
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 5180,
@@ -18694,9 +18704,9 @@
         "position": "WR",
         "team": "BAL",
         "bye": 13,
-        "adp": 149.5,
-        "adp_rank": 70,
-        "updated_at": "2026-08-23 06:07:30"
+        "adp": 149.6,
+        "adp_rank": 69,
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 5181,
@@ -18704,9 +18714,9 @@
         "position": "TE",
         "team": "ATL",
         "bye": 11,
-        "adp": 76.1,
+        "adp": 75.9,
         "adp_rank": 5,
-        "updated_at": "2026-08-23 06:07:30"
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 5182,
@@ -18716,7 +18726,7 @@
         "bye": 6,
         "adp": 6.3,
         "adp_rank": 4,
-        "updated_at": "2026-08-23 06:07:30"
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 5185,
@@ -18724,9 +18734,9 @@
         "position": "RB",
         "team": "DAL",
         "bye": 14,
-        "adp": 36.8,
+        "adp": 36.7,
         "adp_rank": 18,
-        "updated_at": "2026-08-23 06:07:30"
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 5186,
@@ -18734,9 +18744,9 @@
         "position": "QB",
         "team": "JAX",
         "bye": 7,
-        "adp": 92.7,
+        "adp": 92.2,
         "adp_rank": 11,
-        "updated_at": "2026-08-23 06:07:30"
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 5193,
@@ -18744,9 +18754,9 @@
         "position": "TE",
         "team": "PIT",
         "bye": 9,
-        "adp": 185.8,
-        "adp_rank": 27,
-        "updated_at": "2026-08-23 06:07:30"
+        "adp": 186.2,
+        "adp_rank": 28,
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 5196,
@@ -18754,9 +18764,9 @@
         "position": "RB",
         "team": "TB",
         "bye": 10,
-        "adp": 90.6,
+        "adp": 91,
         "adp_rank": 33,
-        "updated_at": "2026-08-23 06:07:30"
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 5207,
@@ -18766,7 +18776,7 @@
         "bye": 8,
         "adp": 21.2,
         "adp_rank": 12,
-        "updated_at": "2026-08-23 06:07:30"
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 5210,
@@ -18774,9 +18784,9 @@
         "position": "RB",
         "team": "NE",
         "bye": 11,
-        "adp": 70,
+        "adp": 68.9,
         "adp_rank": 28,
-        "updated_at": "2026-08-23 06:07:30"
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 5277,
@@ -18784,9 +18794,9 @@
         "position": "TE",
         "team": "MIA",
         "bye": 6,
-        "adp": 177,
-        "adp_rank": 26,
-        "updated_at": "2026-08-23 06:07:30"
+        "adp": 181.7,
+        "adp_rank": 27,
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 5330,
@@ -18794,9 +18804,9 @@
         "position": "RB",
         "team": "MIN",
         "bye": 6,
-        "adp": 120.1,
+        "adp": 119.3,
         "adp_rank": 40,
-        "updated_at": "2026-08-23 06:07:30"
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 5334,
@@ -18804,9 +18814,9 @@
         "position": "WR",
         "team": "LV",
         "bye": 13,
-        "adp": 153.5,
+        "adp": 153.8,
         "adp_rank": 72,
-        "updated_at": "2026-08-23 06:07:30"
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 5337,
@@ -18814,9 +18824,9 @@
         "position": "RB",
         "team": "DET",
         "bye": 6,
-        "adp": 156.2,
-        "adp_rank": 50,
-        "updated_at": "2026-08-23 06:07:30"
+        "adp": 155.9,
+        "adp_rank": 51,
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 5360,
@@ -18824,9 +18834,9 @@
         "position": "WR",
         "team": "GB",
         "bye": 11,
-        "adp": 58.6,
+        "adp": 58.7,
         "adp_rank": 28,
-        "updated_at": "2026-08-23 06:07:30"
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 5443,
@@ -18834,9 +18844,9 @@
         "position": "RB",
         "team": "PIT",
         "bye": 9,
-        "adp": 59.8,
+        "adp": 59,
         "adp_rank": 25,
-        "updated_at": "2026-08-23 06:07:30"
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 5453,
@@ -18844,9 +18854,9 @@
         "position": "TE",
         "team": "WAS",
         "bye": 7,
-        "adp": 154.7,
-        "adp_rank": 18,
-        "updated_at": "2026-08-23 06:07:30"
+        "adp": 154.6,
+        "adp_rank": 19,
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 5503,
@@ -18854,9 +18864,9 @@
         "position": "RB",
         "team": "NYJ",
         "bye": 13,
-        "adp": 34.4,
+        "adp": 34.6,
         "adp_rank": 16,
-        "updated_at": "2026-08-23 06:07:30"
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 5538,
@@ -18864,9 +18874,9 @@
         "position": "K",
         "team": "LAC",
         "bye": 7,
-        "adp": 143.7,
+        "adp": 142.9,
         "adp_rank": 4,
-        "updated_at": "2026-08-23 06:07:30"
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 5544,
@@ -18874,9 +18884,9 @@
         "position": "WR",
         "team": "NO",
         "bye": 8,
-        "adp": 20.7,
+        "adp": 20.2,
         "adp_rank": 11,
-        "updated_at": "2026-08-23 06:07:30"
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 5545,
@@ -18884,9 +18894,9 @@
         "position": "QB",
         "team": "MIA",
         "bye": 6,
-        "adp": 161.6,
-        "adp_rank": 25,
-        "updated_at": "2026-08-23 06:07:30"
+        "adp": 161.7,
+        "adp_rank": 26,
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 5548,
@@ -18894,9 +18904,9 @@
         "position": "WR",
         "team": "NYJ",
         "bye": 13,
-        "adp": 26.3,
+        "adp": 26.1,
         "adp_rank": 14,
-        "updated_at": "2026-08-23 06:07:30"
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 5561,
@@ -18904,9 +18914,9 @@
         "position": "TE",
         "team": "DAL",
         "bye": 14,
-        "adp": 133.3,
+        "adp": 133.6,
         "adp_rank": 13,
-        "updated_at": "2026-08-23 06:07:30"
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 5564,
@@ -18914,9 +18924,9 @@
         "position": "TE",
         "team": "DET",
         "bye": 6,
-        "adp": 90.5,
+        "adp": 96,
         "adp_rank": 7,
-        "updated_at": "2026-08-23 06:07:30"
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 5574,
@@ -18926,7 +18936,7 @@
         "bye": 11,
         "adp": 9.9,
         "adp_rank": 5,
-        "updated_at": "2026-08-23 06:07:30"
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 5576,
@@ -18934,9 +18944,9 @@
         "position": "WR",
         "team": "DAL",
         "bye": 14,
-        "adp": 19.7,
+        "adp": 19.8,
         "adp_rank": 10,
-        "updated_at": "2026-08-23 06:07:30"
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 5586,
@@ -18944,9 +18954,9 @@
         "position": "WR",
         "team": "NE",
         "bye": 11,
-        "adp": 112.9,
-        "adp_rank": 51,
-        "updated_at": "2026-08-23 06:07:30"
+        "adp": 113.7,
+        "adp_rank": 52,
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 5588,
@@ -18954,9 +18964,9 @@
         "position": "WR",
         "team": "TEN",
         "bye": 9,
-        "adp": 86.1,
+        "adp": 86,
         "adp_rank": 41,
-        "updated_at": "2026-08-23 06:07:30"
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 5602,
@@ -18964,9 +18974,9 @@
         "position": "QB",
         "team": "NO",
         "bye": 8,
-        "adp": 134.5,
+        "adp": 134.6,
         "adp_rank": 19,
-        "updated_at": "2026-08-23 06:07:30"
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 5605,
@@ -18974,9 +18984,9 @@
         "position": "RB",
         "team": "ATL",
         "bye": 11,
-        "adp": 157.2,
-        "adp_rank": 56,
-        "updated_at": "2026-08-23 06:07:30"
+        "adp": 162.4,
+        "adp_rank": 62,
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 5622,
@@ -18984,9 +18994,9 @@
         "position": "RB",
         "team": "GB",
         "bye": 11,
-        "adp": 161.2,
-        "adp_rank": 61,
-        "updated_at": "2026-08-23 06:07:30"
+        "adp": 157.8,
+        "adp_rank": 56,
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 5623,
@@ -18994,9 +19004,9 @@
         "position": "RB",
         "team": "LAR",
         "bye": 11,
-        "adp": 31.4,
+        "adp": 31.5,
         "adp_rank": 15,
-        "updated_at": "2026-08-23 06:07:30"
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 5625,
@@ -19004,9 +19014,9 @@
         "position": "RB",
         "team": "KC",
         "bye": 5,
-        "adp": 22.3,
+        "adp": 22.2,
         "adp_rank": 11,
-        "updated_at": "2026-08-23 06:07:30"
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 5626,
@@ -19014,9 +19024,9 @@
         "position": "RB",
         "team": "WAS",
         "bye": 7,
-        "adp": 108.7,
+        "adp": 109.1,
         "adp_rank": 37,
-        "updated_at": "2026-08-23 06:07:30"
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 5636,
@@ -19024,9 +19034,9 @@
         "position": "WR",
         "team": "BUF",
         "bye": 7,
-        "adp": 100.2,
+        "adp": 100.7,
         "adp_rank": 48,
-        "updated_at": "2026-08-23 06:07:30"
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 5641,
@@ -19034,9 +19044,9 @@
         "position": "WR",
         "team": "IND",
         "bye": 13,
-        "adp": 61.6,
+        "adp": 63.2,
         "adp_rank": 31,
-        "updated_at": "2026-08-23 06:07:30"
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 5643,
@@ -19044,9 +19054,9 @@
         "position": "WR",
         "team": "DET",
         "bye": 6,
-        "adp": 43.9,
+        "adp": 44,
         "adp_rank": 22,
-        "updated_at": "2026-08-23 06:07:30"
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 5648,
@@ -19054,9 +19064,9 @@
         "position": "QB",
         "team": "SF",
         "bye": 8,
-        "adp": 89,
-        "adp_rank": 10,
-        "updated_at": "2026-08-23 06:07:30"
+        "adp": 88.4,
+        "adp_rank": 9,
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 5652,
@@ -19064,9 +19074,9 @@
         "position": "RB",
         "team": "BUF",
         "bye": 7,
-        "adp": 12.6,
+        "adp": 12.7,
         "adp_rank": 6,
-        "updated_at": "2026-08-23 06:07:30"
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 5655,
@@ -19074,9 +19084,9 @@
         "position": "RB",
         "team": "ARI",
         "bye": 14,
-        "adp": 155.1,
+        "adp": 154.8,
         "adp_rank": 49,
-        "updated_at": "2026-08-23 06:07:30"
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 5656,
@@ -19084,9 +19094,9 @@
         "position": "TE",
         "team": "ARI",
         "bye": 14,
-        "adp": 28.7,
+        "adp": 28.8,
         "adp_rank": 1,
-        "updated_at": "2026-08-23 06:07:30"
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 5661,
@@ -19094,9 +19104,9 @@
         "position": "TE",
         "team": "NYG",
         "bye": 8,
-        "adp": 137.3,
-        "adp_rank": 14,
-        "updated_at": "2026-08-23 06:07:30"
+        "adp": 136.7,
+        "adp_rank": 15,
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 5669,
@@ -19104,9 +19114,9 @@
         "position": "K",
         "team": "CIN",
         "bye": 6,
-        "adp": 170.1,
+        "adp": 168.6,
         "adp_rank": 21,
-        "updated_at": "2026-08-23 06:07:30"
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 5670,
@@ -19116,7 +19126,7 @@
         "bye": 11,
         "adp": 1.9,
         "adp_rank": 2,
-        "updated_at": "2026-08-23 06:07:30"
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 5671,
@@ -19126,7 +19136,7 @@
         "bye": 11,
         "adp": 5.4,
         "adp_rank": 3,
-        "updated_at": "2026-08-23 06:07:30"
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 5672,
@@ -19136,7 +19146,7 @@
         "bye": 6,
         "adp": 1.6,
         "adp_rank": 1,
-        "updated_at": "2026-08-23 06:07:30"
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 5673,
@@ -19144,9 +19154,9 @@
         "position": "WR",
         "team": "MIN",
         "bye": 6,
-        "adp": 98.1,
-        "adp_rank": 46,
-        "updated_at": "2026-08-23 06:07:30"
+        "adp": 97.8,
+        "adp_rank": 47,
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 5674,
@@ -19154,9 +19164,9 @@
         "position": "WR",
         "team": "LAC",
         "bye": 7,
-        "adp": 93.8,
-        "adp_rank": 44,
-        "updated_at": "2026-08-23 06:07:30"
+        "adp": 94.7,
+        "adp_rank": 45,
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 5675,
@@ -19164,9 +19174,9 @@
         "position": "WR",
         "team": "BAL",
         "bye": 13,
-        "adp": 24.9,
+        "adp": 25.2,
         "adp_rank": 13,
-        "updated_at": "2026-08-23 06:07:30"
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 5676,
@@ -19174,9 +19184,9 @@
         "position": "QB",
         "team": "HOU",
         "bye": 8,
-        "adp": 160.3,
-        "adp_rank": 24,
-        "updated_at": "2026-08-23 06:07:30"
+        "adp": 158.7,
+        "adp_rank": 23,
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 5677,
@@ -19184,9 +19194,9 @@
         "position": "RB",
         "team": "SEA",
         "bye": 11,
-        "adp": 135.8,
+        "adp": 135.7,
         "adp_rank": 43,
-        "updated_at": "2026-08-23 06:07:30"
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 5678,
@@ -19194,9 +19204,9 @@
         "position": "QB",
         "team": "CAR",
         "bye": 5,
-        "adp": 174.1,
+        "adp": 171,
         "adp_rank": 29,
-        "updated_at": "2026-08-23 06:07:30"
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 5680,
@@ -19204,9 +19214,9 @@
         "position": "WR",
         "team": "IND",
         "bye": 13,
-        "adp": 82.9,
+        "adp": 83.9,
         "adp_rank": 40,
-        "updated_at": "2026-08-23 06:07:30"
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 5683,
@@ -19214,9 +19224,19 @@
         "position": "RB",
         "team": "MIA",
         "bye": 6,
-        "adp": 10.3,
+        "adp": 10.4,
         "adp_rank": 5,
-        "updated_at": "2026-08-23 06:07:30"
+        "updated_at": "2026-08-24 06:07:31"
+      },
+      {
+        "id": 5684,
+        "name": "Will Levis",
+        "position": "QB",
+        "team": "TEN",
+        "bye": 9,
+        "adp": 149.6,
+        "adp_rank": 22,
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 5688,
@@ -19224,9 +19244,9 @@
         "position": "TE",
         "team": "BUF",
         "bye": 7,
-        "adp": 150.5,
-        "adp_rank": 17,
-        "updated_at": "2026-08-23 06:07:30"
+        "adp": 149.8,
+        "adp_rank": 18,
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 5691,
@@ -19234,9 +19254,9 @@
         "position": "RB",
         "team": "PHI",
         "bye": 10,
-        "adp": 159.9,
-        "adp_rank": 60,
-        "updated_at": "2026-08-23 06:07:30"
+        "adp": 158.7,
+        "adp_rank": 58,
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 5692,
@@ -19244,9 +19264,9 @@
         "position": "RB",
         "team": "TEN",
         "bye": 9,
-        "adp": 131.6,
+        "adp": 131.5,
         "adp_rank": 42,
-        "updated_at": "2026-08-23 06:07:30"
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 5694,
@@ -19254,9 +19274,9 @@
         "position": "WR",
         "team": "NE",
         "bye": 11,
-        "adp": 166.8,
-        "adp_rank": 84,
-        "updated_at": "2026-08-23 06:07:30"
+        "adp": 166.1,
+        "adp_rank": 85,
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 5696,
@@ -19266,7 +19286,7 @@
         "bye": 5,
         "adp": 14.8,
         "adp_rank": 8,
-        "updated_at": "2026-08-23 06:07:30"
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 5705,
@@ -19276,7 +19296,7 @@
         "bye": 7,
         "adp": 64.7,
         "adp_rank": 32,
-        "updated_at": "2026-08-23 06:07:30"
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 5706,
@@ -19284,9 +19304,9 @@
         "position": "RB",
         "team": "CIN",
         "bye": 6,
-        "adp": 13.5,
+        "adp": 13.4,
         "adp_rank": 7,
-        "updated_at": "2026-08-23 06:07:30"
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 5707,
@@ -19294,9 +19314,9 @@
         "position": "WR",
         "team": "GB",
         "bye": 11,
-        "adp": 94.1,
-        "adp_rank": 45,
-        "updated_at": "2026-08-23 06:07:30"
+        "adp": 94.3,
+        "adp_rank": 44,
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 5711,
@@ -19304,9 +19324,9 @@
         "position": "WR",
         "team": "HOU",
         "bye": 8,
-        "adp": 157.4,
-        "adp_rank": 75,
-        "updated_at": "2026-08-23 06:07:30"
+        "adp": 157.2,
+        "adp_rank": 76,
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 5714,
@@ -19316,7 +19336,7 @@
         "bye": 11,
         "adp": 3.1,
         "adp_rank": 1,
-        "updated_at": "2026-08-23 06:07:30"
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 5717,
@@ -19324,9 +19344,9 @@
         "position": "RB",
         "team": "JAX",
         "bye": 7,
-        "adp": 156.6,
-        "adp_rank": 51,
-        "updated_at": "2026-08-23 06:07:30"
+        "adp": 155.7,
+        "adp_rank": 50,
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 5718,
@@ -19334,9 +19354,9 @@
         "position": "TE",
         "team": "GB",
         "bye": 11,
-        "adp": 102.7,
+        "adp": 102,
         "adp_rank": 8,
-        "updated_at": "2026-08-23 06:07:30"
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 5721,
@@ -19344,9 +19364,9 @@
         "position": "WR",
         "team": "ARI",
         "bye": 14,
-        "adp": 76.5,
+        "adp": 76.3,
         "adp_rank": 38,
-        "updated_at": "2026-08-23 06:07:30"
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 5725,
@@ -19354,9 +19374,9 @@
         "position": "WR",
         "team": "PHI",
         "bye": 10,
-        "adp": 168.2,
-        "adp_rank": 88,
-        "updated_at": "2026-08-23 06:07:30"
+        "adp": 168.1,
+        "adp_rank": 87,
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 5854,
@@ -19364,9 +19384,9 @@
         "position": "QB",
         "team": "WAS",
         "bye": 7,
-        "adp": 73.1,
+        "adp": 71.9,
         "adp_rank": 6,
-        "updated_at": "2026-08-23 06:07:30"
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 5896,
@@ -19374,9 +19394,9 @@
         "position": "WR",
         "team": "SEA",
         "bye": 11,
-        "adp": 128.2,
+        "adp": 128.5,
         "adp_rank": 58,
-        "updated_at": "2026-08-23 06:07:30"
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 5965,
@@ -19384,9 +19404,9 @@
         "position": "RB",
         "team": "LAR",
         "bye": 11,
-        "adp": 120.5,
+        "adp": 120.2,
         "adp_rank": 41,
-        "updated_at": "2026-08-23 06:07:30"
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 5977,
@@ -19394,9 +19414,9 @@
         "position": "WR",
         "team": "LV",
         "bye": 13,
-        "adp": 132.8,
+        "adp": 132.2,
         "adp_rank": 61,
-        "updated_at": "2026-08-23 06:07:30"
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 5982,
@@ -19404,9 +19424,9 @@
         "position": "RB",
         "team": "LAC",
         "bye": 7,
-        "adp": 161.4,
-        "adp_rank": 62,
-        "updated_at": "2026-08-23 06:07:30"
+        "adp": 160.5,
+        "adp_rank": 61,
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 5985,
@@ -19414,9 +19434,9 @@
         "position": "TE",
         "team": "JAX",
         "bye": 7,
-        "adp": 163.4,
-        "adp_rank": 21,
-        "updated_at": "2026-08-23 06:07:30"
+        "adp": 163.5,
+        "adp_rank": 24,
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 6046,
@@ -19424,9 +19444,9 @@
         "position": "K",
         "team": "IND",
         "bye": 13,
-        "adp": 164.1,
-        "adp_rank": 18,
-        "updated_at": "2026-08-23 06:07:30"
+        "adp": 163,
+        "adp_rank": 17,
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 6055,
@@ -19434,9 +19454,9 @@
         "position": "K",
         "team": "DET",
         "bye": 6,
-        "adp": 145.6,
+        "adp": 146.8,
         "adp_rank": 5,
-        "updated_at": "2026-08-23 06:07:30"
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 6080,
@@ -19445,8 +19465,8 @@
         "team": "KC",
         "bye": 5,
         "adp": 144.4,
-        "adp_rank": 46,
-        "updated_at": "2026-08-23 06:07:30"
+        "adp_rank": 47,
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 6162,
@@ -19454,9 +19474,9 @@
         "position": "K",
         "team": "DAL",
         "bye": 14,
-        "adp": 130.3,
+        "adp": 130,
         "adp_rank": 1,
-        "updated_at": "2026-08-23 06:07:30"
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 6172,
@@ -19465,8 +19485,8 @@
         "team": "KC",
         "bye": 5,
         "adp": 106.3,
-        "adp_rank": 49,
-        "updated_at": "2026-08-23 06:07:30"
+        "adp_rank": 50,
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 6173,
@@ -19474,9 +19494,9 @@
         "position": "QB",
         "team": "CHI",
         "bye": 10,
-        "adp": 88.7,
-        "adp_rank": 9,
-        "updated_at": "2026-08-23 06:07:30"
+        "adp": 89.3,
+        "adp_rank": 10,
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 6175,
@@ -19484,9 +19504,9 @@
         "position": "WR",
         "team": "JAX",
         "bye": 7,
-        "adp": 71.9,
+        "adp": 72.1,
         "adp_rank": 35,
-        "updated_at": "2026-08-23 06:07:30"
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 6176,
@@ -19494,9 +19514,9 @@
         "position": "RB",
         "team": "NYJ",
         "bye": 13,
-        "adp": 157.5,
-        "adp_rank": 57,
-        "updated_at": "2026-08-23 06:07:30"
+        "adp": 157.3,
+        "adp_rank": 54,
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 6178,
@@ -19506,7 +19526,7 @@
         "bye": 13,
         "adp": 35.5,
         "adp_rank": 2,
-        "updated_at": "2026-08-23 06:07:30"
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 6179,
@@ -19514,9 +19534,9 @@
         "position": "RB",
         "team": "CAR",
         "bye": 5,
-        "adp": 104.1,
+        "adp": 101.8,
         "adp_rank": 36,
-        "updated_at": "2026-08-23 06:07:30"
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 6183,
@@ -19524,9 +19544,9 @@
         "position": "WR",
         "team": "NYG",
         "bye": 8,
-        "adp": 27.2,
+        "adp": 27.3,
         "adp_rank": 15,
-        "updated_at": "2026-08-23 06:07:30"
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 6184,
@@ -19534,9 +19554,9 @@
         "position": "WR",
         "team": "NYJ",
         "bye": 13,
-        "adp": 161.3,
-        "adp_rank": 79,
-        "updated_at": "2026-08-23 06:07:30"
+        "adp": 162.5,
+        "adp_rank": 80,
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 6187,
@@ -19544,9 +19564,9 @@
         "position": "QB",
         "team": "NE",
         "bye": 11,
-        "adp": 51.5,
+        "adp": 51.6,
         "adp_rank": 2,
-        "updated_at": "2026-08-23 06:07:30"
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 6188,
@@ -19554,9 +19574,9 @@
         "position": "K",
         "team": "JAX",
         "bye": 7,
-        "adp": 154,
-        "adp_rank": 11,
-        "updated_at": "2026-08-23 06:07:30"
+        "adp": 153.1,
+        "adp_rank": 9,
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 6189,
@@ -19564,9 +19584,9 @@
         "position": "WR",
         "team": "BUF",
         "bye": 7,
-        "adp": 98.6,
-        "adp_rank": 47,
-        "updated_at": "2026-08-23 06:07:30"
+        "adp": 96.2,
+        "adp_rank": 46,
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 6190,
@@ -19574,9 +19594,9 @@
         "position": "RB",
         "team": "TB",
         "bye": 10,
-        "adp": 45.8,
+        "adp": 45.3,
         "adp_rank": 20,
-        "updated_at": "2026-08-23 06:07:30"
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 6192,
@@ -19584,9 +19604,9 @@
         "position": "WR",
         "team": "DEN",
         "bye": 10,
-        "adp": 180.2,
-        "adp_rank": 95,
-        "updated_at": "2026-08-23 06:07:30"
+        "adp": 174.6,
+        "adp_rank": 93,
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 6193,
@@ -19594,9 +19614,9 @@
         "position": "WR",
         "team": "ARI",
         "bye": 14,
-        "adp": 66.2,
+        "adp": 66.1,
         "adp_rank": 34,
-        "updated_at": "2026-08-23 06:07:30"
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 6194,
@@ -19604,9 +19624,9 @@
         "position": "WR",
         "team": "CHI",
         "bye": 10,
-        "adp": 50.7,
+        "adp": 51.4,
         "adp_rank": 26,
-        "updated_at": "2026-08-23 06:07:30"
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 6197,
@@ -19614,9 +19634,9 @@
         "position": "RB",
         "team": "BUF",
         "bye": 7,
-        "adp": 159.9,
-        "adp_rank": 59,
-        "updated_at": "2026-08-23 06:07:30"
+        "adp": 158.3,
+        "adp_rank": 57,
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 6213,
@@ -19624,9 +19644,9 @@
         "position": "WR",
         "team": "CAR",
         "bye": 5,
-        "adp": 178.9,
+        "adp": 180.2,
         "adp_rank": 94,
-        "updated_at": "2026-08-23 06:07:30"
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 6253,
@@ -19634,9 +19654,9 @@
         "position": "QB",
         "team": "DEN",
         "bye": 10,
-        "adp": 113.2,
+        "adp": 112.7,
         "adp_rank": 15,
-        "updated_at": "2026-08-23 06:07:30"
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 6276,
@@ -19646,7 +19666,7 @@
         "bye": 8,
         "adp": 151.1,
         "adp_rank": 48,
-        "updated_at": "2026-08-23 06:07:30"
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 6281,
@@ -19654,9 +19674,9 @@
         "position": "WR",
         "team": "LAC",
         "bye": 7,
-        "adp": 37.5,
+        "adp": 37.7,
         "adp_rank": 20,
-        "updated_at": "2026-08-23 06:07:30"
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 6282,
@@ -19664,9 +19684,9 @@
         "position": "WR",
         "team": "TB",
         "bye": 10,
-        "adp": 135.4,
+        "adp": 136.4,
         "adp_rank": 63,
-        "updated_at": "2026-08-23 06:07:30"
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 6287,
@@ -19674,9 +19694,9 @@
         "position": "WR",
         "team": "MIA",
         "bye": 6,
-        "adp": 149.4,
-        "adp_rank": 69,
-        "updated_at": "2026-08-23 06:07:30"
+        "adp": 148.4,
+        "adp_rank": 67,
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 6290,
@@ -19684,9 +19704,9 @@
         "position": "TE",
         "team": "SEA",
         "bye": 11,
-        "adp": 157.5,
-        "adp_rank": 19,
-        "updated_at": "2026-08-23 06:07:30"
+        "adp": 160.1,
+        "adp_rank": 21,
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 6296,
@@ -19694,9 +19714,9 @@
         "position": "K",
         "team": "MIN",
         "bye": 6,
-        "adp": 162.6,
-        "adp_rank": 17,
-        "updated_at": "2026-08-23 06:07:30"
+        "adp": 162.7,
+        "adp_rank": 16,
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 6299,
@@ -19704,9 +19724,9 @@
         "position": "K",
         "team": "LAR",
         "bye": 11,
-        "adp": 151.5,
-        "adp_rank": 7,
-        "updated_at": "2026-08-23 06:07:30"
+        "adp": 149.5,
+        "adp_rank": 6,
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 6302,
@@ -19714,9 +19734,9 @@
         "position": "WR",
         "team": "CAR",
         "bye": 5,
-        "adp": 120.5,
-        "adp_rank": 55,
-        "updated_at": "2026-08-23 06:07:30"
+        "adp": 121.1,
+        "adp_rank": 56,
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 6304,
@@ -19724,9 +19744,9 @@
         "position": "WR",
         "team": "DAL",
         "bye": 14,
-        "adp": 159.2,
-        "adp_rank": 77,
-        "updated_at": "2026-08-23 06:07:30"
+        "adp": 158.7,
+        "adp_rank": 78,
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 6315,
@@ -19734,9 +19754,9 @@
         "position": "WR",
         "team": "NO",
         "bye": 8,
-        "adp": 168.1,
-        "adp_rank": 87,
-        "updated_at": "2026-08-23 06:07:30"
+        "adp": 164.6,
+        "adp_rank": 81,
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 6457,
@@ -19744,9 +19764,9 @@
         "position": "QB",
         "team": "TEN",
         "bye": 9,
-        "adp": 171.6,
-        "adp_rank": 28,
-        "updated_at": "2026-08-23 06:07:30"
+        "adp": 171.4,
+        "adp_rank": 30,
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 6489,
@@ -19756,7 +19776,7 @@
         "bye": 6,
         "adp": 133.4,
         "adp_rank": 62,
-        "updated_at": "2026-08-23 06:07:30"
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 6490,
@@ -19764,9 +19784,9 @@
         "position": "RB",
         "team": "NE",
         "bye": 11,
-        "adp": 60.6,
+        "adp": 60.7,
         "adp_rank": 26,
-        "updated_at": "2026-08-23 06:07:30"
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 6500,
@@ -19774,9 +19794,9 @@
         "position": "RB",
         "team": "LV",
         "bye": 13,
-        "adp": 15.2,
+        "adp": 15.1,
         "adp_rank": 8,
-        "updated_at": "2026-08-23 06:07:30"
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 6501,
@@ -19784,9 +19804,9 @@
         "position": "TE",
         "team": "CHI",
         "bye": 10,
-        "adp": 56.3,
+        "adp": 56.5,
         "adp_rank": 3,
-        "updated_at": "2026-08-23 06:07:30"
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 6502,
@@ -19794,9 +19814,9 @@
         "position": "TE",
         "team": "CLE",
         "bye": 11,
-        "adp": 78.3,
+        "adp": 78.6,
         "adp_rank": 6,
-        "updated_at": "2026-08-23 06:07:30"
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 6504,
@@ -19804,9 +19824,9 @@
         "position": "TE",
         "team": "IND",
         "bye": 13,
-        "adp": 64.4,
+        "adp": 64.9,
         "adp_rank": 4,
-        "updated_at": "2026-08-23 06:07:30"
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 6506,
@@ -19814,9 +19834,9 @@
         "position": "TE",
         "team": "LAC",
         "bye": 7,
-        "adp": 146.5,
-        "adp_rank": 16,
-        "updated_at": "2026-08-23 06:07:30"
+        "adp": 148.3,
+        "adp_rank": 17,
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 6509,
@@ -19824,9 +19844,9 @@
         "position": "RB",
         "team": "NYG",
         "bye": 8,
-        "adp": 36,
+        "adp": 36.4,
         "adp_rank": 17,
-        "updated_at": "2026-08-23 06:07:30"
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 6511,
@@ -19834,9 +19854,9 @@
         "position": "RB",
         "team": "CLE",
         "bye": 11,
-        "adp": 156.7,
-        "adp_rank": 52,
-        "updated_at": "2026-08-23 06:07:30"
+        "adp": 157.1,
+        "adp_rank": 53,
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 6513,
@@ -19844,9 +19864,9 @@
         "position": "RB",
         "team": "JAX",
         "bye": 7,
-        "adp": 53.2,
+        "adp": 52.9,
         "adp_rank": 23,
-        "updated_at": "2026-08-23 06:07:30"
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 6517,
@@ -19855,8 +19875,8 @@
         "team": "SF",
         "bye": 8,
         "adp": 144.2,
-        "adp_rank": 45,
-        "updated_at": "2026-08-23 06:07:30"
+        "adp_rank": 46,
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 6522,
@@ -19864,9 +19884,9 @@
         "position": "WR",
         "team": "HOU",
         "bye": 8,
-        "adp": 163.5,
-        "adp_rank": 81,
-        "updated_at": "2026-08-23 06:07:30"
+        "adp": 165.9,
+        "adp_rank": 84,
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 6523,
@@ -19874,9 +19894,9 @@
         "position": "WR",
         "team": "GB",
         "bye": 11,
-        "adp": 106.4,
-        "adp_rank": 50,
-        "updated_at": "2026-08-23 06:07:30"
+        "adp": 105.9,
+        "adp_rank": 49,
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 6525,
@@ -19884,9 +19904,9 @@
         "position": "WR",
         "team": "LAC",
         "bye": 7,
-        "adp": 169.2,
-        "adp_rank": 90,
-        "updated_at": "2026-08-23 06:07:30"
+        "adp": 172.8,
+        "adp_rank": 92,
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 6529,
@@ -19894,9 +19914,9 @@
         "position": "RB",
         "team": "HOU",
         "bye": 8,
-        "adp": 144.9,
-        "adp_rank": 47,
-        "updated_at": "2026-08-23 06:07:30"
+        "adp": 142.9,
+        "adp_rank": 44,
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 6530,
@@ -19904,9 +19924,9 @@
         "position": "RB",
         "team": "DEN",
         "bye": 10,
-        "adp": 84.5,
+        "adp": 86,
         "adp_rank": 32,
-        "updated_at": "2026-08-23 06:07:30"
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 6531,
@@ -19914,9 +19934,9 @@
         "position": "RB",
         "team": "CLE",
         "bye": 11,
-        "adp": 51.1,
+        "adp": 50.9,
         "adp_rank": 22,
-        "updated_at": "2026-08-23 06:07:30"
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 6534,
@@ -19924,9 +19944,9 @@
         "position": "RB",
         "team": "CHI",
         "bye": 10,
-        "adp": 111.7,
+        "adp": 110.8,
         "adp_rank": 38,
-        "updated_at": "2026-08-23 06:07:30"
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 6538,
@@ -19936,7 +19956,7 @@
         "bye": 7,
         "adp": 23.2,
         "adp_rank": 12,
-        "updated_at": "2026-08-23 06:07:30"
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 6545,
@@ -19944,9 +19964,9 @@
         "position": "TE",
         "team": "LAR",
         "bye": 11,
-        "adp": 165.8,
-        "adp_rank": 24,
-        "updated_at": "2026-08-23 06:07:30"
+        "adp": 163.1,
+        "adp_rank": 23,
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 6548,
@@ -19954,9 +19974,9 @@
         "position": "WR",
         "team": "DEN",
         "bye": 10,
-        "adp": 168.4,
-        "adp_rank": 89,
-        "updated_at": "2026-08-23 06:07:30"
+        "adp": 162.2,
+        "adp_rank": 79,
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 6553,
@@ -19966,7 +19986,7 @@
         "bye": 9,
         "adp": 155.2,
         "adp_rank": 73,
-        "updated_at": "2026-08-23 06:07:30"
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 6557,
@@ -19974,9 +19994,9 @@
         "position": "RB",
         "team": "DAL",
         "bye": 14,
-        "adp": 167.5,
-        "adp_rank": 64,
-        "updated_at": "2026-08-23 06:07:30"
+        "adp": 168.7,
+        "adp_rank": 65,
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 6559,
@@ -19984,9 +20004,9 @@
         "position": "WR",
         "team": "CHI",
         "bye": 10,
-        "adp": 59.6,
+        "adp": 59.3,
         "adp_rank": 29,
-        "updated_at": "2026-08-23 06:07:30"
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 6561,
@@ -19994,9 +20014,9 @@
         "position": "WR",
         "team": "CAR",
         "bye": 5,
-        "adp": 33.2,
+        "adp": 32.9,
         "adp_rank": 17,
-        "updated_at": "2026-08-23 06:07:30"
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 6563,
@@ -20004,9 +20024,9 @@
         "position": "WR",
         "team": "JAX",
         "bye": 7,
-        "adp": 163.3,
-        "adp_rank": 80,
-        "updated_at": "2026-08-23 06:07:30"
+        "adp": 164.6,
+        "adp_rank": 82,
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 6568,
@@ -20014,9 +20034,9 @@
         "position": "QB",
         "team": "NYG",
         "bye": 8,
-        "adp": 118.1,
+        "adp": 117.8,
         "adp_rank": 16,
-        "updated_at": "2026-08-23 06:07:30"
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 6576,
@@ -20024,9 +20044,9 @@
         "position": "WR",
         "team": "TB",
         "bye": 10,
-        "adp": 36.2,
-        "adp_rank": 19,
-        "updated_at": "2026-08-23 06:07:30"
+        "adp": 35.2,
+        "adp_rank": 18,
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 6577,
@@ -20034,9 +20054,9 @@
         "position": "WR",
         "team": "HOU",
         "bye": 8,
-        "adp": 129.4,
-        "adp_rank": 60,
-        "updated_at": "2026-08-23 06:07:30"
+        "adp": 129.8,
+        "adp_rank": 59,
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 6580,
@@ -20044,9 +20064,9 @@
         "position": "WR",
         "team": "DET",
         "bye": 6,
-        "adp": 165.8,
-        "adp_rank": 83,
-        "updated_at": "2026-08-23 06:07:30"
+        "adp": 168.6,
+        "adp_rank": 88,
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 6585,
@@ -20056,7 +20076,7 @@
         "bye": 11,
         "adp": 172.1,
         "adp_rank": 22,
-        "updated_at": "2026-08-23 06:07:30"
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 6587,
@@ -20064,9 +20084,9 @@
         "position": "K",
         "team": "BAL",
         "bye": 13,
-        "adp": 154,
+        "adp": 154.1,
         "adp_rank": 10,
-        "updated_at": "2026-08-23 06:07:30"
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 6595,
@@ -20074,9 +20094,9 @@
         "position": "RB",
         "team": "WAS",
         "bye": 7,
-        "adp": 118.1,
+        "adp": 117.3,
         "adp_rank": 39,
-        "updated_at": "2026-08-23 06:07:30"
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 6767,
@@ -20084,9 +20104,9 @@
         "position": "QB",
         "team": "LV",
         "bye": 13,
-        "adp": 157.4,
-        "adp_rank": 22,
-        "updated_at": "2026-08-23 06:07:30"
+        "adp": 159.1,
+        "adp_rank": 24,
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 6768,
@@ -20094,9 +20114,9 @@
         "position": "WR",
         "team": "TEN",
         "bye": 9,
-        "adp": 74.9,
+        "adp": 75.5,
         "adp_rank": 37,
-        "updated_at": "2026-08-23 06:07:30"
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 6769,
@@ -20104,9 +20124,9 @@
         "position": "RB",
         "team": "ARI",
         "bye": 14,
-        "adp": 29,
+        "adp": 27.9,
         "adp_rank": 13,
-        "updated_at": "2026-08-23 06:07:30"
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 6771,
@@ -20114,9 +20134,9 @@
         "position": "WR",
         "team": "NO",
         "bye": 8,
-        "adp": 114,
-        "adp_rank": 53,
-        "updated_at": "2026-08-23 06:07:30"
+        "adp": 120.1,
+        "adp_rank": 54,
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 6772,
@@ -20124,9 +20144,9 @@
         "position": "WR",
         "team": "PHI",
         "bye": 10,
-        "adp": 115.8,
-        "adp_rank": 54,
-        "updated_at": "2026-08-23 06:07:30"
+        "adp": 115.9,
+        "adp_rank": 53,
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 6773,
@@ -20134,9 +20154,9 @@
         "position": "TE",
         "team": "NYJ",
         "bye": 13,
-        "adp": 163.4,
+        "adp": 162.3,
         "adp_rank": 22,
-        "updated_at": "2026-08-23 06:07:30"
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 6774,
@@ -20145,8 +20165,8 @@
         "team": "CLE",
         "bye": 11,
         "adp": 120.9,
-        "adp_rank": 56,
-        "updated_at": "2026-08-23 06:07:30"
+        "adp_rank": 55,
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 6775,
@@ -20154,9 +20174,9 @@
         "position": "WR",
         "team": "NYJ",
         "bye": 13,
-        "adp": 168,
-        "adp_rank": 86,
-        "updated_at": "2026-08-23 06:07:30"
+        "adp": 172.4,
+        "adp_rank": 89,
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 6776,
@@ -20164,9 +20184,9 @@
         "position": "RB",
         "team": "SEA",
         "bye": 11,
-        "adp": 80.5,
+        "adp": 79.1,
         "adp_rank": 31,
-        "updated_at": "2026-08-23 06:07:30"
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 6777,
@@ -20174,9 +20194,9 @@
         "position": "WR",
         "team": "SF",
         "bye": 8,
-        "adp": 141.2,
-        "adp_rank": 65,
-        "updated_at": "2026-08-23 06:07:30"
+        "adp": 138.8,
+        "adp_rank": 64,
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 6778,
@@ -20184,9 +20204,9 @@
         "position": "WR",
         "team": "CLE",
         "bye": 11,
-        "adp": 140.1,
-        "adp_rank": 64,
-        "updated_at": "2026-08-23 06:07:30"
+        "adp": 140.2,
+        "adp_rank": 65,
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 6779,
@@ -20194,9 +20214,9 @@
         "position": "WR",
         "team": "PIT",
         "bye": 9,
-        "adp": 166.8,
-        "adp_rank": 85,
-        "updated_at": "2026-08-23 06:07:30"
+        "adp": 167.9,
+        "adp_rank": 86,
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 6784,
@@ -20204,9 +20224,9 @@
         "position": "WR",
         "team": "NYG",
         "bye": 8,
-        "adp": 159.5,
-        "adp_rank": 78,
-        "updated_at": "2026-08-23 06:07:30"
+        "adp": 158.6,
+        "adp_rank": 77,
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 6787,
@@ -20214,9 +20234,9 @@
         "position": "WR",
         "team": "BAL",
         "bye": 13,
-        "adp": 158.6,
-        "adp_rank": 76,
-        "updated_at": "2026-08-23 06:07:30"
+        "adp": 157.2,
+        "adp_rank": 75,
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 6789,
@@ -20225,8 +20245,8 @@
         "team": "WAS",
         "bye": 7,
         "adp": 165.6,
-        "adp_rank": 82,
-        "updated_at": "2026-08-23 06:07:30"
+        "adp_rank": 83,
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 6790,
@@ -20234,9 +20254,9 @@
         "position": "WR",
         "team": "MIA",
         "bye": 6,
-        "adp": 174.7,
-        "adp_rank": 93,
-        "updated_at": "2026-08-23 06:07:30"
+        "adp": 172.5,
+        "adp_rank": 90,
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 6798,
@@ -20244,9 +20264,9 @@
         "position": "RB",
         "team": "SF",
         "bye": 8,
-        "adp": 156.8,
-        "adp_rank": 54,
-        "updated_at": "2026-08-23 06:07:30"
+        "adp": 160,
+        "adp_rank": 59,
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 6799,
@@ -20254,9 +20274,9 @@
         "position": "RB",
         "team": "DEN",
         "bye": 10,
-        "adp": 156.9,
-        "adp_rank": 55,
-        "updated_at": "2026-08-23 06:07:30"
+        "adp": 156.8,
+        "adp_rank": 52,
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 6803,
@@ -20264,9 +20284,9 @@
         "position": "RB",
         "team": "LV",
         "bye": 13,
-        "adp": 156.7,
-        "adp_rank": 53,
-        "updated_at": "2026-08-23 06:07:30"
+        "adp": 157.3,
+        "adp_rank": 55,
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 6804,
@@ -20275,8 +20295,8 @@
         "team": "PIT",
         "bye": 9,
         "adp": 172.5,
-        "adp_rank": 92,
-        "updated_at": "2026-08-23 06:07:30"
+        "adp_rank": 91,
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 6811,
@@ -20284,9 +20304,9 @@
         "position": "RB",
         "team": "KC",
         "bye": 5,
-        "adp": 161.8,
+        "adp": 163.3,
         "adp_rank": 63,
-        "updated_at": "2026-08-23 06:07:30"
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 6828,
@@ -20294,9 +20314,9 @@
         "position": "WR",
         "team": "KC",
         "bye": 5,
-        "adp": 149.2,
-        "adp_rank": 68,
-        "updated_at": "2026-08-23 06:07:30"
+        "adp": 151.4,
+        "adp_rank": 70,
+        "updated_at": "2026-08-24 06:07:31"
       },
       {
         "id": 6835,
@@ -20304,9 +20324,9 @@
         "position": "K",
         "team": "GB",
         "bye": 11,
-        "adp": 152.5,
+        "adp": 152.6,
         "adp_rank": 8,
-        "updated_at": "2026-08-23 06:07:30"
+        "updated_at": "2026-08-24 06:07:31"
       }
     ],
     "history_teams": [
